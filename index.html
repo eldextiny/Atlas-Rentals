@@ -49,14 +49,14 @@
           <p class="hero-lead">Plan standard or high-performance laptop rental in Lagos or Abuja for training programmes, conferences and corporate events—with a transparent itemised estimate from the start.</p>
           <a class="button button-primary" href="#planner">Build your rental plan</a>
           <div class="trust-row" aria-label="Service highlights">
-            <span>5-laptop minimum</span><span>Available in Lagos &amp; Abuja</span><span>Optional delivery</span><span>Technician: ₦40,000/day</span>
+            <span>5-laptop minimum</span><span>Available in Lagos &amp; Abuja</span><span>Compulsory delivery &amp; retrieval</span>
           </div>
         </div>
         <div class="hero-panel" aria-label="Rental pricing overview">
           <p class="panel-label">Clear daily rental rates</p>
           <div class="rate"><div><span class="rate-icon">S</span><strong>Standard Business</strong></div><b>₦10,000<small>/day</small></b></div>
           <div class="rate"><div><span class="rate-icon accent">H</span><strong>High Performance</strong></div><b>₦15,000<small>/day</small></b></div>
-          <div class="panel-note"><span aria-hidden="true">✓</span><p><strong>Built for business events</strong><br>Mix laptop types to meet the 5-unit minimum, then add delivery or technician support if required.</p></div>
+          <div class="panel-note"><span aria-hidden="true">✓</span><p><strong>Built for business events</strong><br>Mix laptop types to meet the 5-unit minimum. Delivery &amp; Retrieval is included, with optional technician support.</p></div>
         </div>
       </section>
 
@@ -64,7 +64,7 @@
         <div class="planner-intro">
           <p class="eyebrow">Rental planner</p>
           <h2 id="planner-title">Plan the right laptops for your event.</h2>
-          <p>Choose your city, dates, laptop mix and optional support. Your transparent itemised estimate updates as you go, and nothing is submitted from this planning tool.</p>
+          <p>Choose your city, dates, laptop mix and optional technician support. Compulsory delivery and retrieval is included, your transparent itemised estimate updates as you go, and nothing is submitted from this planning tool.</p>
         </div>
 
         <nav class="steps" aria-label="Rental planning progress">
@@ -101,10 +101,10 @@
             </section>
 
             <section class="form-step" data-step="3" aria-labelledby="step-3-title" hidden>
-              <p class="step-kicker">Step 3 of 6</p><h3 id="step-3-title">Add delivery and support.</h3>
-              <p class="section-help">Choose only what your booking needs.</p>
-              <label class="service-card"><input id="delivery-required" name="deliveryRequired" type="checkbox"><span><b>Delivery to your venue</b><small>One coordinated delivery charge per booking.</small></span><strong>₦40,000</strong></label>
-              <label class="service-card"><input id="technician-required" name="technicianRequired" type="checkbox"><span><b>On-site technician</b><small>Operational assistance during your rental.</small></span><strong>₦40,000/day</strong></label>
+              <p class="step-kicker">Step 3 of 6</p><h3 id="step-3-title">Delivery &amp; Retrieval and support.</h3>
+              <p class="section-help">Delivery &amp; Retrieval is included in every booking. Add technician support only if you need it.</p>
+              <div class="service-card compulsory-service"><span class="service-status" aria-hidden="true">✓</span><span><b>Delivery &amp; Retrieval</b><small>Compulsory one-time service for every booking.</small></span><strong>₦40,000</strong></div>
+              <label class="service-card"><input id="technician-required" name="technicianRequired" type="checkbox"><span><b>On-site technician</b><small>Optional operational assistance during your rental.</small></span><strong>₦35,000/day</strong></label>
               <div class="technician-days" id="technician-days-wrap" hidden><label for="technician-days">Number of technician days</label><input id="technician-days" name="technicianDays" type="number" min="1" step="1" value="1" inputmode="numeric"><p class="field-error" id="technician-error"></p></div>
             </section>
 
@@ -117,9 +117,8 @@
 
             <section class="form-step" data-step="5" aria-labelledby="step-5-title" hidden>
               <p class="step-kicker">Step 5 of 6</p><h3 id="step-5-title">Tell us about your event.</h3>
-              <p class="section-help">These details will appear in your final review only.</p>
-              <div class="field-grid"><label>Full name<input name="fullName" type="text" autocomplete="name" required></label><label>Organization<input name="organization" type="text" autocomplete="organization" required></label><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Phone number<input name="phone" type="tel" autocomplete="tel" required></label><label>Event or project name<input name="eventName" type="text" required></label><label>Venue or area<input name="venue" type="text" required></label></div>
-              <label>Additional notes <span class="optional">Optional</span><textarea name="notes" rows="4" placeholder="Tell us about access, setup timing or other requirements."></textarea></label>
+              <p class="section-help">These contact details will appear in your final review only.</p>
+              <div class="field-grid"><label>Full name<input name="fullName" type="text" autocomplete="name" required></label><label>Organization<input name="organization" type="text" autocomplete="organization" required></label><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Phone number<input name="phone" type="tel" autocomplete="tel" required></label></div>
               <p class="field-error" id="details-error"></p>
             </section>
 
@@ -139,7 +138,7 @@
             <dl>
               <div><dt>Standard laptops <small id="standard-summary">0 × 0 days</small></dt><dd id="standard-cost">₦0</dd></div>
               <div><dt>High performance <small id="performance-summary">0 × 0 days</small></dt><dd id="performance-cost">₦0</dd></div>
-              <div><dt>Delivery</dt><dd id="delivery-cost">₦0</dd></div>
+              <div><dt>Delivery &amp; Retrieval <small>Compulsory</small></dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
               <div><dt>Technician <small id="technician-summary">Not selected</small></dt><dd id="technician-cost">₦0</dd></div>
               <div class="vat-row"><dt>VAT <small>7.5%</small></dt><dd id="vat-cost">₦0</dd></div>
             </dl>

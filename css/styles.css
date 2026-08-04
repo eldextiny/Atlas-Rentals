@@ -112,6 +112,8 @@ progress::-webkit-progress-value { background: var(--brand-green); }
 progress::-moz-progress-bar { background: var(--brand-green); }
 .service-card { margin-bottom: .85rem; }
 .service-card > strong { white-space: nowrap; }
+.compulsory-service { cursor: default; background: var(--pale-green); border-color: #80b79e; }
+.service-status { display: grid; place-items: center; flex: 0 0 1.4rem; width: 1.4rem; height: 1.4rem; color: white; background: var(--brand-green); border-radius: 50%; font-size: .78rem; font-weight: 900; }
 .technician-days { max-width: 260px; margin: 1rem 0 0 2.9rem; }
 .estimate-card { position: sticky; top: 1rem; color: white; background: var(--brand-navy); border: 0; border-top: 5px solid var(--brand-blue); }
 .estimate-heading { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,.15); }
@@ -154,8 +156,9 @@ footer p { margin: 0; }
   .site-header { padding: 1rem; }
   .header-link { font-size: .78rem; }
   .hero { padding: 2.5rem 1rem 4rem; }
-  h1 { font-size: clamp(3rem, 15vw, 4.5rem); }
-  .trust-row { gap: .7rem; }
+  h1 { font-size: clamp(2.55rem, 12.5vw, 3.35rem); }
+  .hero-lead { font-size: .98rem; }
+  .trust-row { gap: .55rem 1rem; font-size: .73rem; }
   .planner-shell { padding: 4rem 1rem; }
   .choice-grid, .field-grid { grid-template-columns: 1fr; }
   .product { grid-template-columns: 1fr; }

@@ -43,7 +43,6 @@ function plannerState() {
     standardQuantity: numberValue("standardQuantity"),
     performanceQuantity: numberValue("performanceQuantity"),
     rentalDays: rentalDays(),
-    deliveryRequired: form.elements.deliveryRequired.checked,
     technicianRequired: techSelected,
     technicianDays: techSelected ? numberValue("technicianDays") : 0,
   };
@@ -65,7 +64,7 @@ function updateEstimate() {
   setText("#performance-summary", `${result.performanceQuantity} × ${result.rentalDays} days`);
   setText("#standard-cost", currency.format(result.standardRental));
   setText("#performance-cost", currency.format(result.performanceRental));
-  setText("#delivery-cost", currency.format(result.delivery));
+  setText("#delivery-retrieval-cost", currency.format(result.deliveryRetrieval));
   setText("#technician-summary", result.technicianDays ? `${result.technicianDays} days` : "Not selected");
   setText("#technician-cost", currency.format(result.technician));
   setText("#vat-cost", currency.format(result.vat));
@@ -89,7 +88,7 @@ function estimateMarkup(result) {
     <div class="summary-line"><span>Standard laptops (${result.standardQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.standardRental)}</strong></div>
     <div class="summary-line"><span>High performance (${result.performanceQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.performanceRental)}</strong></div>
     <div class="summary-line"><span>Rental subtotal</span><strong>${currency.format(result.rentalSubtotal)}</strong></div>
-    <div class="summary-line"><span>Delivery (once per booking)</span><strong>${currency.format(result.delivery)}</strong></div>
+    <div class="summary-line"><span>Delivery &amp; Retrieval (compulsory, once per booking)</span><strong>${currency.format(result.deliveryRetrieval)}</strong></div>
     <div class="summary-line"><span>Technician (${result.technicianDays} days)</span><strong>${currency.format(result.technician)}</strong></div>
     <div class="summary-line"><span>Subtotal before VAT</span><strong>${currency.format(result.subtotalBeforeVat)}</strong></div>
     <div class="summary-line"><span>VAT (7.5%)</span><strong>${currency.format(result.vat)}</strong></div>
@@ -116,7 +115,7 @@ function renderReview(state, result) {
     <div class="summary-group"><h4>Equipment & support</h4>
       <div class="summary-line"><span>Standard Business</span><strong>${result.standardQuantity}</strong></div>
       <div class="summary-line"><span>High Performance</span><strong>${result.performanceQuantity}</strong></div>
-      <div class="summary-line"><span>Delivery</span><strong>${state.deliveryRequired ? "Yes" : "No"}</strong></div>
+      <div class="summary-line"><span>Delivery &amp; Retrieval</span><strong>Compulsory</strong></div>
       <div class="summary-line"><span>Technician</span><strong>${state.technicianRequired ? `${result.technicianDays} days` : "No"}</strong></div>
     </div>
     <div class="summary-group"><h4>Contact & event</h4>
@@ -124,9 +123,6 @@ function renderReview(state, result) {
       <div class="summary-line"><span>Organization</span><strong>${escaped(values.organization)}</strong></div>
       <div class="summary-line"><span>Email</span><strong>${escaped(values.email)}</strong></div>
       <div class="summary-line"><span>Phone</span><strong>${escaped(values.phone)}</strong></div>
-      <div class="summary-line"><span>Event</span><strong>${escaped(values.eventName)}</strong></div>
-      <div class="summary-line"><span>Venue</span><strong>${escaped(values.venue)}</strong></div>
-      <div class="summary-line"><span>Notes</span><strong>${escaped(values.notes)}</strong></div>
     </div>
     <div class="summary-group"><h4>Estimate</h4>${estimateMarkup(result)}</div>`;
 }

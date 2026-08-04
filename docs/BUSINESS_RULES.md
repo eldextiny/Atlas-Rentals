@@ -6,8 +6,8 @@
 | --- | ---: |
 | Standard Business Laptop | ₦10,000 per laptop per rental day |
 | High Performance Laptop | ₦15,000 per laptop per rental day |
-| Delivery | ₦40,000 once per booking |
-| Optional technician | ₦40,000 per technician day |
+| Compulsory Delivery & Retrieval | ₦40,000 once per booking |
+| Optional technician | ₦35,000 per technician day |
 | VAT | 7.5% |
 
 ## Calculation order
@@ -16,9 +16,9 @@
 2. Each laptop subtotal is `quantity × rental days × applicable daily rate`.
 3. Standard and High Performance quantities are combined for the minimum-order check.
 4. At least five laptops are required in total.
-5. Delivery, when selected, is added once regardless of quantity or duration.
-6. Technician support is `technician days × ₦40,000`.
-7. VAT is 7.5% of rental, delivery and technician charges combined.
+5. Delivery & Retrieval is compulsory and is added once regardless of quantity or duration.
+6. Technician support is `technician days × ₦35,000`.
+7. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
 8. The estimate total is the pre-VAT subtotal plus VAT.
 
 ## Validation
