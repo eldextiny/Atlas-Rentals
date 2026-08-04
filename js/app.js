@@ -8,6 +8,7 @@ const backButton = document.querySelector("#back-button");
 const technicianRequired = document.querySelector("#technician-required");
 const technicianDaysWrap = document.querySelector("#technician-days-wrap");
 const technicianDaysInput = document.querySelector("#technician-days");
+const rateCards = [...document.querySelectorAll("[data-rate-target]")];
 const currency = new Intl.NumberFormat("en-NG", {
   style: "currency",
   currency: "NGN",
@@ -16,6 +17,7 @@ const currency = new Intl.NumberFormat("en-NG", {
 
 let currentStep = 1;
 let highestStep = 1;
+let scheduleValidated = false;
 
 function numberValue(name) {
   const value = Number(form.elements[name].value);
@@ -165,7 +167,7 @@ function validateCurrentStep() {
   return true;
 }
 
-function goToStep(step) {
+function goToStep(step, options = {}) {
   if (step < 1 || step > 6 || step > highestStep) return;
   currentStep = step;
   steps.forEach((section) => {
@@ -177,7 +179,8 @@ function goToStep(step) {
     const buttonStep = index + 1;
     button.disabled = buttonStep > highestStep;
     button.classList.toggle("is-active", buttonStep === step);
-    button.classList.toggle("is-complete", buttonStep < highestStep);
+    const completed = buttonStep < highestStep && (buttonStep !== 1 || scheduleValidated);
+    button.classList.toggle("is-complete", completed);
     button.toggleAttribute("aria-current", buttonStep === step);
   });
   backButton.hidden = step === 1;
@@ -185,18 +188,45 @@ function goToStep(step) {
   nextButton.textContent = step === 5 ? "Review request" : "Continue";
   document.querySelector("#success-message").hidden = true;
   updateEstimate();
-  steps[step - 1].querySelector("h3").focus({ preventScroll: true });
-  document.querySelector("#planner").scrollIntoView({ behavior: "smooth", block: "start" });
+  const focusTarget = options.focusTarget || steps[step - 1].querySelector("h3");
+  const scrollBehavior = options.scrollBehavior || "smooth";
+  focusTarget.focus({ preventScroll: true });
+  document.querySelector("#planner").scrollIntoView({ behavior: scrollBehavior, block: "start" });
+}
+
+function openLaptopSelection(inputId) {
+  const quantityInput = document.querySelector(`#${inputId}`);
+  if (!quantityInput) return;
+
+  highestStep = Math.max(highestStep, 2);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  goToStep(2, {
+    focusTarget: quantityInput,
+    scrollBehavior: reducedMotion ? "auto" : "smooth",
+  });
 }
 
 nextButton.addEventListener("click", () => {
+  if (currentStep === 2 && !scheduleValidated) {
+    goToStep(1);
+    return;
+  }
   if (!validateCurrentStep()) return;
+  if (currentStep === 1) scheduleValidated = true;
   highestStep = Math.max(highestStep, currentStep + 1);
   goToStep(currentStep + 1);
 });
 
 backButton.addEventListener("click", () => goToStep(currentStep - 1));
 stepButtons.forEach((button) => button.addEventListener("click", () => goToStep(Number(button.dataset.stepTarget))));
+rateCards.forEach((card) => {
+  card.addEventListener("click", () => openLaptopSelection(card.dataset.rateTarget));
+  card.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openLaptopSelection(card.dataset.rateTarget);
+  });
+});
 
 technicianRequired.addEventListener("change", () => {
   technicianDaysWrap.hidden = !technicianRequired.checked;
