@@ -1,8 +1,8 @@
 export const PRICING = Object.freeze({
   standardDailyRate: 10_000,
   performanceDailyRate: 15_000,
-  deliveryPerBooking: 40_000,
-  technicianDailyRate: 40_000,
+  deliveryRetrievalPerBooking: 40_000,
+  technicianDailyRate: 35_000,
   vatRate: 0.075,
   minimumLaptopQuantity: 5,
 });
@@ -46,7 +46,6 @@ export function calculateEstimate({
   standardQuantity = 0,
   performanceQuantity = 0,
   rentalDays = 0,
-  deliveryRequired = false,
   technicianDays = 0,
 } = {}) {
   requireNonNegativeInteger(standardQuantity, "standardQuantity");
@@ -54,17 +53,13 @@ export function calculateEstimate({
   requireNonNegativeInteger(rentalDays, "rentalDays");
   requireNonNegativeInteger(technicianDays, "technicianDays");
 
-  if (typeof deliveryRequired !== "boolean") {
-    throw new TypeError("deliveryRequired must be a boolean.");
-  }
-
   const standardRental = standardQuantity * rentalDays * PRICING.standardDailyRate;
   const performanceRental =
     performanceQuantity * rentalDays * PRICING.performanceDailyRate;
   const rentalSubtotal = standardRental + performanceRental;
-  const delivery = deliveryRequired ? PRICING.deliveryPerBooking : 0;
+  const deliveryRetrieval = PRICING.deliveryRetrievalPerBooking;
   const technician = technicianDays * PRICING.technicianDailyRate;
-  const subtotalBeforeVat = rentalSubtotal + delivery + technician;
+  const subtotalBeforeVat = rentalSubtotal + deliveryRetrieval + technician;
   const vat = Math.round(subtotalBeforeVat * PRICING.vatRate);
 
   return Object.freeze({
@@ -75,7 +70,7 @@ export function calculateEstimate({
     standardRental,
     performanceRental,
     rentalSubtotal,
-    delivery,
+    deliveryRetrieval,
     technicianDays,
     technician,
     subtotalBeforeVat,

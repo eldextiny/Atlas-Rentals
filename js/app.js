@@ -8,6 +8,7 @@ const backButton = document.querySelector("#back-button");
 const technicianRequired = document.querySelector("#technician-required");
 const technicianDaysWrap = document.querySelector("#technician-days-wrap");
 const technicianDaysInput = document.querySelector("#technician-days");
+const rateCards = [...document.querySelectorAll("[data-rate-target]")];
 const currency = new Intl.NumberFormat("en-NG", {
   style: "currency",
   currency: "NGN",
@@ -16,6 +17,7 @@ const currency = new Intl.NumberFormat("en-NG", {
 
 let currentStep = 1;
 let highestStep = 1;
+let scheduleValidated = false;
 
 function numberValue(name) {
   const value = Number(form.elements[name].value);
@@ -43,7 +45,6 @@ function plannerState() {
     standardQuantity: numberValue("standardQuantity"),
     performanceQuantity: numberValue("performanceQuantity"),
     rentalDays: rentalDays(),
-    deliveryRequired: form.elements.deliveryRequired.checked,
     technicianRequired: techSelected,
     technicianDays: techSelected ? numberValue("technicianDays") : 0,
   };
@@ -65,7 +66,7 @@ function updateEstimate() {
   setText("#performance-summary", `${result.performanceQuantity} × ${result.rentalDays} days`);
   setText("#standard-cost", currency.format(result.standardRental));
   setText("#performance-cost", currency.format(result.performanceRental));
-  setText("#delivery-cost", currency.format(result.delivery));
+  setText("#delivery-retrieval-cost", currency.format(result.deliveryRetrieval));
   setText("#technician-summary", result.technicianDays ? `${result.technicianDays} days` : "Not selected");
   setText("#technician-cost", currency.format(result.technician));
   setText("#vat-cost", currency.format(result.vat));
@@ -89,7 +90,7 @@ function estimateMarkup(result) {
     <div class="summary-line"><span>Standard laptops (${result.standardQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.standardRental)}</strong></div>
     <div class="summary-line"><span>High performance (${result.performanceQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.performanceRental)}</strong></div>
     <div class="summary-line"><span>Rental subtotal</span><strong>${currency.format(result.rentalSubtotal)}</strong></div>
-    <div class="summary-line"><span>Delivery (once per booking)</span><strong>${currency.format(result.delivery)}</strong></div>
+    <div class="summary-line"><span>Delivery &amp; Retrieval (compulsory, once per booking)</span><strong>${currency.format(result.deliveryRetrieval)}</strong></div>
     <div class="summary-line"><span>Technician (${result.technicianDays} days)</span><strong>${currency.format(result.technician)}</strong></div>
     <div class="summary-line"><span>Subtotal before VAT</span><strong>${currency.format(result.subtotalBeforeVat)}</strong></div>
     <div class="summary-line"><span>VAT (7.5%)</span><strong>${currency.format(result.vat)}</strong></div>
@@ -116,7 +117,7 @@ function renderReview(state, result) {
     <div class="summary-group"><h4>Equipment & support</h4>
       <div class="summary-line"><span>Standard Business</span><strong>${result.standardQuantity}</strong></div>
       <div class="summary-line"><span>High Performance</span><strong>${result.performanceQuantity}</strong></div>
-      <div class="summary-line"><span>Delivery</span><strong>${state.deliveryRequired ? "Yes" : "No"}</strong></div>
+      <div class="summary-line"><span>Delivery &amp; Retrieval</span><strong>Compulsory</strong></div>
       <div class="summary-line"><span>Technician</span><strong>${state.technicianRequired ? `${result.technicianDays} days` : "No"}</strong></div>
     </div>
     <div class="summary-group"><h4>Contact & event</h4>
@@ -124,9 +125,6 @@ function renderReview(state, result) {
       <div class="summary-line"><span>Organization</span><strong>${escaped(values.organization)}</strong></div>
       <div class="summary-line"><span>Email</span><strong>${escaped(values.email)}</strong></div>
       <div class="summary-line"><span>Phone</span><strong>${escaped(values.phone)}</strong></div>
-      <div class="summary-line"><span>Event</span><strong>${escaped(values.eventName)}</strong></div>
-      <div class="summary-line"><span>Venue</span><strong>${escaped(values.venue)}</strong></div>
-      <div class="summary-line"><span>Notes</span><strong>${escaped(values.notes)}</strong></div>
     </div>
     <div class="summary-group"><h4>Estimate</h4>${estimateMarkup(result)}</div>`;
 }
@@ -169,7 +167,7 @@ function validateCurrentStep() {
   return true;
 }
 
-function goToStep(step) {
+function goToStep(step, options = {}) {
   if (step < 1 || step > 6 || step > highestStep) return;
   currentStep = step;
   steps.forEach((section) => {
@@ -181,7 +179,8 @@ function goToStep(step) {
     const buttonStep = index + 1;
     button.disabled = buttonStep > highestStep;
     button.classList.toggle("is-active", buttonStep === step);
-    button.classList.toggle("is-complete", buttonStep < highestStep);
+    const completed = buttonStep < highestStep && (buttonStep !== 1 || scheduleValidated);
+    button.classList.toggle("is-complete", completed);
     button.toggleAttribute("aria-current", buttonStep === step);
   });
   backButton.hidden = step === 1;
@@ -189,18 +188,45 @@ function goToStep(step) {
   nextButton.textContent = step === 5 ? "Review request" : "Continue";
   document.querySelector("#success-message").hidden = true;
   updateEstimate();
-  steps[step - 1].querySelector("h3").focus({ preventScroll: true });
-  document.querySelector("#planner").scrollIntoView({ behavior: "smooth", block: "start" });
+  const focusTarget = options.focusTarget || steps[step - 1].querySelector("h3");
+  const scrollBehavior = options.scrollBehavior || "smooth";
+  focusTarget.focus({ preventScroll: true });
+  document.querySelector("#planner").scrollIntoView({ behavior: scrollBehavior, block: "start" });
+}
+
+function openLaptopSelection(inputId) {
+  const quantityInput = document.querySelector(`#${inputId}`);
+  if (!quantityInput) return;
+
+  highestStep = Math.max(highestStep, 2);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  goToStep(2, {
+    focusTarget: quantityInput,
+    scrollBehavior: reducedMotion ? "auto" : "smooth",
+  });
 }
 
 nextButton.addEventListener("click", () => {
+  if (currentStep === 2 && !scheduleValidated) {
+    goToStep(1);
+    return;
+  }
   if (!validateCurrentStep()) return;
+  if (currentStep === 1) scheduleValidated = true;
   highestStep = Math.max(highestStep, currentStep + 1);
   goToStep(currentStep + 1);
 });
 
 backButton.addEventListener("click", () => goToStep(currentStep - 1));
 stepButtons.forEach((button) => button.addEventListener("click", () => goToStep(Number(button.dataset.stepTarget))));
+rateCards.forEach((card) => {
+  card.addEventListener("click", () => openLaptopSelection(card.dataset.rateTarget));
+  card.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openLaptopSelection(card.dataset.rateTarget);
+  });
+});
 
 technicianRequired.addEventListener("change", () => {
   technicianDaysWrap.hidden = !technicianRequired.checked;

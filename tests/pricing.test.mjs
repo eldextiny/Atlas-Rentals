@@ -11,8 +11,8 @@ test("published rates and minimum remain fixed", () => {
   assert.deepEqual(PRICING, {
     standardDailyRate: 10_000,
     performanceDailyRate: 15_000,
-    deliveryPerBooking: 40_000,
-    technicianDailyRate: 40_000,
+    deliveryRetrievalPerBooking: 40_000,
+    technicianDailyRate: 35_000,
     vatRate: 0.075,
     minimumLaptopQuantity: 5,
   });
@@ -40,44 +40,53 @@ test("mixed laptop quantities satisfy the combined minimum", () => {
   assert.equal(result.rentalSubtotal, 65_000);
 });
 
-test("delivery is charged exactly once per booking", () => {
+test("Delivery & Retrieval is charged exactly once in every booking", () => {
   const result = calculateEstimate({
     standardQuantity: 50,
     rentalDays: 10,
-    deliveryRequired: true,
   });
-  assert.equal(result.delivery, 40_000);
+  assert.equal(result.deliveryRetrieval, 40_000);
 });
 
-test("technician cost is days multiplied by the daily rate", () => {
+test("Delivery & Retrieval cannot be disabled by a caller", () => {
+  const result = calculateEstimate({
+    standardQuantity: 5,
+    rentalDays: 1,
+    deliveryRequired: false,
+  });
+  assert.equal(result.deliveryRetrieval, 40_000);
+});
+
+test("technician support costs ₦35,000 per selected day", () => {
   const result = calculateEstimate({
     standardQuantity: 5,
     rentalDays: 3,
     technicianDays: 2,
   });
-  assert.equal(result.technician, 80_000);
+  assert.equal(result.technician, 70_000);
 });
 
-test("VAT applies after rental, delivery and technician charges", () => {
+test("VAT applies after rental, Delivery & Retrieval and technician charges", () => {
   const result = calculateEstimate({
     standardQuantity: 3,
     performanceQuantity: 2,
     rentalDays: 2,
-    deliveryRequired: true,
     technicianDays: 2,
   });
   assert.equal(result.rentalSubtotal, 120_000);
-  assert.equal(result.subtotalBeforeVat, 240_000);
-  assert.equal(result.vat, 18_000);
-  assert.equal(result.total, 258_000);
+  assert.equal(result.deliveryRetrieval, 40_000);
+  assert.equal(result.technician, 70_000);
+  assert.equal(result.subtotalBeforeVat, 230_000);
+  assert.equal(result.vat, 17_250);
+  assert.equal(result.total, 247_250);
 });
 
-test("optional services add no charge when not selected", () => {
+test("technician remains optional while Delivery & Retrieval stays compulsory", () => {
   const result = calculateEstimate({ standardQuantity: 5, rentalDays: 1 });
-  assert.equal(result.delivery, 0);
+  assert.equal(result.deliveryRetrieval, 40_000);
   assert.equal(result.technician, 0);
-  assert.equal(result.vat, 3_750);
-  assert.equal(result.total, 53_750);
+  assert.equal(result.vat, 6_750);
+  assert.equal(result.total, 96_750);
 });
 
 test("rental duration is inclusive and stable across month boundaries", () => {
