@@ -2,7 +2,7 @@
 
 ## AR-H1 — Laptop Rental Foundation (current)
 
-- Responsive six-step planning experience
+- Responsive four-step planning experience
 - Deterministic pricing and validation module
 - Live itemized estimate and complete local review
 - Accessibility, SEO and regression-test foundations

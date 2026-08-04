@@ -9,6 +9,8 @@ const technicianRequired = document.querySelector("#technician-required");
 const technicianDaysWrap = document.querySelector("#technician-days-wrap");
 const technicianDaysInput = document.querySelector("#technician-days");
 const rateCards = [...document.querySelectorAll("[data-rate-target]")];
+const restartButton = document.querySelector("#restart-button");
+const totalSteps = 4;
 const currency = new Intl.NumberFormat("en-NG", {
   style: "currency",
   currency: "NGN",
@@ -69,6 +71,7 @@ function updateEstimate() {
   setText("#delivery-retrieval-cost", currency.format(result.deliveryRetrieval));
   setText("#technician-summary", result.technicianDays ? `${result.technicianDays} days` : "Not selected");
   setText("#technician-cost", currency.format(result.technician));
+  document.querySelector("#technician-estimate-row").hidden = currentStep === 4 && result.technicianDays === 0;
   setText("#vat-cost", currency.format(result.vat));
   setText("#total-cost", currency.format(result.total));
   setText("#estimate-duration", result.rentalDays ? `${result.rentalDays} day${result.rentalDays === 1 ? "" : "s"}` : "Dates pending");
@@ -81,24 +84,22 @@ function updateEstimate() {
   setText("#quantity-progress", `${Math.min(result.totalQuantity, 5)} of 5 minimum selected`);
   document.querySelector("#quantity-meter").value = Math.min(result.totalQuantity, 5);
 
-  renderExpandedEstimate(result);
-  if (currentStep === 6) renderReview(state, result);
+  if (currentStep === 4) renderReview(state, result);
 }
 
 function estimateMarkup(result) {
+  const technicianLine = result.technicianDays
+    ? `<div class="summary-line"><span>Technician (${result.technicianDays} days)</span><strong>${currency.format(result.technician)}</strong></div>`
+    : "";
   return `
     <div class="summary-line"><span>Standard laptops (${result.standardQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.standardRental)}</strong></div>
     <div class="summary-line"><span>High performance (${result.performanceQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.performanceRental)}</strong></div>
     <div class="summary-line"><span>Rental subtotal</span><strong>${currency.format(result.rentalSubtotal)}</strong></div>
     <div class="summary-line"><span>Delivery &amp; Retrieval (compulsory, once per booking)</span><strong>${currency.format(result.deliveryRetrieval)}</strong></div>
-    <div class="summary-line"><span>Technician (${result.technicianDays} days)</span><strong>${currency.format(result.technician)}</strong></div>
+    ${technicianLine}
     <div class="summary-line"><span>Subtotal before VAT</span><strong>${currency.format(result.subtotalBeforeVat)}</strong></div>
     <div class="summary-line"><span>VAT (7.5%)</span><strong>${currency.format(result.vat)}</strong></div>
     <div class="summary-line total"><span>Estimated total</span><strong>${currency.format(result.total)}</strong></div>`;
-}
-
-function renderExpandedEstimate(result) {
-  document.querySelector("#expanded-estimate").innerHTML = `<div class="summary-group"><h4>${result.rentalDays}-day rental · ${result.totalQuantity} laptops</h4>${estimateMarkup(result)}</div>`;
 }
 
 function escaped(value) {
@@ -114,13 +115,13 @@ function renderReview(state, result) {
       <div class="summary-line"><span>Location</span><strong>${escaped(state.location)}</strong></div>
       <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)} (${state.rentalDays} days)</strong></div>
     </div>
-    <div class="summary-group"><h4>Equipment & support</h4>
+    <div class="summary-group"><h4>Equipment &amp; support</h4>
       <div class="summary-line"><span>Standard Business</span><strong>${result.standardQuantity}</strong></div>
       <div class="summary-line"><span>High Performance</span><strong>${result.performanceQuantity}</strong></div>
       <div class="summary-line"><span>Delivery &amp; Retrieval</span><strong>Compulsory</strong></div>
-      <div class="summary-line"><span>Technician</span><strong>${state.technicianRequired ? `${result.technicianDays} days` : "No"}</strong></div>
+      ${state.technicianRequired ? `<div class="summary-line"><span>Technician</span><strong>${result.technicianDays} days</strong></div>` : ""}
     </div>
-    <div class="summary-group"><h4>Contact & event</h4>
+    <div class="summary-group"><h4>Personal details</h4>
       <div class="summary-line"><span>Contact</span><strong>${escaped(values.fullName)}</strong></div>
       <div class="summary-line"><span>Organization</span><strong>${escaped(values.organization)}</strong></div>
       <div class="summary-line"><span>Email</span><strong>${escaped(values.email)}</strong></div>
@@ -145,21 +146,35 @@ function validateCurrentStep() {
   if (currentStep === 1) {
     showError("location-error", booking.errors.location);
     showError("dates-error", booking.errors.dates);
-    return !booking.errors.location && !booking.errors.dates;
+    if (booking.errors.location) {
+      form.querySelector('input[name="location"]').focus();
+      return false;
+    }
+    if (booking.errors.dates) {
+      const dateTarget = form.elements.startDate.value ? form.elements.endDate : form.elements.startDate;
+      dateTarget.focus();
+      return false;
+    }
+    return true;
   }
   if (currentStep === 2) {
     showError("quantity-error", booking.errors.quantity);
-    return !booking.errors.quantity;
+    if (booking.errors.quantity) {
+      form.elements.standardQuantity.focus();
+      return false;
+    }
+    return true;
   }
   if (currentStep === 3) {
     showError("technician-error", booking.errors.technician);
-    return !booking.errors.technician;
-  }
-  if (currentStep === 5) {
-    const required = [...steps[4].querySelectorAll("[required]")];
+    if (booking.errors.technician) {
+      technicianDaysInput.focus();
+      return false;
+    }
+    const required = [...steps[2].querySelectorAll("[required]")];
     const invalid = required.find((field) => !field.checkValidity());
     if (invalid) {
-      showError("details-error", "Complete all required contact and event fields with valid information.");
+      showError("details-error", "Complete all required personal details with valid information.");
       invalid.focus();
       return false;
     }
@@ -168,7 +183,7 @@ function validateCurrentStep() {
 }
 
 function goToStep(step, options = {}) {
-  if (step < 1 || step > 6 || step > highestStep) return;
+  if (step < 1 || step > totalSteps || step > highestStep) return;
   currentStep = step;
   steps.forEach((section) => {
     const active = Number(section.dataset.step) === step;
@@ -184,8 +199,8 @@ function goToStep(step, options = {}) {
     button.toggleAttribute("aria-current", buttonStep === step);
   });
   backButton.hidden = step === 1;
-  nextButton.hidden = step === 6;
-  nextButton.textContent = step === 5 ? "Review request" : "Continue";
+  nextButton.hidden = step === totalSteps;
+  nextButton.textContent = step === 3 ? "Review estimate" : "Continue";
   document.querySelector("#success-message").hidden = true;
   updateEstimate();
   const focusTarget = options.focusTarget || steps[step - 1].querySelector("h3");
@@ -240,6 +255,17 @@ form.addEventListener("change", updateEstimate);
 form.addEventListener("submit", (event) => event.preventDefault());
 document.querySelector("#finish-button").addEventListener("click", () => {
   document.querySelector("#success-message").hidden = false;
+});
+restartButton.addEventListener("click", () => {
+  form.reset();
+  currentStep = 1;
+  highestStep = 1;
+  scheduleValidated = false;
+  technicianDaysWrap.hidden = true;
+  technicianDaysInput.disabled = true;
+  ["location-error", "dates-error", "quantity-error", "technician-error", "details-error"].forEach((id) => showError(id));
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  goToStep(1, { scrollBehavior: reducedMotion ? "auto" : "smooth" });
 });
 
 document.querySelectorAll(".form-step h3").forEach((heading) => heading.setAttribute("tabindex", "-1"));
