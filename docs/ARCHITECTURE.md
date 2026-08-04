@@ -6,7 +6,7 @@ AR-H1 establishes a framework-free rental planning experience. It deliberately e
 
 ## Components
 
-- `index.html` contains semantic page structure, the six-step planner, SEO metadata and structured data.
+- `index.html` contains semantic page structure, the four-step planner, SEO metadata and structured data.
 - `css/styles.css` contains responsive presentation, accessible focus states and reduced-motion handling.
 - `js/pricing.js` is the business-rule boundary. Its pure functions calculate inclusive rental duration, itemized estimates and booking validation results.
 - `js/app.js` coordinates browser state, step navigation, form feedback, estimate rendering and the final local review.

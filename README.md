@@ -1,6 +1,6 @@
 # ATLAS Rentals
 
-ATLAS Rentals is the AR-H1 browser-based planning foundation for DY-PLUS laptop rentals in Lagos and Abuja. It provides a guided six-step planner and a deterministic, itemized estimate without transmitting or storing customer information.
+ATLAS Rentals is the browser-based planning foundation for DY-PLUS laptop rentals in Lagos and Abuja. It provides a guided four-step planner and a deterministic, itemized estimate without transmitting or storing customer information.
 
 ## Run locally
 

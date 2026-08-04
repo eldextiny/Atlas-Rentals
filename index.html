@@ -87,18 +87,16 @@
         </div>
 
         <nav class="steps" aria-label="Rental planning progress">
-          <button class="step is-active" type="button" data-step-target="1" aria-current="step"><span>1</span><b>Schedule</b></button>
+          <button class="step is-active" type="button" data-step-target="1" aria-current="step"><span>1</span><b>Rental Details</b></button>
           <button class="step" type="button" data-step-target="2" disabled><span>2</span><b>Laptops</b></button>
-          <button class="step" type="button" data-step-target="3" disabled><span>3</span><b>Support</b></button>
-          <button class="step" type="button" data-step-target="4" disabled><span>4</span><b>Estimate</b></button>
-          <button class="step" type="button" data-step-target="5" disabled><span>5</span><b>Details</b></button>
-          <button class="step" type="button" data-step-target="6" disabled><span>6</span><b>Review</b></button>
+          <button class="step" type="button" data-step-target="3" disabled><span>3</span><b>Support &amp; Details</b></button>
+          <button class="step" type="button" data-step-target="4" disabled><span>4</span><b>Review</b></button>
         </nav>
 
         <div class="planner-grid">
           <form id="rental-form" novalidate>
             <section class="form-step is-active" data-step="1" aria-labelledby="step-1-title">
-              <p class="step-kicker">Step 1 of 6</p><h3 id="step-1-title">Where and when?</h3>
+              <p class="step-kicker">Step 1 of 4</p><h3 id="step-1-title">Rental Details</h3>
               <p class="section-help">Choose the service city and inclusive rental dates.</p>
               <fieldset><legend>Service city</legend><div class="choice-grid">
                 <label class="choice-card"><input type="radio" name="location" value="Lagos"><span><b>Lagos</b><small>Commercial and event support</small></span></label>
@@ -109,7 +107,7 @@
             </section>
 
             <section class="form-step" data-step="2" aria-labelledby="step-2-title" hidden>
-              <p class="step-kicker">Step 2 of 6</p><h3 id="step-2-title">Choose your laptop mix.</h3>
+              <p class="step-kicker">Step 2 of 4</p><h3 id="step-2-title">Choose Your Laptops</h3>
               <p class="section-help">Select at least 5 laptops in any combination.</p>
               <div class="product-list">
                 <article class="product"><div><span class="product-tag">Everyday productivity</span><h4>Standard Business Laptop</h4><p>Ideal for training, assessments, office tools and browser-based work.</p><strong>₦10,000 <small>per laptop / day</small></strong></div><label>Quantity<input id="standard-quantity" name="standardQuantity" type="number" min="0" step="1" value="0" inputmode="numeric"></label></article>
@@ -120,8 +118,8 @@
             </section>
 
             <section class="form-step" data-step="3" aria-labelledby="step-3-title" hidden>
-              <p class="step-kicker">Step 3 of 6</p><h3 id="step-3-title">Delivery &amp; Retrieval and support.</h3>
-              <p class="section-help">Delivery &amp; Retrieval is included in every booking. Add technician support only if you need it.</p>
+              <p class="step-kicker">Step 3 of 4</p><h3 id="step-3-title">Support &amp; Personal Details</h3>
+              <p class="section-help">Delivery &amp; Retrieval is included in every booking. Add technician support only if needed, then enter your contact details.</p>
               <div class="included-service" role="note" aria-label="Delivery and Retrieval included automatically">
                 <span class="included-service-icon" aria-hidden="true">
                   <svg viewBox="0 0 32 32" focusable="false"><path d="M3 8h16v13H3zM19 13h5l5 5v3H19zM8 25a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm16 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M10 4H5l2.2-2.2M5 4l2.2 2.2"/></svg>
@@ -131,27 +129,18 @@
               </div>
               <label class="service-card"><input id="technician-required" name="technicianRequired" type="checkbox"><span><b>On-site technician</b><small>Optional operational assistance during your rental.</small></span><strong>₦35,000/day</strong></label>
               <div class="technician-days" id="technician-days-wrap" hidden><label for="technician-days">Number of technician days</label><input id="technician-days" name="technicianDays" type="number" min="1" step="1" value="1" inputmode="numeric"><p class="field-error" id="technician-error"></p></div>
-            </section>
-
-            <section class="form-step" data-step="4" aria-labelledby="step-4-title" hidden>
-              <p class="step-kicker">Step 4 of 6</p><h3 id="step-4-title">Your itemized estimate.</h3>
-              <p class="section-help">Review the planning total before adding your event details.</p>
-              <div id="expanded-estimate" class="expanded-estimate"></div>
-              <p class="estimate-disclaimer">This estimate is for planning and does not create a booking or guarantee availability.</p>
-            </section>
-
-            <section class="form-step" data-step="5" aria-labelledby="step-5-title" hidden>
-              <p class="step-kicker">Step 5 of 6</p><h3 id="step-5-title">Your Personal Details</h3>
+              <h4 class="details-heading">Your Personal Details</h4>
               <p class="section-help">These contact details will appear in your final review only.</p>
               <div class="field-grid"><label>Full name<input name="fullName" type="text" autocomplete="name" required></label><label>Organization<input name="organization" type="text" autocomplete="organization" required></label><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Phone number<input name="phone" type="tel" autocomplete="tel" required></label></div>
               <p class="field-error" id="details-error"></p>
             </section>
 
-            <section class="form-step" data-step="6" aria-labelledby="step-6-title" hidden>
-              <p class="step-kicker">Step 6 of 6</p><h3 id="step-6-title">Review your complete request.</h3>
+            <section class="form-step" data-step="4" aria-labelledby="step-4-title" hidden>
+              <p class="step-kicker">Step 4 of 4</p><h3 id="step-4-title">Review Your Estimate</h3>
               <p class="section-help">Check every detail. This foundation does not transmit or save your information.</p>
               <div id="review-content" class="review-content"></div>
               <button class="button button-primary button-full" id="finish-button" type="button">Confirm plan is ready</button>
+              <button class="button button-secondary button-full restart-button" id="restart-button" type="button">Restart planner</button>
               <p class="success-message" id="success-message" role="status" hidden>Your rental plan is ready. Submission will be added in a later project phase.</p>
             </section>
 
@@ -164,7 +153,7 @@
               <div><dt>Standard laptops <small id="standard-summary">0 × 0 days</small></dt><dd id="standard-cost">₦0</dd></div>
               <div><dt>High performance <small id="performance-summary">0 × 0 days</small></dt><dd id="performance-cost">₦0</dd></div>
               <div><dt>Delivery &amp; Retrieval <small>Compulsory</small></dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
-              <div><dt>Technician <small id="technician-summary">Not selected</small></dt><dd id="technician-cost">₦0</dd></div>
+              <div id="technician-estimate-row"><dt>Technician <small id="technician-summary">Not selected</small></dt><dd id="technician-cost">₦0</dd></div>
               <div class="vat-row"><dt>VAT <small>7.5%</small></dt><dd id="vat-cost">₦0</dd></div>
             </dl>
             <div class="total-row"><span>Estimated total</span><strong id="total-cost">₦0</strong></div>

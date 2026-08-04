@@ -90,7 +90,7 @@ h1 { max-width: 880px; margin-bottom: 1.5rem; font-family: "Segoe UI Variable", 
 .planner-intro { max-width: 700px; margin-bottom: 2.5rem; }
 .planner-intro h2 { margin-bottom: 1rem; font-size: clamp(2.5rem, 5vw, 4.2rem); font-weight: 500; }
 .planner-intro > p:last-child { color: var(--muted); }
-.steps { display: grid; grid-template-columns: repeat(6, 1fr); margin-bottom: 2rem; border-bottom: 1px solid var(--line); }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 2rem; border-bottom: 1px solid var(--line); }
 .step { position: relative; display: flex; gap: .5rem; align-items: center; padding: .7rem .3rem 1rem; color: #7b8582; background: none; border: 0; cursor: pointer; }
 .step span { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border: 1px solid #aab2af; border-radius: 50%; font-size: .72rem; }
 .step b { font-size: .78rem; }
@@ -143,6 +143,7 @@ progress::-moz-progress-bar { background: var(--brand-green); }
 .included-badge { width: fit-content; margin-bottom: .12rem; padding: .18rem .5rem; color: var(--brand-blue); background: white; border: 1px solid #c9ceff; border-radius: 99px; font-size: .65rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
 .included-service > strong { white-space: nowrap; color: var(--brand-blue); font-size: 1.08rem; }
 .technician-days { max-width: 260px; margin: 1rem 0 0 2.9rem; }
+.details-heading { margin: 2rem 0 .55rem; color: var(--brand-navy); font-size: 1.25rem; }
 .estimate-card { position: sticky; top: 1rem; color: white; background: var(--brand-navy); border: 0; border-top: 5px solid var(--brand-blue); }
 .estimate-heading { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,.15); }
 .estimate-heading .panel-label { color: #a9c2b6; }
@@ -160,14 +161,14 @@ progress::-moz-progress-bar { background: var(--brand-green); }
 .minimum-status.is-valid { color: #dcf7e8; background: rgba(22,121,79,.34); }
 .form-actions { display: flex; justify-content: space-between; gap: 1rem; margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
 .form-actions #next-button { margin-left: auto; }
-.expanded-estimate, .review-content { display: grid; gap: 1rem; }
+.review-content { display: grid; gap: 1rem; }
 .summary-group { padding: 1.1rem; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
 .summary-group h4 { margin-bottom: .7rem; }
 .summary-line { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; color: var(--muted); font-size: .88rem; }
 .summary-line strong { color: var(--ink); text-align: right; }
 .summary-line.total { margin-top: .5rem; padding-top: .8rem; border-top: 1px solid var(--line); font-size: 1rem; }
-.estimate-disclaimer, .optional { color: var(--muted); font-size: .78rem; font-weight: 500; }
 .success-message { margin: 1rem 0 0; padding: 1rem; color: var(--success); background: #e7f4ec; border-radius: 9px; font-weight: 750; }
+.restart-button { margin-top: .75rem; }
 footer { display: grid; grid-template-columns: 1fr auto auto; gap: 2rem; align-items: center; max-width: 1240px; margin: auto; padding: 2.5rem 2rem; color: var(--muted); border-top: 1px solid var(--line); font-size: .8rem; }
 footer p { margin: 0; }
 
