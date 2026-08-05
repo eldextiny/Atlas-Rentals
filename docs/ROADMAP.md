@@ -8,21 +8,21 @@
 - Accessibility, SEO and regression-test foundations
 - Static deployment documentation
 
+## AR-H2 — Workflow, CRM and quotation delivery (current)
+
+- Step-one entry and sticky four-step progress
+- Review-stage CRM draft synchronization
+- Private quotation PDF generation
+- Resumable client and administrator email delivery
+- Private 30-day recovery state
+
 ## Candidate future milestones
 
 Future milestones require separate approval and security review.
 
-### AR-H2 — Request submission
-
-- Server-authoritative validation and pricing
-- Secure request records and controlled quotation references
-- Abuse protection, audit logging and operational error handling
-
 ### AR-H3 — Delivery integrations
 
-- Transactional email notifications
-- Explicit CRM synchronization and retry policy
-- Administrative request workflow
+- Administrative request workflow and operations dashboard
 
 ### AR-H4 — Commercial transactions
 

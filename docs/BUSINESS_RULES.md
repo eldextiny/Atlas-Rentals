@@ -24,7 +24,6 @@
 ## Validation
 
 - Service location must be Lagos or Abuja.
-- A delivery address is required.
 - End date must be the same as or later than the start date.
 - Laptop and technician quantities must be whole, non-negative numbers.
 - Technician support requires at least one technician day.
@@ -32,8 +31,11 @@
 
 ## Enquiry submission
 
-- Contact name, organisation, email and phone are required; description is optional.
+- Contact name, organisation, email and phone are required.
+- Phone values are normalized to an international `+` representation; supported Nigerian local and country-code forms normalize to `+234…`.
 - The server normalizes accepted values and independently recalculates every price.
 - Identical normalized content is one logical enquiry and returns the same reference on retry.
 - A material content change creates a new enquiry and reference.
 - References use `ARQ-YYYY-NNNNNN`; submission acknowledges an enquiry only.
+- CRM review synchronization does not submit or book the enquiry.
+- A persisted enquiry can report quotation delivery as pending; identical retries resume PDF and recipient delivery without allocating another reference.

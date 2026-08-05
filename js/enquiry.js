@@ -1,7 +1,7 @@
 const PAYLOAD_FIELDS = Object.freeze([
-  "location", "deliveryAddress", "startDate", "endDate",
+  "journeyId", "location", "startDate", "endDate",
   "standardQuantity", "performanceQuantity", "technicianRequired",
-  "technicianDays", "fullName", "organization", "email", "phone", "description",
+  "technicianDays", "fullName", "organization", "email", "phone",
 ]);
 
 function text(value) {
@@ -13,12 +13,12 @@ function integer(value) {
   return Number.isInteger(number) && number >= 0 ? number : value;
 }
 
-export function buildEnquiryPayload(form) {
+export function buildEnquiryPayload(form, journeyId) {
   const values = Object.fromEntries(new FormData(form));
   const technicianRequired = form.elements.technicianRequired.checked;
   return {
+    journeyId,
     location: text(values.location),
-    deliveryAddress: text(values.deliveryAddress),
     startDate: text(values.startDate),
     endDate: text(values.endDate),
     standardQuantity: integer(values.standardQuantity),
@@ -29,8 +29,22 @@ export function buildEnquiryPayload(form) {
     organization: text(values.organization),
     email: text(values.email).toLowerCase(),
     phone: text(values.phone),
-    description: text(values.description),
   };
+}
+
+export function createJourneyId(storage = globalThis.sessionStorage, crypto = globalThis.crypto) {
+  const key = "atlas-rentals-journey-id";
+  const existing = storage?.getItem(key);
+  if (/^[a-f0-9]{32}$/.test(existing || "")) return existing;
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const id = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  storage?.setItem(key, id);
+  return id;
+}
+
+export function clearJourneyId(storage = globalThis.sessionStorage) {
+  storage?.removeItem("atlas-rentals-journey-id");
 }
 
 export function hasStablePayloadShape(payload) {

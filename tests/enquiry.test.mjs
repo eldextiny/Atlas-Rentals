@@ -3,11 +3,10 @@ import assert from "node:assert/strict";
 import { buildEnquiryPayload, createSubmissionGuard, hasStablePayloadShape } from "../js/enquiry.js";
 
 const payload = {
-  location: "Lagos", deliveryAddress: "12 Marina Road", startDate: "2026-08-05",
+  journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05",
   endDate: "2026-08-06", standardQuantity: 5, performanceQuantity: 0,
   technicianRequired: false, technicianDays: 0, fullName: "Ada User",
   organization: "Example Ltd", email: "ada@example.com", phone: "+2348000000000",
-  description: "Training",
 };
 
 test("valid enquiry payload has the stable server contract", () => {
@@ -23,7 +22,7 @@ test("payload creation normalizes a copy without mutating entered values", () =>
     *[Symbol.iterator]() { yield* Object.entries({ ...payload, email: " ADA@Example.COM " }); }
   };
   const form = { elements: { technicianRequired: { checked: false } } };
-  const result = buildEnquiryPayload(form);
+  const result = buildEnquiryPayload(form, payload.journeyId);
   globalThis.FormData = originalFormData;
   assert.equal(result.email, "ada@example.com");
   assert.equal(result.technicianDays, 0);

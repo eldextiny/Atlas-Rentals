@@ -1,5 +1,5 @@
 import { calculateEstimate, calculateRentalDays, validateBooking } from "./pricing.js";
-import { buildEnquiryPayload, createSubmissionGuard } from "./enquiry.js";
+import { buildEnquiryPayload, clearJourneyId, createJourneyId, createSubmissionGuard } from "./enquiry.js";
 
 const form = document.querySelector("#rental-form");
 const steps = [...document.querySelectorAll(".form-step")];
@@ -13,6 +13,7 @@ const rateCards = [...document.querySelectorAll("[data-rate-target]")];
 const restartButton = document.querySelector("#restart-button");
 const finishButton = document.querySelector("#finish-button");
 const submissionStatus = document.querySelector("#submission-status");
+const planner = document.querySelector("#planner");
 const totalSteps = 4;
 const currency = new Intl.NumberFormat("en-NG", {
   style: "currency",
@@ -23,6 +24,7 @@ const currency = new Intl.NumberFormat("en-NG", {
 let currentStep = 1;
 let highestStep = 1;
 let scheduleValidated = false;
+let journeyId = createJourneyId();
 
 function numberValue(name) {
   const value = Number(form.elements[name].value);
@@ -116,7 +118,6 @@ function renderReview(state, result) {
   document.querySelector("#review-content").innerHTML = `
     <div class="summary-group"><h4>Schedule</h4>
       <div class="summary-line"><span>Location</span><strong>${escaped(state.location)}</strong></div>
-      <div class="summary-line"><span>Delivery address</span><strong>${escaped(values.deliveryAddress)}</strong></div>
       <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)} (${state.rentalDays} days)</strong></div>
     </div>
     <div class="summary-group"><h4>Equipment &amp; support</h4>
@@ -159,11 +160,6 @@ function validateCurrentStep() {
       dateTarget.focus();
       return false;
     }
-    if (!form.elements.deliveryAddress.checkValidity()) {
-      showError("dates-error", "Enter the delivery address for this enquiry.");
-      form.elements.deliveryAddress.focus();
-      return false;
-    }
     return true;
   }
   if (currentStep === 2) {
@@ -194,6 +190,7 @@ function validateCurrentStep() {
 function goToStep(step, options = {}) {
   if (step < 1 || step > totalSteps || step > highestStep) return;
   currentStep = step;
+  planner.dataset.currentStep = String(step);
   steps.forEach((section) => {
     const active = Number(section.dataset.step) === step;
     section.hidden = !active;
@@ -212,25 +209,18 @@ function goToStep(step, options = {}) {
   nextButton.textContent = step === 3 ? "Review estimate" : "Continue";
   document.querySelector("#success-message").hidden = true;
   updateEstimate();
-  const focusTarget = options.focusTarget || steps[step - 1].querySelector("h3");
-  const scrollBehavior = options.scrollBehavior || "smooth";
-  focusTarget.focus({ preventScroll: true });
-  document.querySelector("#planner").scrollIntoView({ behavior: scrollBehavior, block: "start" });
+  if (options.focusTarget) options.focusTarget.focus({ preventScroll: true });
 }
 
 function openLaptopSelection(inputId) {
-  const quantityInput = document.querySelector(`#${inputId}`);
-  if (!quantityInput) return;
-
-  highestStep = Math.max(highestStep, 2);
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  goToStep(2, {
-    focusTarget: quantityInput,
-    scrollBehavior: reducedMotion ? "auto" : "smooth",
-  });
+  form.dataset.preferredLaptop = inputId;
+  currentStep = 1;
+  highestStep = 1;
+  goToStep(1);
+  planner.scrollIntoView({ behavior: "auto", block: "start" });
 }
 
-nextButton.addEventListener("click", () => {
+nextButton.addEventListener("click", async () => {
   if (currentStep === 2 && !scheduleValidated) {
     goToStep(1);
     return;
@@ -238,7 +228,24 @@ nextButton.addEventListener("click", () => {
   if (!validateCurrentStep()) return;
   if (currentStep === 1) scheduleValidated = true;
   highestStep = Math.max(highestStep, currentStep + 1);
-  goToStep(currentStep + 1);
+  const nextStep = currentStep + 1;
+  goToStep(nextStep);
+  if (nextStep === 4) {
+    submissionStatus.textContent = "Preparing your review…";
+    try {
+      const response = await fetch("api/review-enquiry.php", {
+        method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(buildEnquiryPayload(form, journeyId)),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.ok) throw new Error();
+      submissionStatus.textContent = body.crm === "accepted"
+        ? "Review ready."
+        : "Review ready. CRM synchronization is pending and will be retried safely.";
+    } catch {
+      submissionStatus.textContent = "Review ready. CRM synchronization is pending and will be retried safely.";
+    }
+  }
 });
 
 backButton.addEventListener("click", () => goToStep(currentStep - 1));
@@ -281,10 +288,12 @@ finishButton.addEventListener("click", async () => {
   form.setAttribute("aria-busy", "true");
   submissionStatus.textContent = "Submitting your enquiry securely…";
   try {
-    const enquiry = await submitEnquiry(buildEnquiryPayload(form));
+    const enquiry = await submitEnquiry(buildEnquiryPayload(form, journeyId));
     document.querySelector("#enquiry-reference").textContent = enquiry.reference;
     document.querySelector("#success-message").hidden = false;
-    submissionStatus.textContent = "Enquiry received.";
+    submissionStatus.textContent = enquiry.deliveryComplete
+      ? "Enquiry received and quotation delivered."
+      : "Enquiry received. Quotation delivery is pending and can be retried safely.";
     finishButton.hidden = true;
   } catch (error) {
     submissionStatus.textContent = error.message;
@@ -295,6 +304,8 @@ finishButton.addEventListener("click", async () => {
 });
 restartButton.addEventListener("click", () => {
   form.reset();
+  clearJourneyId();
+  journeyId = createJourneyId();
   currentStep = 1;
   highestStep = 1;
   scheduleValidated = false;
@@ -305,11 +316,11 @@ restartButton.addEventListener("click", () => {
   submissionStatus.textContent = "";
   document.querySelector("#success-message").hidden = true;
   ["location-error", "dates-error", "quantity-error", "technician-error", "details-error"].forEach((id) => showError(id));
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  goToStep(1, { scrollBehavior: reducedMotion ? "auto" : "smooth" });
+  goToStep(1);
 });
 
 document.querySelectorAll(".form-step h3").forEach((heading) => heading.setAttribute("tabindex", "-1"));
 document.querySelector("#year").textContent = new Date().getFullYear();
 technicianDaysInput.disabled = true;
 updateEstimate();
+planner.dataset.currentStep = "1";

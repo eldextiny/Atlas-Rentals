@@ -10,6 +10,10 @@ final class MemoryStore implements EnquiryStore
     public int $sequence = 0;
     public bool $fail = false;
     public function findByHash(string $hash): ?array { return $this->records[$hash] ?? null; }
+    public function findByReference(string $reference): ?array {
+        foreach ($this->records as $record) if ($record['enquiry_reference'] === $reference) return $record;
+        return null;
+    }
     public function save(array $enquiry, int $year): array
     {
         if ($this->fail) throw new RuntimeException('simulated failure');
@@ -27,12 +31,12 @@ final class MemoryStore implements EnquiryStore
 function valid_payload(): array
 {
     return [
-        'location' => 'Lagos', 'deliveryAddress' => '12 Marina Road, Lagos',
+        'journeyId' => '0123456789abcdef0123456789abcdef', 'location' => 'Lagos',
         'startDate' => '2026-08-05', 'endDate' => '2026-08-07',
         'standardQuantity' => 3, 'performanceQuantity' => 2,
         'technicianRequired' => true, 'technicianDays' => 2,
         'fullName' => 'Ada User', 'organization' => 'Example Limited',
-        'email' => 'ADA@example.com', 'phone' => '+234 800 000 0000', 'description' => ' Training ',
+        'email' => 'ADA@example.com', 'phone' => '08028557479',
     ];
 }
 
@@ -76,7 +80,7 @@ $tests['identical retry returns original reference'] = function (): void {
 $tests['material change creates a different reference'] = function (): void {
     $service = service($store = new MemoryStore());
     $first = $service->submit(valid_payload());
-    $changed = valid_payload(); $changed['description'] = 'Different event';
+    $changed = valid_payload(); $changed['organization'] = 'Different Organisation';
     $second = $service->submit($changed);
     expect($first['reference'] !== $second['reference'] && $store->sequence === 2, 'material change was deduplicated');
 };
@@ -85,15 +89,23 @@ $tests['failed persistence does not consume a reference'] = function (): void {
     try { service($store)->submit(valid_payload()); } catch (RuntimeException) {}
     expect($store->sequence === 0, 'failed save consumed a reference');
 };
-$tests['validation rejects address quantity dates contact and unexpected fields'] = function (): void {
+$tests['validation rejects identity quantity dates contact and unexpected fields'] = function (): void {
     foreach ([
-        ['deliveryAddress', 'x', 'deliveryAddress'], ['standardQuantity', -1, 'standardQuantity'],
+        ['journeyId', 'bad', 'journeyId'], ['standardQuantity', -1, 'standardQuantity'],
         ['endDate', '2026-08-01', 'dates'], ['email', 'invalid', 'email'],
         ['phone', 'abc', 'phone'], ['extra', 'bad', 'payload'],
     ] as [$key, $value, $field]) { $payload = valid_payload(); $payload[$key] = $value; expect_validation($payload, $field); }
     $payload = valid_payload(); $payload['standardQuantity'] = 2; $payload['performanceQuantity'] = 2; expect_validation($payload, 'quantity');
     $payload = valid_payload(); unset($payload['organization']); expect_validation($payload, 'organization');
     $payload = valid_payload(); $payload['technicianDays'] = 0; expect_validation($payload, 'technicianDays');
+};
+$tests['phone representations normalize to E.164'] = function (): void {
+    foreach (['08028557479', '2348028557479', '+2348028557479'] as $phone) {
+        $payload = valid_payload(); $payload['phone'] = $phone;
+        $preview = service(new MemoryStore())->preview($payload);
+        expect($preview['normalized']['phone'] === '+2348028557479', 'phone normalization mismatch');
+    }
+    foreach (['0802', '0802ABC7479', '+00012345678'] as $phone) { $payload = valid_payload(); $payload['phone'] = $phone; expect_validation($payload, 'phone'); }
 };
 $tests['http parser rejects method content type malformed and oversized bodies'] = function (): void {
     foreach ([

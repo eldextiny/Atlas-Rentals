@@ -12,6 +12,7 @@ final class EnquiryValidationException extends RuntimeException
 interface EnquiryStore
 {
     public function findByHash(string $hash): ?array;
+    public function findByReference(string $reference): ?array;
     public function save(array $enquiry, int $referenceYear): array;
 }
 
@@ -22,10 +23,18 @@ final class PdoEnquiryStore implements EnquiryStore
     public function findByHash(string $hash): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT internal_id, enquiry_reference, status, estimated_total, currency '
+            'SELECT * '
             . 'FROM atlas_rental_enquiries WHERE idempotency_hash = :hash LIMIT 1'
         );
         $statement->execute(['hash' => $hash]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
+    public function findByReference(string $reference): ?array
+    {
+        $statement = $this->pdo->prepare('SELECT * FROM atlas_rental_enquiries WHERE enquiry_reference = :reference LIMIT 1');
+        $statement->execute(['reference' => $reference]);
         $row = $statement->fetch(PDO::FETCH_ASSOC);
         return $row === false ? null : $row;
     }
@@ -99,12 +108,12 @@ final class EnquiryService
     private const TECHNICIAN_RATE = 35000;
     private const VAT_RATE = 0.075;
     private const ALLOWED_FIELDS = [
-        'location', 'deliveryAddress', 'startDate', 'endDate', 'standardQuantity',
+        'journeyId', 'location', 'startDate', 'endDate', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
-        'organization', 'email', 'phone', 'description',
+        'organization', 'email', 'phone',
     ];
     private const REQUIRED_FIELDS = [
-        'location', 'deliveryAddress', 'startDate', 'endDate', 'standardQuantity',
+        'journeyId', 'location', 'startDate', 'endDate', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
         'organization', 'email', 'phone',
     ];
@@ -117,9 +126,10 @@ final class EnquiryService
 
     public function submit(array $input): array
     {
-        $normalized = $this->normalizeAndValidate($input);
-        $canonical = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        $hash = hash('sha256', $canonical);
+        $preview = $this->preview($input);
+        $normalized = $preview['normalized'];
+        $canonical = $preview['canonical'];
+        $hash = $preview['hash'];
         $existing = $this->store->findByHash($hash);
         if ($existing !== null) {
             return $this->result($existing, true);
@@ -141,14 +151,14 @@ final class EnquiryService
         $bytes = $this->randomBytes ? ($this->randomBytes)(16) : random_bytes(16);
         $record = [
             'internal_id' => bin2hex($bytes), 'idempotency_hash' => $hash, 'status' => 'received',
-            'location' => $normalized['location'], 'delivery_address' => $normalized['deliveryAddress'],
+            'location' => $normalized['location'], 'delivery_address' => null,
             'start_date' => $normalized['startDate'], 'end_date' => $normalized['endDate'],
             'rental_days' => $days, 'standard_quantity' => $normalized['standardQuantity'],
             'performance_quantity' => $normalized['performanceQuantity'],
             'technician_required' => $normalized['technicianRequired'] ? 1 : 0,
             'technician_days' => $normalized['technicianDays'], 'full_name' => $normalized['fullName'],
             'organization' => $normalized['organization'], 'email' => $normalized['email'],
-            'phone' => $normalized['phone'], 'description' => $normalized['description'] ?: null,
+            'phone' => $normalized['phone'], 'description' => null,
             'currency' => 'NGN', 'standard_daily_rate' => $this->money(self::STANDARD_RATE),
             'performance_daily_rate' => $this->money(self::PERFORMANCE_RATE),
             'delivery_fee' => $this->money(self::DELIVERY_FEE),
@@ -160,6 +170,30 @@ final class EnquiryService
         ];
         $now = $this->clock ? ($this->clock)() : new DateTimeImmutable('now', new DateTimeZone('UTC'));
         return $this->result($this->store->save($record, (int) $now->format('Y')), false);
+    }
+
+    public function preview(array $input): array
+    {
+        $normalized = $this->normalizeAndValidate($input);
+        $journeyId = $normalized['journeyId'];
+        unset($normalized['journeyId']);
+        $canonical = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        $days = $this->rentalDays($normalized['startDate'], $normalized['endDate']);
+        $rental = ($normalized['standardQuantity'] * self::STANDARD_RATE
+            + $normalized['performanceQuantity'] * self::PERFORMANCE_RATE) * $days;
+        $technician = $normalized['technicianDays'] * self::TECHNICIAN_RATE;
+        $subtotal = $rental + self::DELIVERY_FEE + $technician;
+        $vat = (int) round($subtotal * self::VAT_RATE);
+        return [
+            'journeyId' => $journeyId, 'normalized' => $normalized, 'canonical' => $canonical,
+            'hash' => hash('sha256', $canonical),
+            'pricing' => [
+                'rentalDays' => $days, 'standardDailyRate' => self::STANDARD_RATE,
+                'performanceDailyRate' => self::PERFORMANCE_RATE, 'deliveryFee' => self::DELIVERY_FEE,
+                'technicianDailyRate' => self::TECHNICIAN_RATE, 'subtotal' => $subtotal,
+                'vatRate' => self::VAT_RATE, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat,
+            ],
+        ];
     }
 
     private function normalizeAndValidate(array $input): array
@@ -175,25 +209,25 @@ final class EnquiryService
         $text = static fn(mixed $value): string => is_string($value)
             ? preg_replace('/\s+/u', ' ', trim($value)) : '';
         $value = [
-            'location' => $text($input['location']), 'deliveryAddress' => $text($input['deliveryAddress']),
+            'journeyId' => $text($input['journeyId']), 'location' => $text($input['location']),
             'startDate' => $text($input['startDate']), 'endDate' => $text($input['endDate']),
             'standardQuantity' => $input['standardQuantity'], 'performanceQuantity' => $input['performanceQuantity'],
             'technicianRequired' => $input['technicianRequired'], 'technicianDays' => $input['technicianDays'],
             'fullName' => $text($input['fullName']), 'organization' => $text($input['organization']),
             'email' => strtolower($text($input['email'])), 'phone' => $text($input['phone']),
-            'description' => $text($input['description'] ?? ''),
         ];
+        if (!preg_match('/^[a-f0-9]{32}$/', $value['journeyId'])) $errors['journeyId'] = 'The journey identity is invalid.';
         if (!in_array($value['location'], ['Lagos', 'Abuja'], true)) $errors['location'] = 'Choose Lagos or Abuja.';
-        $this->length($value['deliveryAddress'], 5, 500, 'deliveryAddress', $errors);
         $this->length($value['fullName'], 2, 160, 'fullName', $errors);
         $this->length($value['organization'], 2, 200, 'organization', $errors);
-        if (strlen($value['description']) > 5000) $errors['description'] = 'Description is too long.';
         if (!filter_var($value['email'], FILTER_VALIDATE_EMAIL) || strlen($value['email']) > 254) $errors['email'] = 'Enter a valid email address.';
-        if (!preg_match('/^\+?[0-9][0-9 ()-]{6,38}$/', $value['phone'])) {
+        $phoneCharactersValid = preg_match('/^\+?[0-9 ()-]+$/', $value['phone']) === 1;
+        $phoneDigits = preg_replace('/\D+/', '', $value['phone']);
+        if (preg_match('/^0\d{10}$/', $phoneDigits)) $phoneDigits = '234' . substr($phoneDigits, 1);
+        if (!$phoneCharactersValid || !preg_match('/^(?:234\d{10}|[1-9]\d{7,14})$/', $phoneDigits)) {
             $errors['phone'] = 'Enter a valid phone number.';
         } else {
-            $international = str_starts_with($value['phone'], '+');
-            $value['phone'] = ($international ? '+' : '') . preg_replace('/\D+/', '', $value['phone']);
+            $value['phone'] = '+' . $phoneDigits;
         }
         foreach (['standardQuantity', 'performanceQuantity', 'technicianDays'] as $field) {
             if (!is_int($value[$field]) || $value[$field] < 0 || $value[$field] > 10000) $errors[$field] = 'Enter a valid whole number.';

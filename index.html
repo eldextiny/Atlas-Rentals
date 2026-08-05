@@ -43,6 +43,12 @@
         <img class="brand-logo" src="assets/dyplus-logo.png" alt="DY-PLUS">
       </a>
       <a class="header-title" href="#top" aria-label="ATLAS Rental"><span class="header-title-atlas">ATLAS</span><span class="header-title-rental">Rental</span></a>
+      <nav class="steps header-progress" aria-label="Rental planning progress">
+        <button class="step is-active" type="button" data-step-target="1" aria-current="step"><span>1</span><b>Rental Details</b></button>
+        <button class="step" type="button" data-step-target="2" disabled><span>2</span><b>Laptops</b></button>
+        <button class="step" type="button" data-step-target="3" disabled><span>3</span><b>Support &amp; Details</b></button>
+        <button class="step" type="button" data-step-target="4" disabled><span>4</span><b>Review</b></button>
+      </nav>
       <a class="header-link" href="#planner">Plan a rental <span aria-hidden="true">→</span></a>
     </header>
 
@@ -86,24 +92,16 @@
           <p>Choose your city, dates, laptop mix and optional technician support. Your itemised estimate updates as you go. Submitted enquiries remain subject to availability and DY-PLUS confirmation.</p>
         </div>
 
-        <nav class="steps" aria-label="Rental planning progress">
-          <button class="step is-active" type="button" data-step-target="1" aria-current="step"><span>1</span><b>Rental Details</b></button>
-          <button class="step" type="button" data-step-target="2" disabled><span>2</span><b>Laptops</b></button>
-          <button class="step" type="button" data-step-target="3" disabled><span>3</span><b>Support &amp; Details</b></button>
-          <button class="step" type="button" data-step-target="4" disabled><span>4</span><b>Review</b></button>
-        </nav>
-
         <div class="planner-grid">
           <form id="rental-form" novalidate>
             <section class="form-step is-active" data-step="1" aria-labelledby="step-1-title">
               <p class="step-kicker">Step 1 of 4</p><h3 id="step-1-title">Rental Details</h3>
-              <p class="section-help">Choose the service city, inclusive rental dates and delivery address.</p>
+              <p class="section-help">Choose the service city and inclusive rental dates.</p>
               <fieldset><legend>Service city</legend><div class="choice-grid">
                 <label class="choice-card"><input type="radio" name="location" value="Lagos"><span><b>Lagos</b><small>Commercial and event support</small></span></label>
                 <label class="choice-card"><input type="radio" name="location" value="Abuja"><span><b>Abuja</b><small>Business and project support</small></span></label>
               </div><p class="field-error" id="location-error"></p></fieldset>
               <div class="field-grid"><label>Rental starts<input id="start-date" name="startDate" type="date" required></label><label>Rental ends<input id="end-date" name="endDate" type="date" required></label></div>
-              <label>Delivery address<textarea name="deliveryAddress" rows="3" maxlength="500" autocomplete="street-address" required></textarea></label>
               <p class="field-error" id="dates-error"></p>
             </section>
 
@@ -132,8 +130,7 @@
               <div class="technician-days" id="technician-days-wrap" hidden><label for="technician-days">Number of technician days</label><input id="technician-days" name="technicianDays" type="number" min="1" step="1" value="1" inputmode="numeric"><p class="field-error" id="technician-error"></p></div>
               <h4 class="details-heading">Your Personal Details</h4>
               <p class="section-help">These contact details will appear in your final review only.</p>
-              <div class="field-grid"><label>Full name<input name="fullName" type="text" autocomplete="name" required></label><label>Organization<input name="organization" type="text" autocomplete="organization" required></label><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Phone number<input name="phone" type="tel" autocomplete="tel" required></label></div>
-              <label>Additional details (optional)<textarea name="description" rows="4" maxlength="5000"></textarea></label>
+              <div class="field-grid"><label>Full name<input name="fullName" type="text" autocomplete="name" required></label><label>Organization<input name="organization" type="text" autocomplete="organization" required></label><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Phone number<input name="phone" type="tel" autocomplete="tel" pattern="(?:0\d{10}|234\d{10}|\+234\d{10}|\+[1-9]\d{7,14})" required></label></div>
               <p class="field-error" id="details-error"></p>
             </section>
 

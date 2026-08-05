@@ -28,9 +28,9 @@ test("support and personal details share step three", () => {
   assert.doesNotMatch(stepThree, /type="checkbox"[^>]*delivery|name="delivery/i);
 });
 
-test("delivery address is required without adding a workflow step", () => {
-  assert.match(html, /name="deliveryAddress"[^>]*required/);
-  assert.match(app, /form\.elements\.deliveryAddress\.checkValidity\(\)/);
+test("removed optional fields are absent from the workflow", () => {
+  const form = html.match(/<form id="rental-form"[\s\S]*?<\/form>/)?.[0] || "";
+  assert.doesNotMatch(form + app, /deliveryAddress|Delivery address|Additional details|name="description"/i);
 });
 
 test("final review and local reset contracts are retained", () => {
@@ -48,7 +48,7 @@ test("final review and local reset contracts are retained", () => {
 test("confirmation is persisted-enquiry wording rather than booking confirmation", () => {
   assert.match(html, /Submit enquiry/);
   assert.match(html, /enquiry only; availability and booking remain subject to DY-PLUS confirmation/);
-  assert.match(app, /await submitEnquiry\(buildEnquiryPayload\(form\)\)/);
+  assert.match(app, /await submitEnquiry\(buildEnquiryPayload\(form, journeyId\)\)/);
   assert.match(app, /finishButton\.disabled = true/);
   assert.match(app, /const enquiry = await submitEnquiry[\s\S]*success-message[\s\S]*catch \(error\)/);
 });
@@ -56,7 +56,32 @@ test("confirmation is persisted-enquiry wording rather than booking confirmation
 test("hero cards retain guarded focus navigation without changing quantities", () => {
   assert.match(html, /data-rate-target="standard-quantity"/);
   assert.match(html, /data-rate-target="performance-quantity"/);
-  assert.match(app, /currentStep === 2 && !scheduleValidated/);
-  assert.match(app, /prefers-reduced-motion: reduce/);
+  assert.match(app, /currentStep = 1;[\s\S]*highestStep = 1;[\s\S]*goToStep\(1\)/);
   assert.doesNotMatch(app, /quantityInput\.value\s*=/);
+});
+
+test("step progress is sticky-header content and transitions do not force scrolling", () => {
+  const header = html.match(/<header class="site-header">[\s\S]*?<\/header>/)?.[0] || "";
+  assert.match(header, /header-progress/);
+  assert.deepEqual([...header.matchAll(/data-step-target="(\d)"/g)].map((match) => Number(match[1])), [1, 2, 3, 4]);
+  const goToStepBody = app.match(/function goToStep[\s\S]*?\n\}/)?.[0] || "";
+  assert.doesNotMatch(goToStepBody, /scrollIntoView|scrollTo/);
+});
+
+test("mobile estimate is limited to review step while desktop remains available", () => {
+  assert.match(html, /class="estimate-card"/);
+  assert.match(app, /planner\.dataset\.currentStep = String\(step\)/);
+  const css = readFileSync(new URL("../css/styles.css", import.meta.url), "utf8");
+  assert.match(css, /planner-shell:not\(\[data-current-step="4"\]\) \.estimate-card \{ display: none; \}/);
+});
+
+test("phone is required client-side and review triggers same-origin CRM", () => {
+  assert.match(html, /name="phone"[^>]*pattern="[^"]+"[^>]*required/);
+  assert.match(app, /nextStep === 4[\s\S]*fetch\("api\/review-enquiry\.php"/);
+  assert.match(app, /CRM synchronization is pending/);
+});
+
+test("persisted response distinguishes complete delivery from pending delivery", () => {
+  assert.match(app, /enquiry\.deliveryComplete/);
+  assert.match(app, /Quotation delivery is pending and can be retried safely/);
 });

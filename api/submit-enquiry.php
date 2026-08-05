@@ -23,18 +23,22 @@ try {
 
 try {
     require_once __DIR__ . '/enquiry-service.php';
-    $loaderPath = getenv('ATLAS_RENTALS_DB_CONFIG') ?: '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-db.php';
-    if (!is_file($loaderPath) || !is_readable($loaderPath)) throw new RuntimeException('Configuration unavailable.');
-    $config = require $loaderPath;
-    $required = ['host', 'port', 'database', 'username', 'password', 'charset'];
-    if (!is_array($config) || array_diff($required, array_keys($config))) throw new RuntimeException('Configuration invalid.');
-    $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s', $config['host'], $config['port'], $config['database'], $config['charset']);
-    $pdo = new PDO($dsn, $config['username'], $config['password'], [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
-    $result = (new EnquiryService(new PdoEnquiryStore($pdo)))->submit($input);
+    require_once __DIR__ . '/database-runtime.php';
+    require_once __DIR__ . '/integration-runtime.php';
+    $store = new PdoEnquiryStore(atlasRentalsDatabase());
+    $service = new EnquiryService($store);
+    $preview = $service->preview($input);
+    $result = $service->submit($input);
+    $record = $store->findByReference($result['reference']);
+    if ($record === null) throw new RuntimeException('Persisted enquiry unavailable.');
+    try {
+        $delivery = atlasRentalsDeliver($record, $preview, atlasRentalsIntegrationConfig());
+        $complete = ($delivery['pdf']['status'] ?? '') === 'completed'
+            && ($delivery['clientEmail']['status'] ?? '') === 'completed'
+            && ($delivery['adminEmail']['status'] ?? '') === 'completed';
+    } catch (Throwable) { $complete = false; }
+    $result['deliveryComplete'] = $complete;
+    $result['deliveryStatus'] = $complete ? 'complete' : 'pending';
     respond(200, ['ok' => true, 'enquiry' => $result]);
 } catch (EnquiryValidationException $error) {
     respond(422, ['ok' => false, 'error' => 'validation_failed', 'fields' => $error->errors]);
