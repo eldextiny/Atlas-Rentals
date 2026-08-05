@@ -33,6 +33,7 @@ test("delivery runtime has ordered resumable PDF and recipient operations", () =
   assert.match(runtime, /quotation-pdfs/);
   assert.match(runtime, /delivery-state/);
   assert.match(runtime, /Valid until:/);
+  assert.match(runtime, /trustedVatLabel = str_starts_with\(\$line, 'VAT \(7\.5%\)'\)/);
   assert.match(runtime, /\['client', 'admin'\]/);
   assert.match(runtime, /attachments/);
 });

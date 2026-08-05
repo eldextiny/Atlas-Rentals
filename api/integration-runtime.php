@@ -119,10 +119,12 @@ function atlasRentalsSyncCrm(array $preview, ?string $reference, array $config, 
     });
 }
 
-function atlasRentalsPdfEscape(string $value): string
+function atlasRentalsPdfEscape(string $value, bool $allowBalancedParentheses = false): string
 {
     $value = preg_replace('/[^\x20-\x7E]/', '', $value);
-    return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $value);
+    return $allowBalancedParentheses
+        ? str_replace('\\', '\\\\', $value)
+        : str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $value);
 }
 
 function atlasRentalsGeneratePdf(array $record, string $directory): array
@@ -161,7 +163,8 @@ function atlasRentalsGeneratePdf(array $record, string $directory): array
     }
     $content = "BT\n"; $y = 800;
     foreach ($displayLines as [$line, $size]) {
-        $content .= "/F1 {$size} Tf\n1 0 0 1 42 {$y} Tm\n(" . atlasRentalsPdfEscape($line) . ") Tj\n";
+        $trustedVatLabel = str_starts_with($line, 'VAT (7.5%)');
+        $content .= "/F1 {$size} Tf\n1 0 0 1 42 {$y} Tm\n(" . atlasRentalsPdfEscape($line, $trustedVatLabel) . ") Tj\n";
         $y -= $size > 10 ? 24 : 18;
     }
     $content .= "ET";
