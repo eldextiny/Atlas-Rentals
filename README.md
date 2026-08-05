@@ -1,6 +1,6 @@
 # ATLAS Rentals
 
-ATLAS Rentals is the browser-based planning foundation for DY-PLUS laptop rentals in Lagos and Abuja. It provides a guided four-step planner and a deterministic, itemized estimate without transmitting or storing customer information.
+ATLAS Rentals is the DY-PLUS laptop-rental enquiry planner for Lagos and Abuja. Its existing four-step experience provides a deterministic itemized estimate and securely submits validated enquiries for review. An enquiry is not a confirmed booking; availability and final pricing remain subject to DY-PLUS confirmation.
 
 ## Run locally
 
@@ -22,3 +22,9 @@ npm run check
 ```
 
 See `docs/` for architecture, business rules, roadmap and deployment guidance.
+
+## Enquiry persistence
+
+The same-origin PHP endpoint validates and normalizes the enquiry, recalculates pricing, and stores the normalized payload, pricing snapshot, contact and rental details. Identical normalized retries return the original enquiry reference; materially changed content creates a new enquiry. No PDF, email, CRM, payment or booking-confirmation integration is included in AR-H1.
+
+Production database credentials must be loaded from a PHP file outside `public_html`. See `docs/DEPLOYMENT.md`; never commit the real loader or its values.

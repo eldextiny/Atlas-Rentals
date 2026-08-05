@@ -28,6 +28,11 @@ test("support and personal details share step three", () => {
   assert.doesNotMatch(stepThree, /type="checkbox"[^>]*delivery|name="delivery/i);
 });
 
+test("delivery address is required without adding a workflow step", () => {
+  assert.match(html, /name="deliveryAddress"[^>]*required/);
+  assert.match(app, /form\.elements\.deliveryAddress\.checkValidity\(\)/);
+});
+
 test("final review and local reset contracts are retained", () => {
   const stepFour = html.match(/<section class="form-step" data-step="4"[\s\S]*?<\/section>/)?.[0] || "";
 
@@ -38,6 +43,14 @@ test("final review and local reset contracts are retained", () => {
   assert.match(app, /form\.reset\(\)/);
   assert.match(app, /technicianDaysInput\.disabled = true/);
   assert.match(app, /currentStep === 4 && result\.technicianDays === 0/);
+});
+
+test("confirmation is persisted-enquiry wording rather than booking confirmation", () => {
+  assert.match(html, /Submit enquiry/);
+  assert.match(html, /enquiry only; availability and booking remain subject to DY-PLUS confirmation/);
+  assert.match(app, /await submitEnquiry\(buildEnquiryPayload\(form\)\)/);
+  assert.match(app, /finishButton\.disabled = true/);
+  assert.match(app, /const enquiry = await submitEnquiry[\s\S]*success-message[\s\S]*catch \(error\)/);
 });
 
 test("hero cards retain guarded focus navigation without changing quantities", () => {

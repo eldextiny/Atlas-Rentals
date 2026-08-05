@@ -50,6 +50,7 @@ h1 { max-width: 880px; margin-bottom: 1.5rem; font-family: "Segoe UI Variable", 
 .hero-lead { max-width: 650px; margin-bottom: 2rem; color: #44534f; font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 1.13rem; font-weight: 400; line-height: 1.65; letter-spacing: -.005em; }
 .button { display: inline-flex; justify-content: center; align-items: center; min-height: 48px; padding: .8rem 1.25rem; border: 1px solid transparent; border-radius: 10px; cursor: pointer; font-weight: 850; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
 .button:hover { transform: translateY(-1px); }
+.button:disabled { cursor: wait; opacity: .68; transform: none; }
 .button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, .step:focus-visible { outline: 3px solid #4e8cff; outline-offset: 3px; }
 .button-primary { color: white; background: var(--brand-blue); box-shadow: 0 10px 24px rgba(17,10,221,.22); }
 .button-primary:hover { background: var(--brand-blue-hover); }
@@ -168,6 +169,7 @@ progress::-moz-progress-bar { background: var(--brand-green); }
 .summary-line strong { color: var(--ink); text-align: right; }
 .summary-line.total { margin-top: .5rem; padding-top: .8rem; border-top: 1px solid var(--line); font-size: 1rem; }
 .success-message { margin: 1rem 0 0; padding: 1rem; color: var(--success); background: #e7f4ec; border-radius: 9px; font-weight: 750; }
+.submission-status { min-height: 1.5rem; margin: .75rem 0 0; color: var(--muted); font-size: .85rem; font-weight: 700; }
 .restart-button { margin-top: .75rem; }
 footer { display: grid; grid-template-columns: 1fr auto auto; gap: 2rem; align-items: center; max-width: 1240px; margin: auto; padding: 2.5rem 2rem; color: var(--muted); border-top: 1px solid var(--line); font-size: .8rem; }
 footer p { margin: 0; }

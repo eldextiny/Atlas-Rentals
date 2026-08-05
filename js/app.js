@@ -1,4 +1,5 @@
 import { calculateEstimate, calculateRentalDays, validateBooking } from "./pricing.js";
+import { buildEnquiryPayload, createSubmissionGuard } from "./enquiry.js";
 
 const form = document.querySelector("#rental-form");
 const steps = [...document.querySelectorAll(".form-step")];
@@ -10,6 +11,8 @@ const technicianDaysWrap = document.querySelector("#technician-days-wrap");
 const technicianDaysInput = document.querySelector("#technician-days");
 const rateCards = [...document.querySelectorAll("[data-rate-target]")];
 const restartButton = document.querySelector("#restart-button");
+const finishButton = document.querySelector("#finish-button");
+const submissionStatus = document.querySelector("#submission-status");
 const totalSteps = 4;
 const currency = new Intl.NumberFormat("en-NG", {
   style: "currency",
@@ -113,6 +116,7 @@ function renderReview(state, result) {
   document.querySelector("#review-content").innerHTML = `
     <div class="summary-group"><h4>Schedule</h4>
       <div class="summary-line"><span>Location</span><strong>${escaped(state.location)}</strong></div>
+      <div class="summary-line"><span>Delivery address</span><strong>${escaped(values.deliveryAddress)}</strong></div>
       <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)} (${state.rentalDays} days)</strong></div>
     </div>
     <div class="summary-group"><h4>Equipment &amp; support</h4>
@@ -153,6 +157,11 @@ function validateCurrentStep() {
     if (booking.errors.dates) {
       const dateTarget = form.elements.startDate.value ? form.elements.endDate : form.elements.startDate;
       dateTarget.focus();
+      return false;
+    }
+    if (!form.elements.deliveryAddress.checkValidity()) {
+      showError("dates-error", "Enter the delivery address for this enquiry.");
+      form.elements.deliveryAddress.focus();
       return false;
     }
     return true;
@@ -253,8 +262,36 @@ technicianRequired.addEventListener("change", () => {
 form.addEventListener("input", updateEstimate);
 form.addEventListener("change", updateEstimate);
 form.addEventListener("submit", (event) => event.preventDefault());
-document.querySelector("#finish-button").addEventListener("click", () => {
-  document.querySelector("#success-message").hidden = false;
+const submitEnquiry = createSubmissionGuard(async (payload) => {
+  const response = await fetch("api/submit-enquiry.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.ok || !body.enquiry?.reference) {
+    throw new Error("The enquiry could not be saved. Please check your details and try again.");
+  }
+  return body.enquiry;
+});
+
+finishButton.addEventListener("click", async () => {
+  document.querySelector("#success-message").hidden = true;
+  finishButton.disabled = true;
+  form.setAttribute("aria-busy", "true");
+  submissionStatus.textContent = "Submitting your enquiry securely…";
+  try {
+    const enquiry = await submitEnquiry(buildEnquiryPayload(form));
+    document.querySelector("#enquiry-reference").textContent = enquiry.reference;
+    document.querySelector("#success-message").hidden = false;
+    submissionStatus.textContent = "Enquiry received.";
+    finishButton.hidden = true;
+  } catch (error) {
+    submissionStatus.textContent = error.message;
+  } finally {
+    form.removeAttribute("aria-busy");
+    if (document.querySelector("#success-message").hidden) finishButton.disabled = false;
+  }
 });
 restartButton.addEventListener("click", () => {
   form.reset();
@@ -263,6 +300,10 @@ restartButton.addEventListener("click", () => {
   scheduleValidated = false;
   technicianDaysWrap.hidden = true;
   technicianDaysInput.disabled = true;
+  finishButton.hidden = false;
+  finishButton.disabled = false;
+  submissionStatus.textContent = "";
+  document.querySelector("#success-message").hidden = true;
   ["location-error", "dates-error", "quantity-error", "technician-error", "details-error"].forEach((id) => showError(id));
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   goToStep(1, { scrollBehavior: reducedMotion ? "auto" : "smooth" });

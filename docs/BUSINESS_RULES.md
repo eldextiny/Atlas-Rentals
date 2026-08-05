@@ -24,7 +24,16 @@
 ## Validation
 
 - Service location must be Lagos or Abuja.
+- A delivery address is required.
 - End date must be the same as or later than the start date.
 - Laptop and technician quantities must be whole, non-negative numbers.
 - Technician support requires at least one technician day.
 - An estimate is non-binding and does not confirm availability or create a booking.
+
+## Enquiry submission
+
+- Contact name, organisation, email and phone are required; description is optional.
+- The server normalizes accepted values and independently recalculates every price.
+- Identical normalized content is one logical enquiry and returns the same reference on retry.
+- A material content change creates a new enquiry and reference.
+- References use `ARQ-YYYY-NNNNNN`; submission acknowledges an enquiry only.

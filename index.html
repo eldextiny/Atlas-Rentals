@@ -83,7 +83,7 @@
         <div class="planner-intro">
           <p class="eyebrow">Rental planner</p>
           <h2 id="planner-title">Plan the right laptops for your event.</h2>
-          <p>Choose your city, dates, laptop mix and optional technician support. Compulsory delivery and retrieval is included, your transparent itemised estimate updates as you go, and nothing is submitted from this planning tool.</p>
+          <p>Choose your city, dates, laptop mix and optional technician support. Your itemised estimate updates as you go. Submitted enquiries remain subject to availability and DY-PLUS confirmation.</p>
         </div>
 
         <nav class="steps" aria-label="Rental planning progress">
@@ -97,12 +97,13 @@
           <form id="rental-form" novalidate>
             <section class="form-step is-active" data-step="1" aria-labelledby="step-1-title">
               <p class="step-kicker">Step 1 of 4</p><h3 id="step-1-title">Rental Details</h3>
-              <p class="section-help">Choose the service city and inclusive rental dates.</p>
+              <p class="section-help">Choose the service city, inclusive rental dates and delivery address.</p>
               <fieldset><legend>Service city</legend><div class="choice-grid">
                 <label class="choice-card"><input type="radio" name="location" value="Lagos"><span><b>Lagos</b><small>Commercial and event support</small></span></label>
                 <label class="choice-card"><input type="radio" name="location" value="Abuja"><span><b>Abuja</b><small>Business and project support</small></span></label>
               </div><p class="field-error" id="location-error"></p></fieldset>
               <div class="field-grid"><label>Rental starts<input id="start-date" name="startDate" type="date" required></label><label>Rental ends<input id="end-date" name="endDate" type="date" required></label></div>
+              <label>Delivery address<textarea name="deliveryAddress" rows="3" maxlength="500" autocomplete="street-address" required></textarea></label>
               <p class="field-error" id="dates-error"></p>
             </section>
 
@@ -132,16 +133,18 @@
               <h4 class="details-heading">Your Personal Details</h4>
               <p class="section-help">These contact details will appear in your final review only.</p>
               <div class="field-grid"><label>Full name<input name="fullName" type="text" autocomplete="name" required></label><label>Organization<input name="organization" type="text" autocomplete="organization" required></label><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Phone number<input name="phone" type="tel" autocomplete="tel" required></label></div>
+              <label>Additional details (optional)<textarea name="description" rows="4" maxlength="5000"></textarea></label>
               <p class="field-error" id="details-error"></p>
             </section>
 
             <section class="form-step" data-step="4" aria-labelledby="step-4-title" hidden>
               <p class="step-kicker">Step 4 of 4</p><h3 id="step-4-title">Review Your Estimate</h3>
-              <p class="section-help">Check every detail. This foundation does not transmit or save your information.</p>
+              <p class="section-help">Check every detail before submitting. Pricing is an estimate until DY-PLUS reviews your enquiry.</p>
               <div id="review-content" class="review-content"></div>
-              <button class="button button-primary button-full" id="finish-button" type="button">Confirm plan is ready</button>
-              <button class="button button-secondary button-full restart-button" id="restart-button" type="button">Restart planner</button>
-              <p class="success-message" id="success-message" role="status" hidden>Your rental plan is ready. Submission will be added in a later project phase.</p>
+              <button class="button button-primary button-full" id="finish-button" type="button">Submit enquiry</button>
+              <button class="button button-secondary button-full restart-button" id="restart-button" type="button">Start new enquiry</button>
+              <p id="submission-status" class="submission-status" role="status" aria-live="polite"></p>
+              <p class="success-message" id="success-message" role="status" hidden>Thank you. Enquiry <strong id="enquiry-reference"></strong> has been received. This acknowledges your enquiry only; availability and booking remain subject to DY-PLUS confirmation.</p>
             </section>
 
             <div class="form-actions"><button class="button button-secondary" id="back-button" type="button" hidden>Back</button><button class="button button-primary" id="next-button" type="button">Continue</button></div>
