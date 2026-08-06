@@ -221,13 +221,11 @@ final class EnquiryService
         $this->length($value['fullName'], 2, 160, 'fullName', $errors);
         $this->length($value['organization'], 2, 200, 'organization', $errors);
         if (!filter_var($value['email'], FILTER_VALIDATE_EMAIL) || strlen($value['email']) > 254) $errors['email'] = 'Enter a valid email address.';
-        $phoneCharactersValid = preg_match('/^\+?[0-9 ()-]+$/', $value['phone']) === 1;
-        $phoneDigits = preg_replace('/\D+/', '', $value['phone']);
-        if (preg_match('/^0\d{10}$/', $phoneDigits)) $phoneDigits = '234' . substr($phoneDigits, 1);
-        if (!$phoneCharactersValid || !preg_match('/^(?:234\d{10}|[1-9]\d{7,14})$/', $phoneDigits)) {
+        $normalizedPhone = $this->normalizePhone($value['phone']);
+        if ($normalizedPhone === null) {
             $errors['phone'] = 'Enter a valid phone number.';
         } else {
-            $value['phone'] = '+' . $phoneDigits;
+            $value['phone'] = $normalizedPhone;
         }
         foreach (['standardQuantity', 'performanceQuantity', 'technicianDays'] as $field) {
             if (!is_int($value[$field]) || $value[$field] < 0 || $value[$field] > 10000) $errors[$field] = 'Enter a valid whole number.';
@@ -253,6 +251,24 @@ final class EnquiryService
         $to = new DateTimeImmutable($end, new DateTimeZone('UTC'));
         if ($to < $from) throw new InvalidArgumentException('Invalid range.');
         return (int) $from->diff($to)->days + 1;
+    }
+
+    private function normalizePhone(string $phone): ?string
+    {
+        if (preg_match('/^\+?[0-9 ()-]+$/', $phone) !== 1) return null;
+        $digits = preg_replace('/\D+/', '', $phone);
+
+        if (preg_match('/^0[789]\d{9}$/', $digits) === 1) {
+            return '+234' . substr($digits, 1);
+        }
+        if (preg_match('/^234[789]\d{9}$/', $digits) === 1) {
+            return '+' . $digits;
+        }
+        if (str_starts_with($phone, '+') && preg_match('/^[1-9]\d{7,14}$/', $digits) === 1) {
+            return '+' . $digits;
+        }
+
+        return null;
     }
 
     private function length(string $value, int $min, int $max, string $field, array &$errors): void

@@ -105,7 +105,25 @@ $tests['phone representations normalize to E.164'] = function (): void {
         $preview = service(new MemoryStore())->preview($payload);
         expect($preview['normalized']['phone'] === '+2348028557479', 'phone normalization mismatch');
     }
-    foreach (['0802', '0802ABC7479', '+00012345678'] as $phone) { $payload = valid_payload(); $payload['phone'] = $phone; expect_validation($payload, 'phone'); }
+    $international = valid_payload(); $international['phone'] = '+442071838750';
+    expect(service(new MemoryStore())->preview($international)['normalized']['phone'] === '+442071838750', 'international phone normalization mismatch');
+
+    foreach ([
+        'too short' => '0802',
+        'alphabetic' => '0802ABC7479',
+        'zero country code' => '+00012345678',
+        'invalid Nigerian prefix' => '02028557479',
+        'bare non-Nigerian digits' => '442071838750',
+        'too long' => '+1234567890123456',
+    ] as $case => $phone) {
+        $payload = valid_payload(); $payload['phone'] = $phone;
+        try { service(new MemoryStore())->submit($payload); }
+        catch (EnquiryValidationException $error) {
+            expect(isset($error->errors['phone']), "Expected phone validation error for {$case}: {$phone}");
+            continue;
+        }
+        throw new RuntimeException("Expected validation failure for {$case}: {$phone}");
+    }
 };
 $tests['http parser rejects method content type malformed and oversized bodies'] = function (): void {
     foreach ([
