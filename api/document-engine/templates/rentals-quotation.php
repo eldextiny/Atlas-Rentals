@@ -1,7 +1,10 @@
 <?php
 declare(strict_types=1);
 
-const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v2';
+require_once __DIR__ . '/../pdf-png.php';
+
+const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v3-logo';
+const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
 
 function atlasRentalsPdfText(mixed $value): string
 {
@@ -36,6 +39,8 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $standardAmount = (int)$record['standard_quantity'] * $days * (float)$record['standard_daily_rate'];
     $performanceAmount = (int)$record['performance_quantity'] * $days * (float)$record['performance_daily_rate'];
     $technicianAmount = (int)$record['technician_days'] * (float)$record['technician_daily_rate'];
+    $logo = atlasRentalsPdfLoadRgbaPng(ATLAS_RENTALS_PDF_LOGO_PATH);
+    $logoHeight = 46.0; $logoWidth = $logoHeight * ($logo['width'] / $logo['height']);
     $pages = [];
     $page = '';
     $y = 0.0;
@@ -50,15 +55,13 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $line = static function (float $x1, float $atY, float $x2, array $color = [0.88, 0.90, 0.93]) use (&$page): void {
         $page .= sprintf("%.3F %.3F %.3F RG %.1F %.1F m %.1F %.1F l S\n", $color[0], $color[1], $color[2], $x1, $atY, $x2, $atY);
     };
-    $startPage = static function () use (&$page, &$y, $rect, $text, $reference): void {
+    $startPage = static function () use (&$page, &$y, $rect, $text, $logoWidth, $logoHeight): void {
         $page = '';
         $rect(0, 770, 595, 72, [0.071, 0.220, 0.357]);
         $rect(0, 765, 595, 5, [0.122, 0.616, 0.408]);
         $text(42, 809, 'DY-PLUS', 18, true, [1, 1, 1]);
         $text(42, 789, 'ATLAS Rentals', 10, true, [0.85, 0.96, 0.91]);
-        $text(445, 801, 'LAPTOP RENTAL', 9, true, [1, 1, 1]);
-        $text(445, 786, 'QUOTATION', 9, true, [1, 1, 1]);
-        $text(445, 774, $reference, 7.5, false, [0.85, 0.96, 0.91]);
+        $page .= sprintf("q %.3F 0 0 %.3F %.3F 783 cm /Im1 Do Q\n", $logoWidth, $logoHeight, 553 - $logoWidth);
         $y = 738;
     };
     $finishPage = static function () use (&$pages, &$page, $line, $text, $reference): void {
@@ -123,11 +126,17 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     }
     $finishPage();
 
-    $objects = [1 => '', 2 => '', 3 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>', 4 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];
+    $objects = [
+        1 => '', 2 => '',
+        3 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+        4 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+        5 => '<< /Type /XObject /Subtype /Image /Width ' . $logo['width'] . ' /Height ' . $logo['height'] . ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask 6 0 R /Length ' . strlen($logo['rgb']) . ">>\nstream\n" . $logo['rgb'] . "\nendstream",
+        6 => '<< /Type /XObject /Subtype /Image /Width ' . $logo['width'] . ' /Height ' . $logo['height'] . ' /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ' . strlen($logo['alpha']) . ">>\nstream\n" . $logo['alpha'] . "\nendstream",
+    ];
     $pageReferences = [];
     foreach ($pages as $index => $content) {
-        $pageId = 5 + ($index * 2); $contentId = $pageId + 1; $pageReferences[] = $pageId . ' 0 R';
-        $objects[$pageId] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ' . $contentId . ' 0 R >>';
+        $pageId = 7 + ($index * 2); $contentId = $pageId + 1; $pageReferences[] = $pageId . ' 0 R';
+        $objects[$pageId] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 5 0 R >> >> /Contents ' . $contentId . ' 0 R >>';
         $objects[$contentId] = '<< /Length ' . strlen($content) . ">>\nstream\n" . $content . "endstream";
     }
     $objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';

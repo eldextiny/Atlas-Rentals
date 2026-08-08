@@ -47,8 +47,12 @@ $tests['CRM review is deduplicated and changed content updates'] = function () u
     check($calls === 2, 'changed CRM review did not update');
 };
 $tests['PDF contains required quotation content'] = function () use ($record, $pdfPath): void {
+    check(is_file(ATLAS_RENTALS_PDF_LOGO_PATH), 'approved DY-PLUS logo asset is missing');
+    $logo = atlasRentalsPdfLoadRgbaPng(ATLAS_RENTALS_PDF_LOGO_PATH);
+    check($logo['width'] === 200 && $logo['height'] === 129, 'approved logo dimensions changed');
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath); $bytes = file_get_contents($pdf['path']);
     check(str_starts_with($bytes, '%PDF-1.4') && str_ends_with($bytes, '%%EOF'), 'PDF structure invalid');
+    check(str_contains($bytes, '/Subtype /Image') && str_contains($bytes, '/Width 200 /Height 129') && str_contains($bytes, '/SMask'), 'approved logo was not embedded with transparency');
     foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', 'Ada User', 'Standard laptops', 'High-performance laptops', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
     check(str_contains($bytes, 'VAT \\(7.5%\\)'), 'PDF missing VAT (7.5%)');
     $long = $record; $long['enquiry_reference'] = 'ARQ-2026-000099';
@@ -60,8 +64,10 @@ $tests['PDF contains required quotation content'] = function () use ($record, $p
 };
 $tests['PDF renderer version rotates the cached document fingerprint'] = function () use ($record, $pdfPath): void {
     $old = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot']), 0, 16);
+    $previousPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v2'), 0, 16);
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath);
     check($pdf['fingerprint'] !== $old, 'presentation version did not rotate PDF fingerprint');
+    check($pdf['fingerprint'] !== $previousPresentation, 'logo renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] === substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|' . ATLAS_RENTALS_PDF_PRESENTATION_VERSION), 0, 16), 'PDF fingerprint is not presentation-version bound');
 };
 $tests['partial email failure resumes without duplicating completed client'] = function () use ($record, $preview, $config, $pdfPath): void {

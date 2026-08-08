@@ -7,6 +7,7 @@ const endpoint = readFileSync(new URL("../api/submit-enquiry.php", import.meta.u
 const runtime = readFileSync(new URL("../api/integration-runtime.php", import.meta.url), "utf8");
 const emailTemplate = readFileSync(new URL("../api/rentals-email-template.php", import.meta.url), "utf8");
 const pdfTemplate = readFileSync(new URL("../api/document-engine/templates/rentals-quotation.php", import.meta.url), "utf8");
+const pngHelper = readFileSync(new URL("../api/document-engine/pdf-png.php", import.meta.url), "utf8");
 
 test("PDO store uses prepared statements and one locked transaction", () => {
   assert.match(service, /beginTransaction\(\)/);
@@ -46,6 +47,9 @@ test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(emailTemplate, /New ATLAS Rentals Enquiry/);
   assert.match(emailTemplate, /Delivery & retrieval/);
   assert.match(pdfTemplate, /ATLAS_RENTALS_PDF_PRESENTATION_VERSION/);
+  assert.match(pdfTemplate, /assets\/dyplus-logo\.png/);
+  assert.match(pdfTemplate, /\/Im1 Do/);
+  assert.match(pngHelper, /\/Subtype \/Image|atlasRentalsPdfLoadRgbaPng/);
   assert.match(pdfTemplate, /Laptop Rental Quotation/);
   assert.match(pdfTemplate, /Availability and Booking/);
   assert.doesNotMatch(emailTemplate + pdfTemplate, /sourceLanguage|targetLanguage|translation request/i);
