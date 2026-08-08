@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/rentals-email-template.php';
+require_once __DIR__ . '/document-engine/templates/rentals-quotation.php';
+
 const ATLAS_RENTALS_INTEGRATIONS_CONFIG = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-integrations.php';
 const ATLAS_RENTALS_DELIVERY_STATE = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/delivery-state';
 const ATLAS_RENTALS_PDF_STORAGE = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/quotation-pdfs';
@@ -130,54 +133,11 @@ function atlasRentalsPdfEscape(string $value, bool $allowBalancedParentheses = f
 function atlasRentalsGeneratePdf(array $record, string $directory): array
 {
     $reference = (string)$record['enquiry_reference'];
-    $fingerprint = substr(hash('sha256', (string)$record['normalized_payload'] . '|' . (string)$record['pricing_snapshot']), 0, 16);
+    $fingerprint = substr(hash('sha256', (string)$record['normalized_payload'] . '|' . (string)$record['pricing_snapshot'] . '|' . ATLAS_RENTALS_PDF_PRESENTATION_VERSION), 0, 16);
     $path = atlasRentalsStateFile($directory, $reference . '-' . $fingerprint);
     $path = substr($path, 0, -5) . '.pdf';
     if (is_file($path) && filesize($path) > 100) return ['path' => $path, 'fingerprint' => $fingerprint];
-    $data = json_decode((string)$record['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
-    $pricing = json_decode((string)$record['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR);
-    $created = (new DateTimeImmutable((string)$record['created_at']))->format('d M Y');
-    $validUntil = (new DateTimeImmutable((string)$record['created_at']))->modify('+7 days')->format('d M Y');
-    $lines = [
-        'ATLAS RENTALS BY DY-PLUS', 'LAPTOP RENTAL QUOTATION', 'Reference: ' . $reference,
-        'Created: ' . $created . ' | Valid until: ' . $validUntil,
-        'Client: ' . $data['fullName'], 'Organisation: ' . $data['organization'],
-        'Email: ' . $data['email'], 'Phone: ' . $data['phone'], 'Location: ' . $data['location'],
-        'Rental: ' . $data['startDate'] . ' to ' . $data['endDate'] . ' (' . $record['rental_days'] . ' inclusive days)',
-        'Standard laptops: ' . $record['standard_quantity'] . ' x ' . $record['rental_days'] . ' x NGN ' . number_format((float)$record['standard_daily_rate'], 2) . ' = NGN ' . number_format($record['standard_quantity'] * $record['rental_days'] * (float)$record['standard_daily_rate'], 2),
-        'High Performance: ' . $record['performance_quantity'] . ' x ' . $record['rental_days'] . ' x NGN ' . number_format((float)$record['performance_daily_rate'], 2) . ' = NGN ' . number_format($record['performance_quantity'] * $record['rental_days'] * (float)$record['performance_daily_rate'], 2),
-        'Delivery & Retrieval (compulsory): NGN ' . number_format((float)$record['delivery_fee'], 2),
-    ];
-    if ((int)$record['technician_required'] === 1) $lines[] = 'Technician: ' . $record['technician_days'] . ' x NGN ' . number_format((float)$record['technician_daily_rate'], 2) . ' = NGN ' . number_format($record['technician_days'] * (float)$record['technician_daily_rate'], 2);
-    $lines = array_merge($lines, [
-        'Subtotal before VAT: NGN ' . number_format((float)$record['subtotal'], 2),
-        'VAT (7.5%): NGN ' . number_format((float)$record['vat_amount'], 2),
-        'ESTIMATED TOTAL: NGN ' . number_format((float)$record['estimated_total'], 2),
-        'This estimate is valid for 7 days and remains subject to availability and DY-PLUS review.',
-        'This submission is an enquiry and does not confirm availability or create a booking.',
-        'DY-PLUS NIG. LTD. | Atlas Rentals | Quotation Reference ' . $reference . ' | Page 1 of 1',
-    ]);
-    $displayLines = [];
-    foreach ($lines as $index => $line) {
-        foreach (explode("\n", wordwrap($line, $index < 2 ? 58 : 92, "\n", true)) as $wrapped) $displayLines[] = [$wrapped, $index < 2 ? (16 - ($index * 2)) : 9.5];
-    }
-    $content = "BT\n"; $y = 800;
-    foreach ($displayLines as [$line, $size]) {
-        $trustedVatLabel = str_starts_with($line, 'VAT (7.5%)');
-        $content .= "/F1 {$size} Tf\n1 0 0 1 42 {$y} Tm\n(" . atlasRentalsPdfEscape($line, $trustedVatLabel) . ") Tj\n";
-        $y -= $size > 10 ? 24 : 18;
-    }
-    $content .= "ET";
-    $objects = [
-        '<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
-        '<< /Length ' . strlen($content) . " >>\nstream\n" . $content . "\nendstream", '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    ];
-    $pdf = "%PDF-1.4\n"; $offsets = [0];
-    foreach ($objects as $index => $object) { $offsets[] = strlen($pdf); $pdf .= ($index + 1) . " 0 obj\n{$object}\nendobj\n"; }
-    $xref = strlen($pdf); $pdf .= "xref\n0 6\n0000000000 65535 f \n";
-    for ($i = 1; $i <= 5; $i++) $pdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
-    $pdf .= "trailer << /Size 6 /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
+    $pdf = atlasRentalsRenderQuotationPdf($record);
     $temporary = tempnam($directory, $reference . '.tmp.');
     if ($temporary === false || file_put_contents($temporary, $pdf, LOCK_EX) === false || !rename($temporary, $path)) throw new RuntimeException('PDF generation failed.');
     if (filesize($path) > ATLAS_RENTALS_MAX_ATTACHMENT) { unlink($path); throw new RuntimeException('PDF attachment too large.'); }
@@ -191,17 +151,22 @@ function atlasRentalsSendEmail(array $record, array $pdf, string $audience, arra
     if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || !function_exists('curl_init')) return atlasRentalsSafeResult(false, 'EMAIL_UNAVAILABLE', true);
     $reference = $record['enquiry_reference'];
     $subject = $audience === 'client' ? "We received your Atlas Rentals enquiry {$reference}" : "New Atlas Rentals enquiry {$reference}";
-    $summary = "Reference: {$reference}\nClient: {$record['full_name']}\nOrganisation: {$record['organization']}\nLocation: {$record['location']}\nDates: {$record['start_date']} to {$record['end_date']}\nEstimated total: NGN " . number_format((float)$record['estimated_total'], 2);
-    $text = $audience === 'client' ? "Thank you. DY-PLUS received your laptop rental enquiry.\n{$summary}\nAvailability and booking remain subject to DY-PLUS confirmation." : "A new Atlas Rentals enquiry requires review.\n{$summary}\nJourney and operational details are contained in the attached quotation.";
-    $payload = ['from' => trim(($config['from_name'] ?: 'Atlas Rentals by DY-PLUS') . ' <' . $config['from_email'] . '>'), 'to' => [$recipient], 'subject' => $subject, 'text' => $text,
+    $message = atlasRentalsBuildEmail($record, $audience);
+    $payload = ['from' => trim(($config['from_name'] ?: 'Atlas Rentals by DY-PLUS') . ' <' . $config['from_email'] . '>'), 'to' => [$recipient], 'subject' => $subject, 'html' => $message['html'], 'text' => $message['text'],
         'attachments' => [['filename' => $reference . '-quotation.pdf', 'content' => base64_encode((string)file_get_contents($pdf['path']))]]];
     if (filter_var($config['reply_to'] ?? '', FILTER_VALIDATE_EMAIL)) $payload['reply_to'] = $config['reply_to'];
     $handle = curl_init('https://api.resend.com/emails');
     curl_setopt_array($handle, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20,
-        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $config['resend_api_key'], 'Content-Type: application/json', 'Idempotency-Key: atlas-rentals-' . strtolower($reference) . '-' . $audience],
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $config['resend_api_key'], 'Content-Type: application/json', 'Idempotency-Key: ' . atlasRentalsEmailIdempotencyKey($reference, $audience)],
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)]);
     $body = curl_exec($handle); $status = (int)curl_getinfo($handle, CURLINFO_HTTP_CODE); curl_close($handle);
     return $body !== false && $status >= 200 && $status < 300 ? atlasRentalsSafeResult(true, 'EMAIL_DELIVERED') : atlasRentalsSafeResult(false, 'EMAIL_DELIVERY_FAILED', true);
+}
+
+function atlasRentalsEmailIdempotencyKey(string $reference, string $audience): string
+{
+    if (!in_array($audience, ['client', 'admin'], true)) throw new InvalidArgumentException('Invalid email audience.');
+    return 'atlas-rentals-' . strtolower($reference) . '-' . $audience;
 }
 
 function atlasRentalsDeliver(array $record, array $preview, array $config, array $adapters = []): array

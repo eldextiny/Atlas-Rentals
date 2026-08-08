@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 const service = readFileSync(new URL("../api/enquiry-service.php", import.meta.url), "utf8");
 const endpoint = readFileSync(new URL("../api/submit-enquiry.php", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../api/integration-runtime.php", import.meta.url), "utf8");
+const emailTemplate = readFileSync(new URL("../api/rentals-email-template.php", import.meta.url), "utf8");
+const pdfTemplate = readFileSync(new URL("../api/document-engine/templates/rentals-quotation.php", import.meta.url), "utf8");
 
 test("PDO store uses prepared statements and one locked transaction", () => {
   assert.match(service, /beginTransaction\(\)/);
@@ -29,13 +31,24 @@ test("endpoint uses only the private configurable loader contract", () => {
 
 test("delivery runtime has ordered resumable PDF and recipient operations", () => {
   assert.match(runtime, /atlasRentalsGeneratePdf[\s\S]*\['client', 'admin'\]/);
-  assert.match(runtime, /Idempotency-Key: atlas-rentals-/);
+  assert.match(runtime, /atlasRentalsEmailIdempotencyKey\(\$reference, \$audience\)/);
   assert.match(runtime, /quotation-pdfs/);
   assert.match(runtime, /delivery-state/);
-  assert.match(runtime, /Valid until:/);
-  assert.match(runtime, /trustedVatLabel = str_starts_with\(\$line, 'VAT \(7\.5%\)'\)/);
+  assert.match(runtime, /ATLAS_RENTALS_PDF_PRESENTATION_VERSION/);
+  assert.match(runtime, /'html' => \$message\['html'\], 'text' => \$message\['text'\]/);
   assert.match(runtime, /\['client', 'admin'\]/);
   assert.match(runtime, /attachments/);
+});
+
+test("presentation templates are branded, escaped and Rentals-specific", () => {
+  assert.match(emailTemplate, /htmlspecialchars\(\(string\)\$value, ENT_QUOTES \| ENT_SUBSTITUTE, 'UTF-8'\)/);
+  assert.match(emailTemplate, /Laptop Rental Quotation/);
+  assert.match(emailTemplate, /New ATLAS Rentals Enquiry/);
+  assert.match(emailTemplate, /Delivery & retrieval/);
+  assert.match(pdfTemplate, /ATLAS_RENTALS_PDF_PRESENTATION_VERSION/);
+  assert.match(pdfTemplate, /Laptop Rental Quotation/);
+  assert.match(pdfTemplate, /Availability and Booking/);
+  assert.doesNotMatch(emailTemplate + pdfTemplate, /sourceLanguage|targetLanguage|translation request/i);
 });
 
 test("removed fields are absent from browser and server request contracts", () => {
