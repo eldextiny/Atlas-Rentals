@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check js/pricing.js && node --check js/app.js"
+    "check": "node --check js/pricing.js && node --check js/enquiry.js && node --check js/app.js"
   }
 }

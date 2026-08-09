@@ -2,20 +2,85 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   PRICING,
+  calculateTieredPerUnit,
+  calculateRatePlanPerUnit,
   calculateEstimate,
   calculateRentalDays,
+  decomposeRentalDuration,
+  formatDurationBreakdown,
+  LAPTOP_CATALOGUE,
+  RATE_PLANS,
   validateBooking,
 } from "../js/pricing.js";
 
 test("published rates and minimum remain fixed", () => {
-  assert.deepEqual(PRICING, {
-    standardDailyRate: 10_000,
-    performanceDailyRate: 15_000,
-    deliveryRetrievalPerBooking: 40_000,
-    technicianDailyRate: 35_000,
-    vatRate: 0.075,
-    minimumLaptopQuantity: 5,
-  });
+  assert.deepEqual([PRICING.standardDailyRate, PRICING.standardWeeklyRate, PRICING.standardMonthlyRate], [10_000, 59_500, 185_000]);
+  assert.deepEqual([PRICING.performanceDailyRate, PRICING.performanceWeeklyRate, PRICING.performanceMonthlyRate], [15_000, 89_500, 225_500]);
+  assert.deepEqual([PRICING.daysPerWeek, PRICING.daysPerMonth, PRICING.deliveryRetrievalPerBooking, PRICING.technicianDailyRate, PRICING.vatRate, PRICING.minimumLaptopQuantity], [7, 30, 40_000, 35_000, .075, 5]);
+});
+
+test("daily weekly and monthly plans calculate both categories exactly", () => {
+  for (const [category, rates] of Object.entries(LAPTOP_CATALOGUE)) {
+    const multiplier = category === "standard" ? 1 : 1;
+    assert.equal(calculateRatePlanPerUnit(1, rates, "daily").perUnitRental, rates.dailyRate * multiplier);
+    assert.equal(calculateRatePlanPerUnit(6, rates, "daily").perUnitRental, rates.dailyRate * 6);
+    for (const days of [7, 14, 28]) assert.equal(calculateRatePlanPerUnit(days, rates, "weekly").perUnitRental, (days / 7) * rates.weeklyRate);
+    for (const days of [30, 60]) assert.equal(calculateRatePlanPerUnit(days, rates, "monthly").perUnitRental, (days / 30) * rates.monthlyRate);
+  }
+  assert.deepEqual(Object.keys(RATE_PLANS), ["daily", "weekly", "monthly", "best"]);
+});
+
+test("weekly and monthly plans reject partial blocks without rounding", () => {
+  for (const days of [8, 29, 30, 31]) assert.match(calculateRatePlanPerUnit(days, LAPTOP_CATALOGUE.standard, "weekly").error, /whole multiple of 7 days/);
+  for (const days of [7, 29, 31, 37]) assert.match(calculateRatePlanPerUnit(days, LAPTOP_CATALOGUE.standard, "monthly").error, /whole multiple of 30 days/);
+});
+
+test("booking validation exposes precise rate-plan errors", () => {
+  const base = { location: "Lagos", startDate: "2026-08-01", standardQuantity: 5 };
+  assert.equal(validateBooking({ ...base, endDate: "2026-08-08", ratePlan: "weekly" }).errors.ratePlan, "Weekly Rate requires the rental duration to be a whole multiple of 7 days.");
+  assert.equal(validateBooking({ ...base, endDate: "2026-08-31", ratePlan: "monthly" }).errors.ratePlan, "Monthly Rate requires the rental duration to be a whole multiple of 30 days.");
+  assert.equal(validateBooking({ ...base, endDate: "2026-08-01", ratePlan: "" }).errors.ratePlan, "Select a rental rate plan.");
+});
+
+test("best available plan preserves required decomposition boundaries", () => {
+  const expected = { 8:[0,1,1], 29:[0,4,1], 31:[1,0,1], 37:[1,1,0], 60:[2,0,0], 67:[2,1,0] };
+  for (const [days, blocks] of Object.entries(expected)) {
+    const result = calculateRatePlanPerUnit(Number(days), LAPTOP_CATALOGUE.performance, "best");
+    assert.deepEqual([result.months, result.weeks, result.days], blocks);
+  }
+});
+
+test("duration decomposition always applies months, then weeks, then days", () => {
+  const expected = { 1: [0,0,1], 6: [0,0,6], 7: [0,1,0], 8: [0,1,1], 29: [0,4,1], 30: [1,0,0], 31: [1,0,1], 37: [1,1,0], 60: [2,0,0], 67: [2,1,0] };
+  for (const [total, blocks] of Object.entries(expected)) {
+    const result = decomposeRentalDuration(Number(total));
+    assert.deepEqual([result.months, result.weeks, result.days], blocks);
+  }
+  assert.equal(formatDurationBreakdown(decomposeRentalDuration(40)), "1 month + 1 week + 3 days");
+});
+
+test("both categories use exact tiered per-unit charges at every boundary", () => {
+  const standard = { 1:10000, 6:60000, 7:59500, 8:69500, 29:248000, 30:185000, 31:195000, 37:244500, 60:370000, 67:429500 };
+  const performance = { 1:15000, 6:90000, 7:89500, 8:104500, 29:373000, 30:225500, 31:240500, 37:315000, 60:451000, 67:540500 };
+  for (const [days, amount] of Object.entries(standard)) {
+    assert.equal(calculateTieredPerUnit(Number(days), LAPTOP_CATALOGUE.standard).perUnitRental, amount);
+    assert.equal(calculateEstimate({ standardQuantity: 5, rentalDays: Number(days) }).standardRental, amount * 5);
+  }
+  for (const [days, amount] of Object.entries(performance)) {
+    assert.equal(calculateTieredPerUnit(Number(days), LAPTOP_CATALOGUE.performance).perUnitRental, amount);
+    assert.equal(calculateEstimate({ performanceQuantity: 6, rentalDays: Number(days) }).performanceRental, amount * 6);
+  }
+});
+
+test("tiered per-unit charges multiply by quantity and only charge selected category", () => {
+  const standard = calculateEstimate({ standardQuantity: 6, rentalDays: 37 });
+  assert.equal(standard.standardPricing.perUnitRental, 244500);
+  assert.equal(standard.standardRental, 1467000);
+  assert.equal(standard.performanceRental, 0);
+  const performance = calculateEstimate({ performanceQuantity: 5, rentalDays: 67 });
+  assert.equal(performance.performancePricing.perUnitRental, 540500);
+  assert.equal(performance.performanceRental, 2702500);
+  assert.equal(performance.standardRental, 0);
 });
 
 test("standard rental is quantity multiplied by days and rate", () => {
@@ -70,6 +135,7 @@ test("VAT applies after rental, Delivery & Retrieval and technician charges", ()
   const result = calculateEstimate({
     standardQuantity: 3,
     performanceQuantity: 2,
+    ratePlan: "best",
     rentalDays: 2,
     technicianDays: 2,
   });
@@ -81,7 +147,7 @@ test("VAT applies after rental, Delivery & Retrieval and technician charges", ()
   assert.equal(result.total, 247_250);
 });
 
-test("technician remains optional while Delivery & Retrieval stays compulsory", () => {
+test("technician remains optional while Delivery & Retrieval stays included", () => {
   const result = calculateEstimate({ standardQuantity: 5, rentalDays: 1 });
   assert.equal(result.deliveryRetrieval, 40_000);
   assert.equal(result.technician, 0);
@@ -109,16 +175,27 @@ test("negative and fractional quantities fail deterministically", () => {
 
 test("booking validation reports location, date and minimum errors", () => {
   const result = validateBooking({
-    location: "Kano",
+    location: "X",
     startDate: "2026-08-05",
     endDate: "2026-08-04",
     standardQuantity: 2,
     performanceQuantity: 2,
   });
   assert.equal(result.valid, false);
-  assert.match(result.errors.location, /Lagos or Abuja/);
+  assert.match(result.errors.location, /valid service city/);
   assert.match(result.errors.dates, /on or after/);
   assert.match(result.errors.quantity, /at least 5/);
+});
+
+test("booking validation accepts a specified Nigerian service city", () => {
+  const result = validateBooking({
+    location: "Port Harcourt",
+    startDate: "2026-08-05",
+    endDate: "2026-08-05",
+    standardQuantity: 5,
+    ratePlan: "best",
+  });
+  assert.equal(result.valid, true);
 });
 
 test("technician selection requires at least one support day", () => {
@@ -127,6 +204,7 @@ test("technician selection requires at least one support day", () => {
     startDate: "2026-08-04",
     endDate: "2026-08-04",
     standardQuantity: 5,
+    ratePlan: "best",
     technicianRequired: true,
     technicianDays: 0,
   });
