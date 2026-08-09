@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Refined the four-step planner hierarchy, grouped estimate presentation, native selector framing, review reassurance, and confirmed-enquiry result card without changing workflow or commercial rules.
 - Reassured customers at review, refined directional step transitions, added an accessible submission-status overlay, and completed all progress markers after confirmed submission.
 - Replaced demanding Delivery & Retrieval wording with included-service language across the customer interface and business-rules documentation.
 - Added an optional privately configured WhatsApp follow-up CTA to client quotation emails and clarified Delivery & Retrieval as a standard rental service in emails and PDFs.

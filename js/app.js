@@ -154,6 +154,9 @@ function updateEstimate() {
   setText("#technician-summary", result.technicianDays ? `${result.technicianDays} days` : "Not selected");
   setText("#technician-cost", currency.format(result.technician));
   document.querySelector("#technician-estimate-row").hidden = currentStep === 4 && result.technicianDays === 0;
+  setText("#estimate-duration-detail", result.rentalDays ? `${result.rentalDays} inclusive day${result.rentalDays === 1 ? "" : "s"}` : "Dates pending");
+  setText("#estimate-rate-plan", result.ratePlanLabel);
+  setText("#estimate-subtotal", currency.format(result.subtotalBeforeVat));
   setText("#vat-cost", currency.format(result.vat));
   setText("#total-cost", currency.format(result.total));
   setText("#estimate-duration", result.rentalDays ? `${result.rentalDays} day${result.rentalDays === 1 ? "" : "s"}` : "Dates pending");

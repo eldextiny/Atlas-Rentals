@@ -185,12 +185,25 @@
               <p class="step-kicker">Step 4 of 4</p><h3 id="step-4-title">Review Your Estimate</h3>
               <p class="section-help">Check every detail before submitting. Pricing is an estimate until DY-PLUS reviews your enquiry.</p>
               <div id="review-content" class="review-content"></div>
+              <div class="review-reassurance" role="note" aria-label="Before you submit">
+                <div><span aria-hidden="true">&#10003;</span><p><strong>Secure enquiry handling</strong><small>Your details are handled through the protected Atlas Rentals workflow.</small></p></div>
+                <div><span aria-hidden="true">&#10003;</span><p><strong>Transparent pricing</strong><small>Your estimate stays itemised for review.</small></p></div>
+                <div><span aria-hidden="true">&#10003;</span><p><strong>Availability confirmation</strong><small>No booking is confirmed until DY-PLUS verifies availability.</small></p></div>
+              </div>
               <button class="button button-primary button-full" id="finish-button" type="button">Submit enquiry</button>
-              <a class="button button-primary button-full download-quote" id="download-quote" href="#" download hidden aria-label="Download your Atlas Rentals quotation PDF"><span aria-hidden="true">&#8681;</span> Download Quote</a>
-              <button class="button button-primary button-full" id="quotation-pending" type="button" disabled hidden>Preparing quotation…</button>
-              <button class="button button-secondary button-full restart-button" id="restart-button" type="button" hidden>Start new enquiry</button>
               <p id="submission-status" class="submission-status" role="status" aria-live="polite"></p>
-              <p class="success-message" id="success-message" role="status" tabindex="-1" hidden>Thank you. Enquiry <strong id="enquiry-reference"></strong> has been received. This acknowledges your enquiry only; availability and booking remain subject to DY-PLUS confirmation.</p>
+              <section class="success-message" id="success-message" role="status" tabindex="-1" aria-labelledby="success-result-title" hidden>
+                <span class="success-result-badge"><span aria-hidden="true">&#10003;</span> Successfully submitted</span>
+                <h4 id="success-result-title">Enquiry received</h4>
+                <p class="success-reference-label">Your enquiry reference</p>
+                <strong class="success-reference" id="enquiry-reference"></strong>
+                <p class="success-confirmation">Your enquiry has been received. Availability and booking remain subject to confirmation by DY-PLUS.</p>
+                <div class="success-actions">
+                  <a class="button button-primary button-full download-quote" id="download-quote" href="#" download hidden aria-label="Download your Atlas Rentals quotation PDF"><span aria-hidden="true">&#8681;</span> Download Quote</a>
+                  <button class="button button-primary button-full" id="quotation-pending" type="button" disabled hidden>Preparing quotation…</button>
+                  <button class="button button-tertiary button-full restart-button" id="restart-button" type="button" hidden>Start new enquiry</button>
+                </div>
+              </section>
             </section>
 
             <div class="form-actions" id="form-actions"><button class="button button-secondary" id="back-button" type="button" hidden>Back</button><button class="button button-primary" id="next-button" type="button">Continue</button></div>
@@ -198,14 +211,32 @@
 
           <aside class="estimate-card" aria-labelledby="estimate-title" aria-live="polite">
             <div class="estimate-heading"><div><p class="panel-label">Live estimate</p><h3 id="estimate-title">Your rental plan</h3></div><span id="estimate-duration">Dates pending</span></div>
-            <dl>
+            <section class="estimate-group" aria-labelledby="estimate-equipment-title">
+              <h4 id="estimate-equipment-title">Selected equipment</h4><dl>
               <div id="standard-estimate-row"><dt>Standard laptops <small id="standard-summary">0 × 0 days</small></dt><dd id="standard-cost">₦0</dd></div>
               <div id="performance-estimate-row"><dt>High performance <small id="performance-summary">0 × 0 days</small></dt><dd id="performance-cost">₦0</dd></div>
-              <div><dt>Delivery &amp; Retrieval <small>Included rental service</small></dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
+              </dl>
+            </section>
+            <section class="estimate-group" aria-labelledby="estimate-plan-title">
+              <h4 id="estimate-plan-title">Rental plan</h4><dl>
+                <div><dt>Duration</dt><dd id="estimate-duration-detail">Dates pending</dd></div>
+                <div><dt>Rate plan</dt><dd id="estimate-rate-plan">Plan pending</dd></div>
+              </dl>
+            </section>
+            <section class="estimate-group" aria-labelledby="estimate-services-title">
+              <h4 id="estimate-services-title">Services</h4><dl>
               <div id="technician-estimate-row"><dt>Technician <small id="technician-summary">Not selected</small></dt><dd id="technician-cost">₦0</dd></div>
+              <div><dt>Delivery &amp; Retrieval <small>Included rental service</small></dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
+              </dl>
+            </section>
+            <section class="estimate-group estimate-commercial" aria-labelledby="estimate-commercial-title">
+              <h4 id="estimate-commercial-title">Estimate summary</h4><dl>
+              <div><dt>Subtotal</dt><dd id="estimate-subtotal">₦40,000</dd></div>
               <div class="vat-row"><dt>VAT <small>7.5%</small></dt><dd id="vat-cost">₦0</dd></div>
-            </dl>
+              </dl>
+            </section>
             <div class="total-row"><span>Estimated total</span><strong id="total-cost">₦0</strong></div>
+            <p class="estimate-disclaimer">Estimate only — availability and booking require DY-PLUS confirmation.</p>
             <p id="minimum-status" class="minimum-status">Select at least 5 laptops to continue.</p>
           </aside>
         </div>

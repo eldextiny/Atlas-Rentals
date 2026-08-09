@@ -73,7 +73,7 @@ test("final review and local reset contracts are retained", () => {
 
 test("confirmation is persisted-enquiry wording rather than booking confirmation", () => {
   assert.match(html, /Submit enquiry/);
-  assert.match(html, /enquiry only; availability and booking remain subject to DY-PLUS confirmation/);
+  assert.match(html, /Your enquiry has been received\. Availability and booking remain subject to confirmation by DY-PLUS\./);
   assert.match(app, /await submitEnquiry\(buildEnquiryPayload\(form, journeyId\)\)/);
   assert.match(app, /finishButton\.disabled = true/);
   assert.match(app, /const enquiry = await submitEnquiry[\s\S]*successMessage\.hidden = false[\s\S]*catch \(error\)/);
@@ -201,6 +201,53 @@ test("successful submission exposes only the authoritative quotation download li
   assert.match(app, /Preparing your quotation…/);
   assert.match(app, /quotation is not yet available for download/);
   assert.doesNotMatch(app, /downloadQuote\.addEventListener[\s\S]*submitEnquiry/);
+});
+
+test("confirmed enquiry result prioritises reference, quotation and restrained restart", () => {
+  const success = html.match(/<section class="success-message"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.match(success, /Enquiry received/);
+  assert.match(success, /Your enquiry reference/);
+  assert.match(success, /id="enquiry-reference"/);
+  assert.match(success, /Download Quote/);
+  assert.match(success, /button-tertiary[^>]*restart-button/);
+  assert.match(success, /availability and booking remain subject to confirmation by DY-PLUS/i);
+  assert.doesNotMatch(success, /wa\.me|whatsapp_number/i);
+  assert.match(css, /\.success-reference \{[^}]*font-size: clamp/);
+  assert.match(css, /\.success-actions \{[^}]*display: grid/);
+});
+
+test("estimate groups equipment, plan, services and commercial totals", () => {
+  const estimate = html.match(/<aside class="estimate-card"[\s\S]*?<\/aside>/)?.[0] || "";
+  for (const heading of ["Selected equipment", "Rental plan", "Services", "Estimate summary", "Estimated total"]) {
+    assert.match(estimate, new RegExp(heading));
+  }
+  assert.match(estimate, /id="estimate-duration-detail"/);
+  assert.match(estimate, /id="estimate-rate-plan"/);
+  assert.match(estimate, /id="estimate-subtotal"/);
+  assert.match(estimate, /Estimate only — availability and booking require DY-PLUS confirmation/);
+  assert.match(app, /setText\("#estimate-rate-plan", result\.ratePlanLabel\)/);
+  assert.match(app, /setText\("#estimate-subtotal", currency\.format\(result\.subtotalBeforeVat\)\)/);
+  assert.match(css, /\.total-row strong \{[^}]*font-size: clamp/);
+});
+
+test("review includes compact customer reassurance before submission", () => {
+  const stepFour = html.match(/<section class="form-step" data-step="4"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.match(stepFour, /class="review-reassurance"[^>]*role="note"/);
+  assert.match(stepFour, /Secure enquiry handling/);
+  assert.match(stepFour, /Transparent pricing/);
+  assert.match(stepFour, /No booking is confirmed until DY-PLUS verifies availability/);
+  assert.match(stepFour, /review-reassurance[\s\S]*id="finish-button"/);
+});
+
+test("presentation polish preserves native selectors and responsive focus contracts", () => {
+  assert.equal((html.match(/<select id="(?:service-city|laptop-category|rate-plan)"/g) || []).length, 3);
+  assert.doesNotMatch(app, /role=["']combobox|createElement\(["']select/);
+  assert.match(css, /category-select-wrap:has\(select:focus-visible\)/);
+  assert.match(css, /category-select-wrap:has\(select\[aria-invalid="true"\]\)/);
+  assert.match(css, /category-select-wrap:has\(select:valid\)/);
+  assert.match(css, /@media \(max-width: 768px\)/);
+  assert.match(css, /min-height: 48px/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
 });
 
 test("successful submission hides navigation while failure keeps it available", () => {
