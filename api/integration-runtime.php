@@ -92,7 +92,7 @@ function atlasRentalsPostCrm(array $payload, array $config): array
     if (!function_exists('curl_init')) return atlasRentalsSafeResult(false, 'CRM_HTTP_UNAVAILABLE', true);
     $handle = curl_init($config['crm_endpoint']);
     curl_setopt_array($handle, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'Authorization: Bearer ' . $config['crm_token']],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'X-Atlas-CRM-Integration-Token: ' . $config['crm_token']],
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)]);
     $body = curl_exec($handle); $status = (int)curl_getinfo($handle, CURLINFO_HTTP_CODE); curl_close($handle);
     $decoded = json_decode((string)$body, true);

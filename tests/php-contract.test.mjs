@@ -42,6 +42,12 @@ test("delivery runtime has ordered resumable PDF and recipient operations", () =
   assert.match(runtime, /attachments/);
 });
 
+test("CRM transport uses the receiver integration-token header, never Bearer auth", () => {
+  const crmTransport = runtime.match(/function atlasRentalsPostCrm[\s\S]*?\n\}/)?.[0] || "";
+  assert.match(crmTransport, /'X-Atlas-CRM-Integration-Token: ' \. \$config\['crm_token'\]/);
+  assert.doesNotMatch(crmTransport, /Authorization:\s*Bearer/);
+});
+
 test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(emailTemplate, /htmlspecialchars\(\(string\)\$value, ENT_QUOTES \| ENT_SUBSTITUTE, 'UTF-8'\)/);
   assert.match(emailTemplate, /Laptop Rental Quotation/);
