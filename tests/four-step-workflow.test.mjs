@@ -87,8 +87,8 @@ test("step two uses one required category and maps one quantity to the stable co
   const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(stepTwo, /select id="laptop-category"[^>]*aria-describedby="category-hint quantity-error"[^>]*required/);
   assert.match(stepTwo, /Choose a laptop category/);
-  assert.match(stepTwo, /Standard Business Laptop — Training, assessments, office and browser work — ₦10,000\/day/);
-  assert.match(stepTwo, /High Performance Laptop — Creative, technical and data-intensive work — ₦15,000\/day/);
+  assert.match(stepTwo, /Standard Business Laptop — Training, assessments, office and browser work/);
+  assert.match(stepTwo, /High Performance Laptop — Creative, technical and data-intensive work/);
   assert.match(stepTwo, /id="category-details"[^>]*aria-live="polite"/);
   assert.match(stepTwo, /id="laptop-quantity"[^>]*min="5"[^>]*required/);
   assert.doesNotMatch(stepTwo, /name="standardQuantity"|name="performanceQuantity"/);
@@ -100,7 +100,7 @@ test("step two requires an accessible native rental rate-plan selector", () => {
   const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(stepTwo, /select id="rate-plan" name="ratePlan"[^>]*aria-describedby="rate-plan-help rate-plan-error"[^>]*required/);
   const plans = [...stepTwo.matchAll(/<option value="(daily|weekly|monthly|best)">([^<]+)<\/option>/g)].map((match) => [match[1], match[2].trim()]);
-  assert.deepEqual(plans, [["daily", "Daily Rate"], ["weekly", "Weekly Rate — 7 days"], ["monthly", "Monthly Rate — 30 days"], ["best", "Best Available Rate — automatic monthly → weekly → daily decomposition"]]);
+  assert.deepEqual(plans, [["daily", "Daily Rate — Flexible billing for each inclusive rental day"], ["weekly", "Weekly Rate — Fixed blocks of 7 rental days"], ["monthly", "Monthly Rate — Fixed blocks of 30 rental days"], ["best", "Best Available Rate — Automatic monthly, weekly and daily combination"]]);
   assert.match(stepTwo, /class="category-select-icon rate-plan-select-icon"[^>]*aria-hidden="true"/);
   assert.match(app, /ratePlan: ratePlan\.value/);
   assert.match(app, /ratePlan\.focus\(\)/);
@@ -174,9 +174,16 @@ test("phone is required client-side and review triggers same-origin CRM", () => 
   assert.match(app, /CRM synchronization is pending/);
 });
 
-test("persisted response distinguishes complete delivery from pending delivery", () => {
-  assert.match(app, /enquiry\.deliveryComplete/);
-  assert.match(app, /Quotation delivery is pending and can be retried safely/);
+test("successful submission exposes only the authoritative quotation download lifecycle", () => {
+  assert.match(html, /id="finish-button"[^>]*>Submit enquiry/);
+  assert.match(html, /id="download-quote"[^>]*download[^>]*hidden[^>]*aria-label="Download your Atlas Rentals quotation PDF"/);
+  assert.match(html, /id="quotation-pending"[^>]*disabled[^>]*hidden>Preparing quotation…/);
+  assert.match(app, /const pdf = enquiry\.pdf/);
+  assert.match(app, /pdf\.downloadUrl\.startsWith\("\/api\/download-quotation\.php\?"\)/);
+  assert.match(app, /downloadQuote\.href = pdf\.downloadUrl/);
+  assert.match(app, /Preparing your quotation…/);
+  assert.match(app, /quotation is not yet available for download/);
+  assert.doesNotMatch(app, /downloadQuote\.addEventListener[\s\S]*submitEnquiry/);
 });
 
 test("successful submission hides navigation while failure keeps it available", () => {
@@ -186,4 +193,19 @@ test("successful submission hides navigation while failure keeps it available", 
   assert.match(handler, /catch \(error\)[\s\S]*submissionStatus\.textContent = error\.message/);
   assert.doesNotMatch(handler.match(/catch \(error\)[\s\S]*?finally/)?.[0] || "", /formActions\.hidden = true/);
   assert.match(app, /restartButton\.addEventListener[\s\S]*formActions\.hidden = false/);
+});
+
+test("directional transitions lock navigation, focus headings and respect reduced motion", () => {
+  assert.match(app, /let transitionInProgress = false/);
+  assert.match(app, /if \(transitionInProgress/);
+  assert.match(app, /is-exiting-\$\{direction\}/);
+  assert.match(app, /is-entering-\$\{direction\}/);
+  assert.match(app, /outgoing\.inert = true/);
+  assert.match(app, /incoming\.inert = false/);
+  assert.match(app, /setAttribute\("aria-hidden", "true"\)/);
+  assert.match(app, /incoming\.querySelector\("h3"\)/);
+  assert.match(app, /reducedMotion\.matches \? Promise\.resolve\(\)/);
+  assert.match(css, /is-exiting-forward[\s\S]*200ms/);
+  assert.match(css, /is-entering-forward[\s\S]*280ms/);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*transform: none/);
 });

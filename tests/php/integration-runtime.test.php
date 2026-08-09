@@ -159,6 +159,29 @@ $tests['PDF renderer version rotates the cached document fingerprint'] = functio
     check($pdf['fingerprint'] !== $tieredPresentation, 'rate-plan renderer reused the tiered-only presentation fingerprint');
     check($pdf['fingerprint'] === substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|' . ATLAS_RENTALS_PDF_PRESENTATION_VERSION), 0, 16), 'PDF fingerprint is not presentation-version bound');
 };
+$tests['PDF capability is stable authorized confined and side-effect free'] = function () use ($record, $preview, $config, $statePath, $pdfPath): void {
+    $record['enquiry_reference'] = 'ARQ-2026-000003';
+    $calls = ['client' => 0, 'admin' => 0];
+    $adapters = ['crm' => fn() => [], 'pdf' => fn($item, $path) => atlasRentalsGeneratePdf($item, $path),
+        'email' => function ($item, $pdf, $audience) use (&$calls): array { $calls[$audience]++; return atlasRentalsSafeResult(true, 'EMAIL_DELIVERED'); }];
+    $first = atlasRentalsDeliver($record, $preview, $config, $adapters);
+    $capability = atlasRentalsPdfCapability($first, $record['enquiry_reference']);
+    check($capability['status'] === 'available' && str_starts_with((string)$capability['downloadUrl'], '/api/download-quotation.php?reference=ARQ-2026-000003&token='), 'available capability URL invalid');
+    check(!str_contains(json_encode($capability, JSON_THROW_ON_ERROR), $pdfPath) && !str_contains(json_encode($capability, JSON_THROW_ON_ERROR), $statePath), 'private path leaked');
+    parse_str((string)parse_url((string)$capability['downloadUrl'], PHP_URL_QUERY), $query);
+    $stateFile = atlasRentalsStateFile($statePath, $record['enquiry_reference']); $before = hash_file('sha256', $stateFile);
+    $resolved = atlasRentalsResolveDownloadPdf($first, $record['enquiry_reference'], (string)$query['token'], $pdfPath);
+    check(is_string($resolved) && str_starts_with((string)file_get_contents($resolved), '%PDF-'), 'authorized PDF did not resolve');
+    check(atlasRentalsResolveDownloadPdf($first, $record['enquiry_reference'], str_repeat('0', 64), $pdfPath) === null, 'wrong token resolved');
+    check(atlasRentalsResolveDownloadPdf($first, '../ARQ-2026-000003', (string)$query['token'], $pdfPath) === null, 'traversal reference resolved');
+    check(atlasRentalsResolveDownloadPdf($first, 'ARQ-2026-000003', 'short', $pdfPath) === null, 'malformed token resolved');
+    check(hash_file('sha256', $stateFile) === $before, 'download resolution changed delivery state');
+    $second = atlasRentalsDeliver($record, $preview, $config, $adapters);
+    check(atlasRentalsPdfCapability($second, $record['enquiry_reference']) === $capability, 'duplicate submission changed download capability');
+    check($calls === ['client' => 1, 'admin' => 1], 'duplicate submission repeated recipient delivery');
+    check(atlasRentalsPdfCapability([], $record['enquiry_reference']) === ['status' => 'pending', 'downloadUrl' => null], 'pending capability invalid');
+    check(atlasRentalsPdfCapability(['pdf' => ['status' => 'failed']], $record['enquiry_reference']) === ['status' => 'failed', 'downloadUrl' => null], 'failed capability invalid');
+};
 $tests['partial email failure resumes without duplicating completed client'] = function () use ($record, $preview, $config, $pdfPath): void {
     $calls = ['client' => 0, 'admin' => 0]; $failAdmin = true;
     $adapters = ['crm' => fn() => [], 'pdf' => fn($record, $path) => atlasRentalsGeneratePdf($record, $path),
@@ -166,6 +189,7 @@ $tests['partial email failure resumes without duplicating completed client'] = f
     atlasRentalsDeliver($record, $preview, $config, $adapters); $failAdmin = false; $state = atlasRentalsDeliver($record, $preview, $config, $adapters);
     check($calls['client'] === 1 && $calls['admin'] === 2, 'recipient retry behavior incorrect');
     check($state['clientEmail']['status'] === 'completed' && $state['adminEmail']['status'] === 'completed', 'delivery did not recover');
+    check(atlasRentalsPdfCapability($state, $record['enquiry_reference'])['status'] === 'available', 'PDF availability incorrectly depended on recipient completion');
 };
 $tests['completed recipients remain skipped and idempotency keys stay stable'] = function () use ($record, $preview, $config, $pdfPath): void {
     $record['enquiry_reference'] = 'ARQ-2026-000002';

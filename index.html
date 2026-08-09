@@ -42,7 +42,7 @@
       <a class="logo-link" href="https://dyplus.com.ng/" target="_blank" rel="noopener noreferrer" aria-label="Visit the DY-PLUS home page">
         <img class="brand-logo" src="assets/dyplus-logo.png" alt="DY-PLUS">
       </a>
-      <a class="header-title" href="#top" aria-label="ATLAS Rental"><span class="header-title-atlas">ATLAS</span><span class="header-title-rental">Rental</span></a>
+      <a class="header-title" href="#top" aria-label="ATLAS Rental"><span class="header-title-atlas">ATLAS</span><span class="header-title-rental">RENTAL</span></a>
       <nav class="steps header-progress" aria-label="Rental planning progress">
         <button class="step is-active" type="button" data-step-target="1" aria-current="step"><span aria-hidden="true">&#10003;</span><b>Rental Details</b></button>
         <button class="step" type="button" data-step-target="2" disabled><span aria-hidden="true">&#10003;</span><b>Laptops</b></button>
@@ -119,7 +119,7 @@
               <p class="field-error" id="dates-error"></p>
             </section>
 
-            <section class="form-step" data-step="2" aria-labelledby="step-2-title" hidden>
+            <section class="form-step" data-step="2" aria-labelledby="step-2-title" aria-hidden="true" hidden>
               <p class="step-kicker">Step 2 of 4</p><h3 id="step-2-title">Choose Your Laptops</h3>
               <p class="section-help">Choose one laptop category and enter a quantity of at least 5.</p>
               <div class="laptop-selection">
@@ -128,8 +128,8 @@
                   <span class="category-select-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 6.5h14v9H5zM3 18h18M9 18l.7-2.5h4.6L15 18"/></svg></span>
                   <select id="laptop-category" name="laptopCategory" aria-describedby="category-hint quantity-error" required>
                     <option value="">Choose a laptop category</option>
-                    <option value="standard">Standard Business Laptop — Training, assessments, office and browser work — ₦10,000/day</option>
-                    <option value="performance">High Performance Laptop — Creative, technical and data-intensive work — ₦15,000/day</option>
+                    <option value="standard">Standard Business Laptop — Training, assessments, office and browser work</option>
+                    <option value="performance">High Performance Laptop — Creative, technical and data-intensive work</option>
                   </select>
                   <span class="category-select-chevron" aria-hidden="true"></span>
                 </div>
@@ -140,14 +140,15 @@
                   <span class="category-select-icon rate-plan-select-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h14v16H5zM8 2v4M16 2v4M5 9h14M8 13h3M13 13h3M8 17h3"/></svg></span>
                   <select id="rate-plan" name="ratePlan" aria-describedby="rate-plan-help rate-plan-error" required>
                     <option value="">Choose a rental rate plan</option>
-                    <option value="daily">Daily Rate</option>
-                    <option value="weekly">Weekly Rate — 7 days</option>
-                    <option value="monthly">Monthly Rate — 30 days</option>
-                    <option value="best">Best Available Rate — automatic monthly → weekly → daily decomposition</option>
+                    <option value="daily">Daily Rate — Flexible billing for each inclusive rental day</option>
+                    <option value="weekly">Weekly Rate — Fixed blocks of 7 rental days</option>
+                    <option value="monthly">Monthly Rate — Fixed blocks of 30 rental days</option>
+                    <option value="best">Best Available Rate — Automatic monthly, weekly and daily combination</option>
                   </select>
                   <span class="category-select-chevron" aria-hidden="true"></span>
                 </div>
                 <small class="category-hint rate-plan-help" id="rate-plan-help">Choose how the inclusive rental duration should be priced.</small>
+                <article class="rate-plan-details" id="rate-plan-details" aria-live="polite" hidden></article>
                 <p class="field-error" id="rate-plan-error"></p>
                 <label for="laptop-quantity">Laptop quantity</label>
                 <input id="laptop-quantity" name="laptopQuantity" type="number" min="5" step="1" value="5" inputmode="numeric" aria-describedby="quantity-error" required>
@@ -156,7 +157,7 @@
               <p class="field-error" id="quantity-error"></p>
             </section>
 
-            <section class="form-step" data-step="3" aria-labelledby="step-3-title" hidden>
+            <section class="form-step" data-step="3" aria-labelledby="step-3-title" aria-hidden="true" hidden>
               <p class="step-kicker">Step 3 of 4</p><h3 id="step-3-title">Support &amp; Personal Details</h3>
               <p class="section-help">Delivery &amp; Retrieval is included in every booking. Add technician support only if needed, then enter your contact details.</p>
               <div class="included-service" role="note" aria-label="Delivery and Retrieval included automatically">
@@ -179,12 +180,14 @@
               <p class="field-error details-error-summary" id="details-error" aria-live="polite"></p>
             </section>
 
-            <section class="form-step" data-step="4" aria-labelledby="step-4-title" hidden>
+            <section class="form-step" data-step="4" aria-labelledby="step-4-title" aria-hidden="true" hidden>
               <p class="step-kicker">Step 4 of 4</p><h3 id="step-4-title">Review Your Estimate</h3>
               <p class="section-help">Check every detail before submitting. Pricing is an estimate until DY-PLUS reviews your enquiry.</p>
               <div id="review-content" class="review-content"></div>
               <button class="button button-primary button-full" id="finish-button" type="button">Submit enquiry</button>
-              <button class="button button-secondary button-full restart-button" id="restart-button" type="button">Start new enquiry</button>
+              <a class="button button-primary button-full download-quote" id="download-quote" href="#" download hidden aria-label="Download your Atlas Rentals quotation PDF"><span aria-hidden="true">&#8681;</span> Download Quote</a>
+              <button class="button button-primary button-full" id="quotation-pending" type="button" disabled hidden>Preparing quotation…</button>
+              <button class="button button-secondary button-full restart-button" id="restart-button" type="button" hidden>Start new enquiry</button>
               <p id="submission-status" class="submission-status" role="status" aria-live="polite"></p>
               <p class="success-message" id="success-message" role="status" hidden>Thank you. Enquiry <strong id="enquiry-reference"></strong> has been received. This acknowledges your enquiry only; availability and booking remain subject to DY-PLUS confirmation.</p>
             </section>

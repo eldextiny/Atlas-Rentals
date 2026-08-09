@@ -184,6 +184,56 @@ function atlasRentalsGeneratePdf(array $record, string $directory): array
     return ['path' => $path, 'fingerprint' => $fingerprint];
 }
 
+function atlasRentalsPdfCapability(array $state, string $reference): array
+{
+    $pdf = is_array($state['pdf'] ?? null) ? $state['pdf'] : [];
+    if (($pdf['status'] ?? '') !== 'completed') {
+        return ['status' => ($pdf['status'] ?? '') === 'failed' ? 'failed' : 'pending', 'downloadUrl' => null];
+    }
+    $token = $pdf['downloadToken'] ?? null;
+    if (!is_string($token) || preg_match('/^[a-f0-9]{64}$/D', $token) !== 1) {
+        return ['status' => 'failed', 'downloadUrl' => null];
+    }
+    return [
+        'status' => 'available',
+        'downloadUrl' => '/api/download-quotation.php?' . http_build_query(
+            ['reference' => $reference, 'token' => $token],
+            '',
+            '&',
+            PHP_QUERY_RFC3986
+        ),
+    ];
+}
+
+function atlasRentalsReadDeliveryState(string $directory, string $reference): array
+{
+    if (preg_match('/^ARQ-\d{4}-\d{6}$/D', $reference) !== 1) return [];
+    try { $path = atlasRentalsStateFile($directory, $reference); }
+    catch (Throwable) { return []; }
+    if (!is_file($path) || !is_readable($path)) return [];
+    $decoded = json_decode((string)file_get_contents($path), true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function atlasRentalsResolveDownloadPdf(array $state, string $reference, string $token, string $directory): ?string
+{
+    if (preg_match('/^ARQ-\d{4}-\d{6}$/D', $reference) !== 1
+        || preg_match('/^[a-f0-9]{64}$/D', $token) !== 1) return null;
+    $pdf = is_array($state['pdf'] ?? null) ? $state['pdf'] : [];
+    $storedToken = $pdf['downloadToken'] ?? null; $fingerprint = $pdf['fingerprint'] ?? null;
+    if (($pdf['status'] ?? '') !== 'completed' || !is_string($storedToken)
+        || preg_match('/^[a-f0-9]{64}$/D', $storedToken) !== 1 || !hash_equals($storedToken, $token)
+        || !is_string($fingerprint) || preg_match('/^[a-f0-9]{16}$/D', $fingerprint) !== 1) return null;
+    $base = realpath($directory);
+    if ($base === false || !is_dir($base)) return null;
+    $candidate = realpath($base . DIRECTORY_SEPARATOR . $reference . '-' . $fingerprint . '.pdf');
+    if ($candidate === false || dirname($candidate) !== $base || !is_file($candidate) || !is_readable($candidate)) return null;
+    $handle = fopen($candidate, 'rb');
+    if ($handle === false) return null;
+    $header = fread($handle, 5); fclose($handle);
+    return $header === '%PDF-' ? $candidate : null;
+}
+
 function atlasRentalsSendEmail(array $record, array $pdf, string $audience, array $config): array
 {
     $recipient = $audience === 'client' ? $record['email'] : $config['admin_email'];
@@ -218,9 +268,24 @@ function atlasRentalsDeliver(array $record, array $preview, array $config, array
         $fingerprint = hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot']);
         if (isset($state['fingerprint']) && $state['fingerprint'] !== $fingerprint) throw new RuntimeException('Delivery state conflict.');
         $state['fingerprint'] = $fingerprint;
+        $storedPdf = is_array($state['pdf'] ?? null) ? $state['pdf'] : [];
+        $storedToken = $storedPdf['downloadToken'] ?? null;
         try {
-            $pdf = ($adapters['pdf'] ?? 'atlasRentalsGeneratePdf')($record, $config['pdf_path']); $state['pdf'] = ['status' => 'completed', 'fingerprint' => $pdf['fingerprint']];
-        } catch (Throwable) { $state['pdf'] = ['status' => 'pending']; return $state; }
+            $resolved = is_string($storedToken)
+                ? atlasRentalsResolveDownloadPdf($state, (string)$record['enquiry_reference'], $storedToken, $config['pdf_path'])
+                : null;
+            $pdf = $resolved === null
+                ? ($adapters['pdf'] ?? 'atlasRentalsGeneratePdf')($record, $config['pdf_path'])
+                : ['path' => $resolved, 'fingerprint' => $storedPdf['fingerprint']];
+            $downloadToken = $storedToken;
+            if (!is_string($downloadToken) || preg_match('/^[a-f0-9]{64}$/D', $downloadToken) !== 1) $downloadToken = bin2hex(random_bytes(32));
+            $state['pdf'] = ['status' => 'completed', 'fingerprint' => $pdf['fingerprint'], 'downloadToken' => $downloadToken];
+        } catch (Throwable) {
+            $state['pdf'] = ['status' => 'failed'];
+            if (is_string($storedToken) && preg_match('/^[a-f0-9]{64}$/D', $storedToken) === 1) $state['pdf']['downloadToken'] = $storedToken;
+            if (is_string($storedPdf['fingerprint'] ?? null) && preg_match('/^[a-f0-9]{16}$/D', $storedPdf['fingerprint']) === 1) $state['pdf']['fingerprint'] = $storedPdf['fingerprint'];
+            return $state;
+        }
         foreach (['client', 'admin'] as $audience) {
             if (($state[$audience . 'Email']['status'] ?? '') === 'completed') continue;
             $result = ($adapters['email'] ?? 'atlasRentalsSendEmail')($record, $pdf, $audience, $config);

@@ -9,6 +9,8 @@ const runtime = readFileSync(new URL("../api/integration-runtime.php", import.me
 const emailTemplate = readFileSync(new URL("../api/rentals-email-template.php", import.meta.url), "utf8");
 const pdfTemplate = readFileSync(new URL("../api/document-engine/templates/rentals-quotation.php", import.meta.url), "utf8");
 const pngHelper = readFileSync(new URL("../api/document-engine/pdf-png.php", import.meta.url), "utf8");
+const submitEndpoint = readFileSync(new URL("../api/submit-enquiry.php", import.meta.url), "utf8");
+const downloadEndpoint = readFileSync(new URL("../api/download-quotation.php", import.meta.url), "utf8");
 
 test("PDO store uses prepared statements and one locked transaction", () => {
   assert.match(service, /beginTransaction\(\)/);
@@ -40,6 +42,30 @@ test("delivery runtime has ordered resumable PDF and recipient operations", () =
   assert.match(runtime, /'html' => \$message\['html'\], 'text' => \$message\['text'\]/);
   assert.match(runtime, /\['client', 'admin'\]/);
   assert.match(runtime, /attachments/);
+});
+
+test("submission exposes a tokenized PDF capability without private paths", () => {
+  assert.match(submitEndpoint, /atlasRentalsPdfCapability\(\$delivery, \$result\['reference'\]\)/);
+  assert.match(runtime, /bin2hex\(random_bytes\(32\)\)/);
+  assert.match(runtime, /downloadToken/);
+  assert.match(runtime, /\/api\/download-quotation\.php\?/);
+  assert.doesNotMatch(submitEndpoint, /pdf_path|state_path|ATLAS_RENTALS_PDF_STORAGE/);
+});
+
+test("quotation download endpoint is GET-only, generic, confined and side-effect free", () => {
+  assert.match(downloadEndpoint, /REQUEST_METHOD[^\n]+GET/);
+  assert.match(downloadEndpoint, /header\('Allow: GET'\)/);
+  assert.match(downloadEndpoint, /http_response_code\(405\)/);
+  assert.match(downloadEndpoint, /http_response_code\(404\)/);
+  assert.match(downloadEndpoint, /Content-Type: application\/pdf/);
+  assert.match(downloadEndpoint, /Content-Disposition: attachment/);
+  assert.match(downloadEndpoint, /Cache-Control: private, no-store/);
+  assert.match(downloadEndpoint, /X-Content-Type-Options: nosniff/);
+  assert.match(runtime, /hash_equals\(\$storedToken, \$token\)/);
+  assert.match(runtime, /realpath\(\$directory\)/);
+  assert.match(runtime, /dirname\(\$candidate\) !== \$base/);
+  assert.match(runtime, /\$header === '%PDF-'/);
+  assert.doesNotMatch(downloadEndpoint, /atlasRentalsDeliver|atlasRentalsSyncCrm|atlasRentalsSendEmail|EnquiryService|PdoEnquiryStore/);
 });
 
 test("CRM transport uses the receiver integration-token header, never Bearer auth", () => {

@@ -14,6 +14,7 @@ const laptopCategory = document.querySelector("#laptop-category");
 const laptopQuantity = document.querySelector("#laptop-quantity");
 const ratePlan = document.querySelector("#rate-plan");
 const ratePlanHelp = document.querySelector("#rate-plan-help");
+const ratePlanDetails = document.querySelector("#rate-plan-details");
 const categoryDetails = document.querySelector("#category-details");
 const technicianRequired = document.querySelector("#technician-required");
 const technicianDaysWrap = document.querySelector("#technician-days-wrap");
@@ -21,6 +22,8 @@ const technicianDaysInput = document.querySelector("#technician-days");
 const rateCards = [...document.querySelectorAll("[data-laptop-category]")];
 const restartButton = document.querySelector("#restart-button");
 const finishButton = document.querySelector("#finish-button");
+const downloadQuote = document.querySelector("#download-quote");
+const quotationPending = document.querySelector("#quotation-pending");
 const submissionStatus = document.querySelector("#submission-status");
 const planner = document.querySelector("#planner");
 const totalSteps = 4;
@@ -36,6 +39,8 @@ let highestStep = 1;
 let scheduleValidated = false;
 let personalValidationActive = false;
 let journeyId = createJourneyId();
+let transitionInProgress = false;
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 function numberValue(name) {
   const value = Number(form.elements[name].value);
@@ -97,6 +102,8 @@ function renderRatePlanHelp(category, plan) {
   const selectedPlan = RATE_PLANS[plan];
   if (!details || !selectedPlan) {
     ratePlanHelp.textContent = "Choose how the inclusive rental duration should be priced.";
+    ratePlanDetails.hidden = true;
+    ratePlanDetails.replaceChildren();
     return;
   }
   const applicable = plan === "daily" ? `Daily rate: ${currency.format(details.dailyRate)}.`
@@ -104,6 +111,16 @@ function renderRatePlanHelp(category, plan) {
       : plan === "monthly" ? `Monthly rate: ${currency.format(details.monthlyRate)} per 30 days.`
         : `Uses monthly ${currency.format(details.monthlyRate)}, weekly ${currency.format(details.weeklyRate)}, then daily ${currency.format(details.dailyRate)} blocks.`;
   ratePlanHelp.textContent = `${selectedPlan.help} ${applicable}`;
+  const requirement = plan === "weekly" ? "Requires a whole multiple of 7 inclusive rental days."
+    : plan === "monthly" ? "Requires a whole multiple of 30 inclusive rental days."
+      : plan === "best" ? "No divisibility requirement; monthly blocks are applied before weekly and daily blocks."
+        : "No divisibility requirement; every inclusive rental day is charged.";
+  const recommendation = plan === "daily" ? "Best for short or irregular rental periods."
+    : plan === "weekly" ? "Best for exact full-week rentals."
+      : plan === "monthly" ? "Best for exact 30-day rental blocks."
+        : "Recommended when you want the automatic combination for the selected duration.";
+  ratePlanDetails.hidden = false;
+  ratePlanDetails.innerHTML = `<span class="selected-category-state">Selected plan</span><h4>${selectedPlan.label}</h4><p>${selectedPlan.help}</p><dl><div><dt>Applicable rate</dt><dd>${applicable.replace(/\.$/, "")}</dd></div><div><dt>Duration rule</dt><dd>${requirement}</dd></div><div><dt>Recommendation</dt><dd>${recommendation}</dd></div></dl>`;
 }
 
 function renderCategoryDetails(category) {
@@ -299,15 +316,12 @@ function validateCurrentStep() {
   return true;
 }
 
-function goToStep(step, options = {}) {
-  if (step < 1 || step > totalSteps || step > highestStep) return;
-  currentStep = step;
+function transitionDelay(milliseconds) {
+  return reducedMotion.matches ? Promise.resolve() : new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function updateStepChrome(step) {
   planner.dataset.currentStep = String(step);
-  steps.forEach((section) => {
-    const active = Number(section.dataset.step) === step;
-    section.hidden = !active;
-    section.classList.toggle("is-active", active);
-  });
   stepButtons.forEach((button, index) => {
     const buttonStep = index + 1;
     button.disabled = buttonStep > highestStep;
@@ -319,16 +333,48 @@ function goToStep(step, options = {}) {
   backButton.hidden = step === 1;
   nextButton.hidden = step === totalSteps;
   nextButton.textContent = step === 3 ? "Review estimate" : "Continue";
+}
+
+async function goToStep(step, options = {}) {
+  if (transitionInProgress || step < 1 || step > totalSteps || step > highestStep || step === currentStep) return false;
+  const outgoing = steps.find((section) => Number(section.dataset.step) === currentStep);
+  const incoming = steps.find((section) => Number(section.dataset.step) === step);
+  const direction = step > currentStep ? "forward" : "reverse";
+  transitionInProgress = true;
+  form.dataset.transitioning = "true";
+  nextButton.disabled = true; backButton.disabled = true;
+  stepButtons.forEach((button) => { button.disabled = true; });
+  outgoing.inert = true;
+  outgoing.setAttribute("aria-hidden", "true");
+  outgoing.classList.add(`is-exiting-${direction}`);
+  await transitionDelay(200);
+  outgoing.hidden = true;
+  outgoing.classList.remove("is-active", `is-exiting-${direction}`);
+  incoming.hidden = false;
+  incoming.inert = false;
+  incoming.setAttribute("aria-hidden", "false");
+  incoming.classList.add(`is-entering-${direction}`);
+  currentStep = step;
+  updateStepChrome(step);
   document.querySelector("#success-message").hidden = true;
   updateEstimate();
-  if (options.focusTarget) options.focusTarget.focus({ preventScroll: true });
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  incoming.classList.add("is-active");
+  await transitionDelay(280);
+  incoming.classList.remove(`is-entering-${direction}`);
+  transitionInProgress = false;
+  delete form.dataset.transitioning;
+  nextButton.disabled = false; backButton.disabled = false;
+  updateStepChrome(step);
+  (options.focusTarget || incoming.querySelector("h3"))?.focus({ preventScroll: true });
+  return true;
 }
 
 function openLaptopSelection(category) {
   laptopCategory.value = category;
-  currentStep = 1;
   highestStep = 1;
-  goToStep(1);
+  if (currentStep === 1) updateStepChrome(1);
+  else void goToStep(1);
   updateEstimate();
   planner.scrollIntoView({ behavior: "auto", block: "start" });
 }
@@ -342,7 +388,7 @@ nextButton.addEventListener("click", async () => {
   if (currentStep === 1) scheduleValidated = true;
   highestStep = Math.max(highestStep, currentStep + 1);
   const nextStep = currentStep + 1;
-  goToStep(nextStep);
+  await goToStep(nextStep);
   if (nextStep === 4) {
     submissionStatus.textContent = "Preparing your review…";
     try {
@@ -361,8 +407,8 @@ nextButton.addEventListener("click", async () => {
   }
 });
 
-backButton.addEventListener("click", () => goToStep(currentStep - 1));
-stepButtons.forEach((button) => button.addEventListener("click", () => goToStep(Number(button.dataset.stepTarget))));
+backButton.addEventListener("click", () => { void goToStep(currentStep - 1); });
+stepButtons.forEach((button) => button.addEventListener("click", () => { void goToStep(Number(button.dataset.stepTarget)); }));
 rateCards.forEach((card) => {
   card.addEventListener("click", () => openLaptopSelection(card.dataset.laptopCategory));
   card.addEventListener("keydown", (event) => {
@@ -437,11 +483,22 @@ finishButton.addEventListener("click", async () => {
     const enquiry = await submitEnquiry(buildEnquiryPayload(form, journeyId));
     document.querySelector("#enquiry-reference").textContent = enquiry.reference;
     document.querySelector("#success-message").hidden = false;
-    submissionStatus.textContent = enquiry.deliveryComplete
-      ? "Enquiry received and quotation delivered."
-      : "Enquiry received. Quotation delivery is pending and can be retried safely.";
     finishButton.hidden = true;
     formActions.hidden = true;
+    restartButton.hidden = false;
+    const pdf = enquiry.pdf || { status: "failed", downloadUrl: null };
+    downloadQuote.hidden = pdf.status !== "available";
+    quotationPending.hidden = pdf.status !== "pending";
+    if (pdf.status === "available" && typeof pdf.downloadUrl === "string" && pdf.downloadUrl.startsWith("/api/download-quotation.php?")) {
+      downloadQuote.href = pdf.downloadUrl;
+      submissionStatus.textContent = "Enquiry received. Your quotation is ready to download.";
+    } else if (pdf.status === "pending") {
+      downloadQuote.removeAttribute("href");
+      submissionStatus.textContent = "Preparing your quotation…";
+    } else {
+      downloadQuote.removeAttribute("href");
+      submissionStatus.textContent = "Your enquiry was received, but the quotation is not yet available for download.";
+    }
   } catch (error) {
     submissionStatus.textContent = error.message;
   } finally {
@@ -453,7 +510,6 @@ restartButton.addEventListener("click", () => {
   form.reset();
   clearJourneyId();
   journeyId = createJourneyId();
-  currentStep = 1;
   highestStep = 1;
   scheduleValidated = false;
   personalValidationActive = false;
@@ -461,6 +517,10 @@ restartButton.addEventListener("click", () => {
   technicianDaysInput.disabled = true;
   finishButton.hidden = false;
   finishButton.disabled = false;
+  restartButton.hidden = true;
+  downloadQuote.hidden = true;
+  downloadQuote.removeAttribute("href");
+  quotationPending.hidden = true;
   formActions.hidden = false;
   submissionStatus.textContent = "";
   document.querySelector("#success-message").hidden = true;
@@ -472,7 +532,8 @@ restartButton.addEventListener("click", () => {
   ratePlan.removeAttribute("aria-invalid");
   laptopQuantity.removeAttribute("aria-invalid");
   ["location-error", "dates-error", "quantity-error", "rate-plan-error", "technician-error", "details-error"].forEach((id) => showError(id));
-  goToStep(1);
+  if (currentStep === 1) updateStepChrome(1);
+  else void goToStep(1);
 });
 
 document.querySelectorAll(".form-step h3").forEach((heading) => heading.setAttribute("tabindex", "-1"));
@@ -481,3 +542,4 @@ technicianDaysInput.disabled = true;
 updateCustomCityState();
 updateEstimate();
 planner.dataset.currentStep = "1";
+steps.forEach((section, index) => { section.inert = index !== 0; section.setAttribute("aria-hidden", index === 0 ? "false" : "true"); });

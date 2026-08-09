@@ -31,6 +31,7 @@ try {
     $result = $service->submit($input);
     $record = $store->findByReference($result['reference']);
     if ($record === null) throw new RuntimeException('Persisted enquiry unavailable.');
+    $delivery = [];
     try {
         $delivery = atlasRentalsDeliver($record, $preview, atlasRentalsIntegrationConfig());
         $complete = ($delivery['pdf']['status'] ?? '') === 'completed'
@@ -39,6 +40,7 @@ try {
     } catch (Throwable) { $complete = false; }
     $result['deliveryComplete'] = $complete;
     $result['deliveryStatus'] = $complete ? 'complete' : 'pending';
+    $result['pdf'] = atlasRentalsPdfCapability($delivery, $result['reference']);
     respond(200, ['ok' => true, 'enquiry' => $result]);
 } catch (EnquiryValidationException $error) {
     respond(422, ['ok' => false, 'error' => 'validation_failed', 'fields' => $error->errors]);

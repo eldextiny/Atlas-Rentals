@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a stable tokenized, private-path-confined quotation download and a post-submission Download Quote lifecycle.
+- Refined the four-step interface with directional reduced-motion-aware transitions, stronger form hierarchy and richer native-select guidance.
 - Extended quotation presentation validity from 7 days to 30 days.
 - Added the approved DY-PLUS logo to branded quotation emails.
 - Simplified laptop selection to one required category and quantity while preserving the server payload contract.
