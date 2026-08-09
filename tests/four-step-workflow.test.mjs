@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
 const css = readFileSync(new URL("../css/styles.css", import.meta.url), "utf8");
+const emailTemplate = readFileSync(new URL("../api/rentals-email-template.php", import.meta.url), "utf8");
+const pdfTemplate = readFileSync(new URL("../api/document-engine/templates/rentals-quotation.php", import.meta.url), "utf8");
+const businessRules = readFileSync(new URL("../docs/BUSINESS_RULES.md", import.meta.url), "utf8");
 
 test("planner exposes exactly four ordered steps", () => {
   const sections = [...html.matchAll(/<section class="form-step[^>]*data-step="(\d)"/g)].map((match) => Number(match[1]));
@@ -73,7 +76,7 @@ test("confirmation is persisted-enquiry wording rather than booking confirmation
   assert.match(html, /enquiry only; availability and booking remain subject to DY-PLUS confirmation/);
   assert.match(app, /await submitEnquiry\(buildEnquiryPayload\(form, journeyId\)\)/);
   assert.match(app, /finishButton\.disabled = true/);
-  assert.match(app, /const enquiry = await submitEnquiry[\s\S]*success-message[\s\S]*catch \(error\)/);
+  assert.match(app, /const enquiry = await submitEnquiry[\s\S]*successMessage\.hidden = false[\s\S]*catch \(error\)/);
 });
 
 test("hero cards retain guarded category navigation without changing quantities", () => {
@@ -181,10 +184,11 @@ test("mobile estimate is limited to review step while desktop remains available"
   assert.match(css, /planner-shell:not\(\[data-current-step="4"\]\) \.estimate-card \{ display: none; \}/);
 });
 
-test("phone is required client-side and review triggers same-origin CRM", () => {
+test("phone is required client-side and review uses reassuring customer copy", () => {
   assert.match(html, /name="phone"[^>]*pattern="[^"]+"[^>]*required/);
   assert.match(app, /nextStep === 4[\s\S]*fetch\("api\/review-enquiry\.php"/);
-  assert.match(app, /CRM synchronization is pending/);
+  assert.match(app, /Everything looks good\. Your enquiry is ready to submit\./);
+  assert.doesNotMatch(app + html, /CRM synchronization|retried safely|delivery-state/i);
 });
 
 test("successful submission exposes only the authoritative quotation download lifecycle", () => {
@@ -218,7 +222,43 @@ test("directional transitions lock navigation, focus headings and respect reduce
   assert.match(app, /setAttribute\("aria-hidden", "true"\)/);
   assert.match(app, /incoming\.querySelector\("h3"\)/);
   assert.match(app, /reducedMotion\.matches \? Promise\.resolve\(\)/);
-  assert.match(css, /is-exiting-forward[\s\S]*200ms/);
-  assert.match(css, /is-entering-forward[\s\S]*280ms/);
+  assert.match(app, /transitionDelay\(180\)[\s\S]*transitionDelay\(80\)[\s\S]*transitionDelay\(240\)/);
+  assert.match(css, /is-exiting-forward[\s\S]*180ms/);
+  assert.match(css, /is-entering-forward[\s\S]*240ms/);
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*transform: none/);
+});
+
+test("submission overlay waits for validation and authoritative success", () => {
+  assert.match(html, /id="submission-overlay"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"[^>]*tabindex="-1"[^>]*hidden/);
+  assert.match(html, /Submitting your enquiry…/);
+  assert.match(html, /Please wait while we securely prepare your quotation\./);
+  const handler = app.match(/finishButton\.addEventListener\("click"[\s\S]*?\n\}\);/)?.[0] || "";
+  assert.match(handler, /if \(finishButton\.disabled \|\| !validateCurrentStep\(\)\) return/);
+  assert.match(handler, /showSubmissionOverlay\("processing"\)[\s\S]*await submitEnquiry/);
+  assert.match(handler, /await submitEnquiry[\s\S]*showSubmissionOverlay\("success"\)/);
+  assert.match(handler, /catch \(error\)[\s\S]*hideSubmissionOverlay\(\)[\s\S]*error\.message/);
+  assert.match(app, /Enquiry received/);
+  assert.match(app, /Your quotation is ready\./);
+  assert.match(app, /document\.body\.classList\.add\("has-submission-overlay"\)/);
+  assert.match(app, /setSubmissionSurfacesInert\(true\)/);
+  assert.match(css, /body\.has-submission-overlay \{ overflow: hidden; \}/);
+  assert.match(css, /\.submission-overlay \{[^}]*position: fixed[^}]*inset: 0/);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*submission-overlay-card/);
+});
+
+test("confirmed submission completes every progress marker and restart resets progress", () => {
+  const handler = app.match(/finishButton\.addEventListener\("click"[\s\S]*?\n\}\);/)?.[0] || "";
+  assert.match(handler, /await submitEnquiry[\s\S]*workflowComplete = true[\s\S]*updateStepChrome\(totalSteps\)/);
+  assert.match(app, /const active = !workflowComplete/);
+  assert.match(app, /const completed = workflowComplete \|\|/);
+  assert.match(app, /if \(active\) button\.setAttribute\("aria-current", "step"\);\s*else button\.removeAttribute\("aria-current"\)/);
+  assert.match(app, /All four enquiry steps completed\./);
+  assert.match(app, /aria-label[^\n]*completed/);
+  assert.match(app, /restartButton\.addEventListener[\s\S]*workflowComplete = false[\s\S]*goToStep\(1\)/);
+});
+
+test("customer-facing output uses included-service wording", () => {
+  assert.doesNotMatch(html + app + emailTemplate + pdfTemplate + businessRules, /Compulsory/i);
+  assert.match(html + app, /Included rental service/);
+  assert.match(app, /Included service/);
 });

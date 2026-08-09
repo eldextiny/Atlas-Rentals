@@ -147,7 +147,7 @@ test("VAT applies after rental, Delivery & Retrieval and technician charges", ()
   assert.equal(result.total, 247_250);
 });
 
-test("technician remains optional while Delivery & Retrieval stays compulsory", () => {
+test("technician remains optional while Delivery & Retrieval stays included", () => {
   const result = calculateEstimate({ standardQuantity: 5, rentalDays: 1 });
   assert.equal(result.deliveryRetrieval, 40_000);
   assert.equal(result.technician, 0);

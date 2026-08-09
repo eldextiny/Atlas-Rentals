@@ -9,7 +9,7 @@
 
 | Other item | Rate |
 | --- | ---: |
-| Compulsory Delivery & Retrieval | ₦40,000 once per booking |
+| Included Delivery & Retrieval | ₦40,000 once per booking |
 | Optional technician | ₦35,000 per technician day |
 | VAT | 7.5% |
 
@@ -23,7 +23,7 @@
 6. Equipment amount is `per-unit charge × quantity`.
 7. The selected category maps to its existing server quantity field and the unselected category maps to zero.
 8. At least five laptops are required.
-9. Delivery & Retrieval is compulsory and is added once regardless of quantity or duration.
+9. Delivery & Retrieval is an included rental service and is added once regardless of quantity or duration.
 10. Technician support is `technician days × ₦35,000`.
 11. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
 12. The estimate total is the pre-VAT subtotal plus VAT.

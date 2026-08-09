@@ -25,6 +25,11 @@ const finishButton = document.querySelector("#finish-button");
 const downloadQuote = document.querySelector("#download-quote");
 const quotationPending = document.querySelector("#quotation-pending");
 const submissionStatus = document.querySelector("#submission-status");
+const submissionOverlay = document.querySelector("#submission-overlay");
+const submissionOverlayTitle = document.querySelector("#submission-overlay-title");
+const submissionOverlayMessage = document.querySelector("#submission-overlay-message");
+const progressCompletionStatus = document.querySelector("#progress-completion-status");
+const submissionSurfaces = [document.querySelector("header"), document.querySelector("main"), document.querySelector("footer")];
 const planner = document.querySelector("#planner");
 const totalSteps = 4;
 const currency = new Intl.NumberFormat("en-NG", {
@@ -40,6 +45,7 @@ let scheduleValidated = false;
 let personalValidationActive = false;
 let journeyId = createJourneyId();
 let transitionInProgress = false;
+let workflowComplete = false;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 function numberValue(name) {
@@ -175,7 +181,7 @@ function estimateMarkup(result) {
   return `
     ${categoryLine}
     <div class="summary-line"><span>Rental subtotal</span><strong>${currency.format(result.rentalSubtotal)}</strong></div>
-    <div class="summary-line"><span>Delivery &amp; Retrieval (compulsory, once per booking)</span><strong>${currency.format(result.deliveryRetrieval)}</strong></div>
+    <div class="summary-line"><span>Delivery &amp; Retrieval (included rental service, once per booking)</span><strong>${currency.format(result.deliveryRetrieval)}</strong></div>
     ${technicianLine}
     <div class="summary-line"><span>Subtotal before VAT</span><strong>${currency.format(result.subtotalBeforeVat)}</strong></div>
     <div class="summary-line"><span>VAT (7.5%)</span><strong>${currency.format(result.vat)}</strong></div>
@@ -197,7 +203,7 @@ function renderReview(state, result) {
     </div>
     <div class="summary-group"><h4>Equipment &amp; support</h4>
       <div class="summary-line"><span>${state.laptopCategory === "standard" ? "Standard Business Laptop" : "High Performance Laptop"}</span><strong>${state.laptopQuantity}</strong></div>
-      <div class="summary-line"><span>Delivery &amp; Retrieval</span><strong>Compulsory</strong></div>
+      <div class="summary-line"><span>Delivery &amp; Retrieval</span><strong>Included service</strong></div>
       ${state.technicianRequired ? `<div class="summary-line"><span>Technician</span><strong>${result.technicianDays} days</strong></div>` : ""}
     </div>
     <div class="summary-group"><h4>Personal details</h4>
@@ -324,16 +330,20 @@ function updateStepChrome(step) {
   planner.dataset.currentStep = String(step);
   stepButtons.forEach((button, index) => {
     const buttonStep = index + 1;
-    button.disabled = buttonStep > highestStep;
-    button.classList.toggle("is-active", buttonStep === step);
-    const completed = buttonStep < highestStep && (buttonStep !== 1 || scheduleValidated);
+    const active = !workflowComplete && buttonStep === step;
+    button.disabled = workflowComplete || buttonStep > highestStep;
+    button.classList.toggle("is-active", active);
+    const completed = workflowComplete || (buttonStep < highestStep && (buttonStep !== 1 || scheduleValidated));
     button.classList.toggle("is-complete", completed);
-    if (buttonStep === step) button.setAttribute("aria-current", "step");
+    if (workflowComplete) button.setAttribute("aria-label", `${button.querySelector("b").textContent} — completed`);
+    else button.removeAttribute("aria-label");
+    if (active) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
   });
-  backButton.hidden = step === 1;
-  nextButton.hidden = step === totalSteps;
+  backButton.hidden = workflowComplete || step === 1;
+  nextButton.hidden = workflowComplete || step === totalSteps;
   nextButton.textContent = step === 3 ? "Review estimate" : "Continue";
+  progressCompletionStatus.textContent = workflowComplete ? "All four enquiry steps completed." : "";
 }
 
 async function goToStep(step, options = {}) {
@@ -348,9 +358,10 @@ async function goToStep(step, options = {}) {
   outgoing.inert = true;
   outgoing.setAttribute("aria-hidden", "true");
   outgoing.classList.add(`is-exiting-${direction}`);
-  await transitionDelay(200);
+  await transitionDelay(180);
   outgoing.hidden = true;
   outgoing.classList.remove("is-active", `is-exiting-${direction}`);
+  await transitionDelay(80);
   incoming.hidden = false;
   incoming.inert = false;
   incoming.setAttribute("aria-hidden", "false");
@@ -359,9 +370,9 @@ async function goToStep(step, options = {}) {
   updateStepChrome(step);
   document.querySelector("#success-message").hidden = true;
   updateEstimate();
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  void incoming.offsetWidth;
   incoming.classList.add("is-active");
-  await transitionDelay(280);
+  await transitionDelay(240);
   incoming.classList.remove(`is-entering-${direction}`);
   transitionInProgress = false;
   delete form.dataset.transitioning;
@@ -399,11 +410,9 @@ nextButton.addEventListener("click", async () => {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) throw new Error();
-      submissionStatus.textContent = body.crm === "accepted"
-        ? "Review ready."
-        : "Review ready. CRM synchronization is pending and will be retried safely.";
+      submissionStatus.textContent = "Everything looks good. Your enquiry is ready to submit.";
     } catch {
-      submissionStatus.textContent = "Review ready. CRM synchronization is pending and will be retried safely.";
+      submissionStatus.textContent = "Everything looks good. Your enquiry is ready to submit.";
     }
   }
 });
@@ -475,15 +484,48 @@ const submitEnquiry = createSubmissionGuard(async (payload) => {
   return body.enquiry;
 });
 
+function setSubmissionSurfacesInert(inert) {
+  submissionSurfaces.forEach((surface) => {
+    if (surface) surface.inert = inert;
+  });
+}
+
+function showSubmissionOverlay(state) {
+  const succeeded = state === "success";
+  submissionOverlay.dataset.state = state;
+  submissionOverlayTitle.textContent = succeeded ? "Enquiry received" : "Submitting your enquiry…";
+  submissionOverlayMessage.textContent = succeeded
+    ? "Your quotation is ready."
+    : "Please wait while we securely prepare your quotation.";
+  submissionOverlay.toggleAttribute("aria-busy", !succeeded);
+  submissionOverlay.hidden = false;
+  document.body.classList.add("has-submission-overlay");
+  setSubmissionSurfacesInert(true);
+  submissionOverlay.focus({ preventScroll: true });
+}
+
+function hideSubmissionOverlay() {
+  submissionOverlay.hidden = true;
+  submissionOverlay.removeAttribute("data-state");
+  submissionOverlay.removeAttribute("aria-busy");
+  document.body.classList.remove("has-submission-overlay");
+  setSubmissionSurfacesInert(false);
+}
+
 finishButton.addEventListener("click", async () => {
-  document.querySelector("#success-message").hidden = true;
+  const successMessage = document.querySelector("#success-message");
+  if (finishButton.disabled || !validateCurrentStep()) return;
+  successMessage.hidden = true;
   finishButton.disabled = true;
   form.setAttribute("aria-busy", "true");
-  submissionStatus.textContent = "Submitting your enquiry securely…";
+  submissionStatus.textContent = "";
+  showSubmissionOverlay("processing");
   try {
     const enquiry = await submitEnquiry(buildEnquiryPayload(form, journeyId));
+    showSubmissionOverlay("success");
+    await transitionDelay(600);
     document.querySelector("#enquiry-reference").textContent = enquiry.reference;
-    document.querySelector("#success-message").hidden = false;
+    successMessage.hidden = false;
     finishButton.hidden = true;
     formActions.hidden = true;
     restartButton.hidden = false;
@@ -500,18 +542,27 @@ finishButton.addEventListener("click", async () => {
       downloadQuote.removeAttribute("href");
       submissionStatus.textContent = "Your enquiry was received, but the quotation is not yet available for download.";
     }
+    workflowComplete = true;
+    highestStep = totalSteps;
+    updateStepChrome(totalSteps);
+    hideSubmissionOverlay();
+    successMessage.focus({ preventScroll: true });
   } catch (error) {
+    hideSubmissionOverlay();
     submissionStatus.textContent = error.message;
+    finishButton.focus({ preventScroll: true });
   } finally {
     form.removeAttribute("aria-busy");
-    if (document.querySelector("#success-message").hidden) finishButton.disabled = false;
+    if (successMessage.hidden) finishButton.disabled = false;
   }
 });
 restartButton.addEventListener("click", () => {
+  hideSubmissionOverlay();
   form.reset();
   clearJourneyId();
   journeyId = createJourneyId();
   highestStep = 1;
+  workflowComplete = false;
   scheduleValidated = false;
   personalValidationActive = false;
   technicianDaysWrap.hidden = true;

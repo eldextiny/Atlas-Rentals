@@ -23,8 +23,10 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 html { scroll-behavior: smooth; }
 body { margin: 0; color: var(--ink); background: var(--cream); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.55; }
+body.has-submission-overlay { overflow: hidden; }
 button, input, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; }
@@ -92,7 +94,7 @@ h1 { max-width: 880px; margin-bottom: 1.5rem; font-family: "Segoe UI Variable", 
 .planner-intro { max-width: 700px; margin-bottom: 2.5rem; }
 .planner-intro h2 { margin-bottom: 1rem; font-size: clamp(2.5rem, 5vw, 4.2rem); font-weight: 500; }
 .planner-intro > p:last-child { color: var(--muted); }
-.steps { --marker-size: 1.85rem; --step-pad-top: .45rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+.steps { --marker-size: 1.85rem; --step-pad-top: .45rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; overflow-x: clip; }
 .header-progress { margin: 0; }
 .step { position: relative; display: grid; grid-template-rows: var(--marker-size) auto; gap: .45rem; justify-items: center; min-width: 0; padding: var(--step-pad-top) .2rem .65rem; color: #66736f; background: none; border: 0; cursor: pointer; text-align: center; }
 .step:not(:last-child)::before { content: ""; position: absolute; z-index: 0; top: calc(var(--step-pad-top) + (var(--marker-size) / 2) - 1px); left: 50%; width: 100%; height: 3px; background: #cbd3d0; }
@@ -109,10 +111,10 @@ h1 { max-width: 880px; margin-bottom: 1.5rem; font-family: "Segoe UI Variable", 
 .planner-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .75fr); gap: 2rem; align-items: start; }
 #rental-form, .estimate-card { padding: clamp(1.3rem, 3vw, 2.3rem); background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 12px 35px rgba(20,47,44,.06); }
 .form-step { opacity: 1; transform: translateX(0); }
-.form-step.is-exiting-forward, .form-step.is-exiting-reverse { opacity: 0; transition: opacity 200ms ease, transform 200ms ease; }
+.form-step.is-exiting-forward, .form-step.is-exiting-reverse { opacity: 0; transition: opacity 180ms ease, transform 180ms ease; }
 .form-step.is-exiting-forward { transform: translateX(-12px); }
 .form-step.is-exiting-reverse { transform: translateX(12px); }
-.form-step.is-entering-forward, .form-step.is-entering-reverse { opacity: 0; transition: opacity 280ms ease, transform 280ms ease; }
+.form-step.is-entering-forward, .form-step.is-entering-reverse { opacity: 0; transition: opacity 240ms ease, transform 240ms ease; }
 .form-step.is-entering-forward { transform: translateX(12px); }
 .form-step.is-entering-reverse { transform: translateX(-12px); }
 .form-step.is-entering-forward.is-active, .form-step.is-entering-reverse.is-active { opacity: 1; transform: translateX(0); }
@@ -230,6 +232,22 @@ progress::-moz-progress-bar { background: var(--brand-green); }
 .restart-button { margin-top: .75rem; }
 .download-quote { display: flex; justify-content: center; align-items: center; gap: .55rem; text-decoration: none; }
 .download-quote[hidden], #quotation-pending[hidden] { display: none; }
+.submission-overlay { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(8,7,84,.72); backdrop-filter: blur(5px); }
+.submission-overlay[hidden] { display: none; }
+.submission-overlay-card { width: min(92vw, 430px); padding: clamp(1.6rem, 5vw, 2.4rem); color: var(--brand-navy); background: white; border: 1px solid rgba(17,10,221,.14); border-radius: 22px; box-shadow: 0 24px 70px rgba(8,7,84,.3); text-align: center; animation: submission-card-in 240ms ease both; }
+.submission-overlay h2 { margin: 1.15rem 0 .45rem; font-size: clamp(1.45rem, 5vw, 1.9rem); }
+.submission-overlay p { margin: 0; color: var(--muted); font-size: .95rem; line-height: 1.6; }
+.submission-processing-mark, .submission-success-mark { display: grid; place-items: center; width: 4.25rem; height: 4.25rem; margin: auto; border-radius: 50%; }
+.submission-processing-mark { position: relative; background: linear-gradient(135deg, var(--pale-blue), var(--pale-green)); border: 4px solid #d8ddff; }
+.submission-processing-mark::before { content: ""; position: absolute; inset: -4px; border: 4px solid transparent; border-top-color: var(--brand-blue); border-right-color: var(--brand-green); border-radius: 50%; animation: submission-spin .85s linear infinite; }
+.submission-processing-mark span { width: 1.35rem; height: 1.35rem; background: var(--brand-blue); border-radius: 50%; animation: submission-pulse 1.2s ease-in-out infinite; }
+.submission-success-mark { display: none; color: white; background: var(--brand-green); box-shadow: 0 0 0 8px rgba(22,121,79,.12); font-size: 2rem; font-weight: 900; }
+.submission-overlay[data-state="success"] .submission-processing-mark { display: none; }
+.submission-overlay[data-state="success"] .submission-success-mark { display: grid; animation: submission-success-in 260ms ease both; }
+@keyframes submission-spin { to { transform: rotate(360deg); } }
+@keyframes submission-pulse { 50% { opacity: .55; transform: scale(.78); } }
+@keyframes submission-card-in { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+@keyframes submission-success-in { from { opacity: 0; transform: scale(.75); } }
 footer { display: grid; grid-template-columns: 1fr auto auto; gap: 2rem; align-items: center; max-width: 1240px; margin: auto; padding: 2.5rem 2rem; color: var(--muted); border-top: 1px solid var(--line); font-size: .8rem; }
 footer p { margin: 0; }
 
@@ -286,4 +304,5 @@ footer p { margin: 0; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition: none !important; }
   .form-step, .form-step.is-exiting-forward, .form-step.is-exiting-reverse, .form-step.is-entering-forward, .form-step.is-entering-reverse { opacity: 1; transform: none; }
+  .submission-overlay-card, .submission-processing-mark::before, .submission-processing-mark span, .submission-success-mark { animation: none !important; }
 }

@@ -48,6 +48,7 @@
         <button class="step" type="button" data-step-target="2" disabled><span aria-hidden="true">&#10003;</span><b>Laptops</b></button>
         <button class="step" type="button" data-step-target="3" disabled><span aria-hidden="true">&#10003;</span><b>Support &amp; Details</b></button>
         <button class="step" type="button" data-step-target="4" disabled><span aria-hidden="true">&#10003;</span><b>Review</b></button>
+        <span class="sr-only" id="progress-completion-status" aria-live="polite"></span>
       </nav>
       <a class="header-link" href="#planner">Plan a rental <span aria-hidden="true">→</span></a>
     </header>
@@ -189,7 +190,7 @@
               <button class="button button-primary button-full" id="quotation-pending" type="button" disabled hidden>Preparing quotation…</button>
               <button class="button button-secondary button-full restart-button" id="restart-button" type="button" hidden>Start new enquiry</button>
               <p id="submission-status" class="submission-status" role="status" aria-live="polite"></p>
-              <p class="success-message" id="success-message" role="status" hidden>Thank you. Enquiry <strong id="enquiry-reference"></strong> has been received. This acknowledges your enquiry only; availability and booking remain subject to DY-PLUS confirmation.</p>
+              <p class="success-message" id="success-message" role="status" tabindex="-1" hidden>Thank you. Enquiry <strong id="enquiry-reference"></strong> has been received. This acknowledges your enquiry only; availability and booking remain subject to DY-PLUS confirmation.</p>
             </section>
 
             <div class="form-actions" id="form-actions"><button class="button button-secondary" id="back-button" type="button" hidden>Back</button><button class="button button-primary" id="next-button" type="button">Continue</button></div>
@@ -200,7 +201,7 @@
             <dl>
               <div id="standard-estimate-row"><dt>Standard laptops <small id="standard-summary">0 × 0 days</small></dt><dd id="standard-cost">₦0</dd></div>
               <div id="performance-estimate-row"><dt>High performance <small id="performance-summary">0 × 0 days</small></dt><dd id="performance-cost">₦0</dd></div>
-              <div><dt>Delivery &amp; Retrieval <small>Compulsory</small></dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
+              <div><dt>Delivery &amp; Retrieval <small>Included rental service</small></dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
               <div id="technician-estimate-row"><dt>Technician <small id="technician-summary">Not selected</small></dt><dd id="technician-cost">₦0</dd></div>
               <div class="vat-row"><dt>VAT <small>7.5%</small></dt><dd id="vat-cost">₦0</dd></div>
             </dl>
@@ -212,6 +213,14 @@
     </main>
 
     <footer><div class="brand"><img class="brand-logo" src="assets/dyplus-logo.png" alt="DY-PLUS"><span><strong>ATLAS</strong> Rentals <small>Laptop rental planning</small></span></div><p>Professional laptop rental planning for Lagos and Abuja.</p><p>© <span id="year"></span> DY-PLUS</p></footer>
+    <div class="submission-overlay" id="submission-overlay" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden>
+      <div class="submission-overlay-card">
+        <div class="submission-processing-mark" aria-hidden="true"><span></span></div>
+        <div class="submission-success-mark" aria-hidden="true">&#10003;</div>
+        <h2 id="submission-overlay-title">Submitting your enquiry…</h2>
+        <p id="submission-overlay-message">Please wait while we securely prepare your quotation.</p>
+      </div>
+    </div>
     <script type="module" src="js/app.js"></script>
   </body>
 </html>
