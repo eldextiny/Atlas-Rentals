@@ -48,6 +48,14 @@ test("CRM transport uses the receiver integration-token header, never Bearer aut
   assert.doesNotMatch(crmTransport, /Authorization:\s*Bearer/);
 });
 
+test("CRM payload builder uses only the deployed commercial-document field contract", () => {
+  const builder = runtime.match(/function atlasRentalsCrmPayload[\s\S]*?\n\}/)?.[0] || "";
+  for (const field of ["sourceModule", "documentType", "documentReference", "client", "organisation", "contactPerson", "title", "category", "serviceMode", "venue", "durationValue", "durationUnit", "commercial", "subtotalNgn", "vatNgn", "grandTotalNgn", "documentContext"]) assert.match(builder, new RegExp(`'${field}'\\s*=>`));
+  assert.match(builder, /'sourceModule' => 'Atlas Rental'/);
+  assert.match(builder, /'documentType' => 'Laptop Rental Quotation'/);
+  for (const obsolete of ["journeyId", "enquiryReference' => \\$reference,\\n        'contact", "'estimate' =>", "'source' =>", "'service' =>", "'stage' =>"]) assert.doesNotMatch(builder, new RegExp(obsolete));
+});
+
 test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(emailTemplate, /htmlspecialchars\(\(string\)\$value, ENT_QUOTES \| ENT_SUBSTITUTE, 'UTF-8'\)/);
   assert.match(emailTemplate, /Laptop Rental Quotation/);

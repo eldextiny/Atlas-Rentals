@@ -4,16 +4,54 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../api/integration-runtime.php';
 
 function check(bool $condition, string $message): void { if (!$condition) throw new RuntimeException($message); }
+function receiver_accepts_rentals_fixture(array $payload): bool
+{
+    return ($payload['sourceModule'] ?? null) === 'Atlas Rental'
+        && ($payload['documentType'] ?? null) === 'Laptop Rental Quotation'
+        && is_string($payload['documentReference'] ?? null) && trim($payload['documentReference']) !== ''
+        && is_array($payload['client'] ?? null) && trim((string)($payload['client']['organisation'] ?? '')) !== ''
+        && trim((string)($payload['client']['contactPerson'] ?? '')) !== ''
+        && filter_var($payload['client']['email'] ?? '', FILTER_VALIDATE_EMAIL) !== false
+        && is_array($payload['commercial'] ?? null) && is_array($payload['documentContext'] ?? null);
+}
 $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'atlas-rentals-' . bin2hex(random_bytes(5));
 $statePath = $root . DIRECTORY_SEPARATOR . 'state'; $pdfPath = $root . DIRECTORY_SEPARATOR . 'pdf';
 mkdir($statePath, 0700, true); mkdir($pdfPath, 0700, true);
 $config = ['state_path' => $statePath, 'pdf_path' => $pdfPath, 'crm_source' => 'Atlas Rentals', 'crm_service' => 'Laptop Rental'];
 $normalized = ['location' => 'Lagos', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'ratePlan' => 'best', 'standardQuantity' => 3, 'performanceQuantity' => 2, 'technicianRequired' => true, 'technicianDays' => 2, 'fullName' => 'Ada User', 'organization' => 'Example Ltd', 'email' => 'ada@example.com', 'phone' => '+2348028557479'];
-$preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $normalized, 'canonical' => json_encode($normalized), 'pricing' => ['rentalDays' => 3, 'estimatedTotal' => 311750]];
 $pricing = atlasRentalsCalculatePricing($normalized, 3);
+$crmNormalized = $normalized; $crmNormalized['standardQuantity'] = 5; $crmNormalized['performanceQuantity'] = 0;
+$crmPricing = atlasRentalsCalculatePricing($crmNormalized, 3);
+$preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $crmNormalized, 'canonical' => json_encode($crmNormalized), 'pricing' => $crmPricing];
 $record = ['enquiry_reference' => 'ARQ-2026-000001', 'normalized_payload' => json_encode($normalized), 'pricing_snapshot' => json_encode($pricing), 'created_at' => '2026-08-05 12:00:00', 'rental_days' => 3, 'standard_quantity' => 3, 'performance_quantity' => 2, 'technician_required' => 1, 'technician_days' => 2, 'standard_daily_rate' => 10000, 'performance_daily_rate' => 15000, 'delivery_fee' => 40000, 'technician_daily_rate' => 35000, 'subtotal' => 290000, 'vat_amount' => 21750, 'estimated_total' => 311750, 'email' => 'ada@example.com', 'full_name' => 'Ada User', 'organization' => 'Example Ltd', 'location' => 'Lagos', 'start_date' => '2026-08-05', 'end_date' => '2026-08-07'];
 
 $tests = [];
+$tests['CRM payload exactly matches the deployed receiver contract'] = function () use ($preview, $config): void {
+    $payload = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
+    check(receiver_accepts_rentals_fixture($payload), 'receiver-compatible fixture rejected emitted payload');
+    check($payload === [
+        'sourceModule' => 'Atlas Rental', 'documentType' => 'Laptop Rental Quotation', 'documentReference' => 'ARQ-2026-000001',
+        'client' => ['organisation' => 'Example Ltd', 'contactPerson' => 'Ada User', 'email' => 'ada@example.com', 'phone' => '+2348028557479'],
+        'title' => 'Laptop Rental Quotation', 'category' => 'Standard Business Laptop', 'serviceMode' => 'Best Available Rate',
+        'venue' => 'Lagos', 'durationValue' => 3, 'durationUnit' => 'days',
+        'commercial' => ['subtotalNgn' => 260000, 'vatNgn' => 19500, 'grandTotalNgn' => 279500],
+        'documentContext' => ['standardQuantity' => 5, 'performanceQuantity' => 0, 'technicianRequired' => true, 'technicianDays' => 2, 'ratePlan' => 'best', 'ratePlanLabel' => 'Best Available Rate', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'rentalDays' => 3, 'currency' => 'NGN', 'enquiryReference' => 'ARQ-2026-000001'],
+    ], 'CRM payload mapping changed');
+    foreach (['journeyId', 'enquiryReference', 'contact', 'organisation', 'location', 'dates', 'laptops', 'technician', 'estimate', 'source', 'service', 'stage'] as $obsolete) check(!array_key_exists($obsolete, $payload), "obsolete CRM field {$obsolete} returned");
+};
+$tests['CRM payload fails closed for missing malformed or inconsistent authoritative values'] = function () use ($preview, $config): void {
+    $cases = [];
+    $missingReference = $preview; $cases[] = [$missingReference, null];
+    $badEmail = $preview; $badEmail['normalized']['email'] = 'invalid'; $cases[] = [$badEmail, 'ARQ-2026-000001'];
+    $mixed = $preview; $mixed['normalized']['performanceQuantity'] = 2; $cases[] = [$mixed, 'ARQ-2026-000001'];
+    $mismatch = $preview; $mismatch['pricing']['estimatedTotal']++; $cases[] = [$mismatch, 'ARQ-2026-000001'];
+    $badPlan = $preview; $badPlan['normalized']['ratePlan'] = 'hourly'; $cases[] = [$badPlan, 'ARQ-2026-000001'];
+    foreach ($cases as [$candidate, $reference]) {
+        try { atlasRentalsCrmPayload($candidate, $reference, $config); }
+        catch (UnexpectedValueException) { continue; }
+        throw new RuntimeException('Malformed authoritative CRM input was accepted.');
+    }
+};
 $tests['client and administrator emails are branded, distinct, escaped, and retain text alternatives'] = function () use ($record): void {
     $unsafe = $record;
     $payload = json_decode($unsafe['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
@@ -44,17 +82,17 @@ $tests['email CRM and PDF models share authoritative tiered snapshot'] = functio
     check(str_contains($email['html'], 'Best Available Rate') && str_contains($email['text'], 'Rental rate plan: Best Available Rate'), 'email rate plan missing');
     check(str_contains($pdf, 'Best Available Rate') && str_contains($pdf, '1 month + 1 week + 3 days') && str_contains($pdf, 'month at NGN 185,000.00') && str_contains($pdf, 'week at NGN 59,500.00') && str_contains($pdf, 'unit NGN 274,500.00'), 'PDF tier presentation mismatch');
     $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $payload, 'pricing' => $pricing];
-    $crm = atlasRentalsCrmPayload($preview, null, $config);
-    check($crm['estimate']['standard']['perUnitRental'] === 274500 && $crm['estimate']['duration']['days'] === 3, 'CRM authoritative pricing mismatch');
+    $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
+    check($crm['serviceMode'] === 'Best Available Rate' && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], 'CRM authoritative pricing mismatch');
 };
 $tests['all rate plans propagate through snapshot CRM email and PDF'] = function () use ($record, $config): void {
     foreach ([['daily', 6, 'Daily Rate'], ['weekly', 14, 'Weekly Rate - 7 days'], ['monthly', 60, 'Monthly Rate - 30 days'], ['best', 37, 'Best Available Rate']] as [$plan, $days, $label]) {
         $item = $record; $normalized = json_decode($item['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
-        $normalized['ratePlan'] = $plan; $normalized['startDate'] = '2026-01-01'; $normalized['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
+        $normalized['ratePlan'] = $plan; $normalized['standardQuantity'] = 5; $normalized['performanceQuantity'] = 0; $normalized['startDate'] = '2026-01-01'; $normalized['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
         $pricing = atlasRentalsCalculatePricing($normalized, $days); $item['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR); $item['rental_days'] = $days;
         $item['subtotal'] = $pricing['subtotal']; $item['vat_amount'] = $pricing['vatAmount']; $item['estimated_total'] = $pricing['estimatedTotal'];
         $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $normalized, 'pricing' => $pricing];
-        check(atlasRentalsCrmPayload($preview, null, $config)['estimate']['ratePlan'] === $plan, "CRM missing {$plan}");
+        check(atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config)['documentContext']['ratePlan'] === $plan, "CRM missing {$plan}");
         check(str_contains(atlasRentalsBuildEmail($item, 'client')['html'], $label), "email missing {$plan}");
         check(str_contains(atlasRentalsRenderQuotationPdf($item), $label), "PDF missing {$plan}");
     }
@@ -86,11 +124,11 @@ $tests['optional technician presentation and approved rate are preserved'] = fun
     $message = atlasRentalsBuildEmail($without, 'client');
     check(!str_contains($message['html'], '>Technician<') && !str_contains($message['text'], 'Technician:'), 'unselected technician was presented');
 };
-$tests['CRM review is deduplicated and changed content updates'] = function () use ($preview, $config): void {
+$tests['CRM document synchronization is deduplicated and changed content updates'] = function () use ($preview, $config): void {
     $calls = 0; $poster = function () use (&$calls): array { $calls++; return atlasRentalsSafeResult(true, 'CRM_ACCEPTED'); };
-    atlasRentalsSyncCrm($preview, null, $config, $poster); atlasRentalsSyncCrm($preview, null, $config, $poster);
+    atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster); atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster);
     check($calls === 1, 'unchanged CRM review duplicated');
-    $changed = $preview; $changed['canonical'] .= 'changed'; atlasRentalsSyncCrm($changed, null, $config, $poster);
+    $changed = $preview; $changed['canonical'] .= 'changed'; atlasRentalsSyncCrm($changed, 'ARQ-2026-000001', $config, $poster);
     check($calls === 2, 'changed CRM review did not update');
 };
 $tests['PDF contains required quotation content'] = function () use ($record, $pdfPath): void {
