@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+const css = readFileSync(new URL("../css/styles.css", import.meta.url), "utf8");
 
 test("planner exposes exactly four ordered steps", () => {
   const sections = [...html.matchAll(/<section class="form-step[^>]*data-step="(\d)"/g)].map((match) => Number(match[1]));
@@ -26,6 +27,28 @@ test("support and personal details share step three", () => {
   assert.match(stepThree, /name="email"/);
   assert.match(stepThree, /name="phone"/);
   assert.doesNotMatch(stepThree, /type="checkbox"[^>]*delivery|name="delivery/i);
+});
+
+test("step one uses an accessible native service-city selector with a conditional custom city", () => {
+  const stepOne = html.match(/<section class="form-step is-active" data-step="1"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.match(stepOne, /select id="service-city" name="serviceCity"[^>]*aria-describedby="service-city-hint location-error"[^>]*required/);
+  const choices = [...stepOne.matchAll(/<option value="([^"]+)">([^<]+)<\/option>/g)].map((match) => [match[1], match[2].trim()]);
+  assert.deepEqual(choices, [
+    ["Abuja", "Abuja — Federal Capital Territory"],
+    ["Lagos", "Lagos — Lagos metropolitan area"],
+    ["Others", "Others — Specify another Nigerian city"],
+  ]);
+  assert.match(stepOne, /class="category-select-icon location-select-icon"[^>]*aria-hidden="true"/);
+  assert.match(stepOne, /id="custom-city-wrap"[^>]*hidden/);
+  assert.match(stepOne, /<label for="custom-city">Specify service city<\/label>/);
+  assert.match(stepOne, /id="custom-city" name="customCity"/);
+  assert.match(app, /serviceCity\.value === "Others" \? customCityInput\.value\.trim\(\) : serviceCity\.value/);
+  assert.match(app, /customCityInput\.required = customCitySelected/);
+  assert.match(app, /if \(clearWhenHidden\) customCityInput\.value = ""/);
+  assert.match(app, /"Select a service city\."/);
+  assert.match(app, /"Enter the service city\."/);
+  assert.match(app, /serviceCity\.focus\(\)/);
+  assert.match(app, /customCityInput\.focus\(\)/);
 });
 
 test("removed optional fields are absent from the workflow", () => {
@@ -53,11 +76,62 @@ test("confirmation is persisted-enquiry wording rather than booking confirmation
   assert.match(app, /const enquiry = await submitEnquiry[\s\S]*success-message[\s\S]*catch \(error\)/);
 });
 
-test("hero cards retain guarded focus navigation without changing quantities", () => {
-  assert.match(html, /data-rate-target="standard-quantity"/);
-  assert.match(html, /data-rate-target="performance-quantity"/);
+test("hero cards retain guarded category navigation without changing quantities", () => {
+  assert.match(html, /data-laptop-category="standard"/);
+  assert.match(html, /data-laptop-category="performance"/);
   assert.match(app, /currentStep = 1;[\s\S]*highestStep = 1;[\s\S]*goToStep\(1\)/);
-  assert.doesNotMatch(app, /quantityInput\.value\s*=/);
+  assert.doesNotMatch(app, /laptopQuantity\.value\s*=/);
+});
+
+test("step two uses one required category and maps one quantity to the stable contract", () => {
+  const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.match(stepTwo, /select id="laptop-category"[^>]*aria-describedby="category-hint quantity-error"[^>]*required/);
+  assert.match(stepTwo, /Choose a laptop category/);
+  assert.match(stepTwo, /Standard Business Laptop — Training, assessments, office and browser work — ₦10,000\/day/);
+  assert.match(stepTwo, /High Performance Laptop — Creative, technical and data-intensive work — ₦15,000\/day/);
+  assert.match(stepTwo, /id="category-details"[^>]*aria-live="polite"/);
+  assert.match(stepTwo, /id="laptop-quantity"[^>]*min="5"[^>]*required/);
+  assert.doesNotMatch(stepTwo, /name="standardQuantity"|name="performanceQuantity"/);
+  assert.match(app, /standardQuantity: category === "standard" \? quantity : 0/);
+  assert.match(app, /performanceQuantity: category === "performance" \? quantity : 0/);
+});
+
+test("native category selector exposes polished accessible state hooks", () => {
+  assert.match(html, /class="category-select-wrap"/);
+  assert.match(html, /class="category-select-icon"[^>]*aria-hidden="true"/);
+  assert.match(html, /class="category-select-chevron"[^>]*aria-hidden="true"/);
+  assert.match(css, /category-select-wrap:has\(select:focus-visible\)/);
+  assert.match(css, /select\[aria-invalid="true"\]/);
+  assert.match(css, /category-select-wrap:has\(select:valid\)/);
+  assert.match(css, /selected-category-state/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.match(app, /selected-category-state/);
+  assert.match(app, /category-daily-rate/);
+  assert.match(app, /category-best-use/);
+  assert.match(app, /category-specs/);
+  assert.match(app, /Best suited for:/);
+  assert.match(app, /Minimum quantity:/);
+  assert.match(app, /LAPTOP_CATALOGUE\[category\]/);
+});
+
+test("personal validation is field-local, focuses first invalid and clears corrected errors", () => {
+  for (const [name, id] of [["fullName", "full-name-error"], ["organization", "organization-error"], ["email", "email-error"], ["phone", "phone-error"]]) {
+    assert.match(html, new RegExp(`name="${name}"[^>]*aria-describedby="${id}"`));
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(app, /firstInvalid\.field\.focus\(\)/);
+  assert.match(app, /field\.setAttribute\("aria-invalid", "true"\)/);
+  assert.match(app, /field\.removeAttribute\("aria-invalid"\)/);
+  assert.match(app, /addEventListener\("input"[\s\S]*setPersonalFieldError/);
+  assert.match(app, /showError\("details-error", firstInvalid\?\.message \|\| ""\)/);
+  const removedGenericMessage = ["Complete all required", "personal details with valid information"].join(" ");
+  assert.equal((app + html).includes(removedGenericMessage), false);
+});
+
+test("progress circles use accessible check marks instead of visible numbers", () => {
+  const progress = html.match(/<nav class="steps header-progress"[\s\S]*?<\/nav>/)?.[0] || "";
+  assert.equal((progress.match(/<span aria-hidden="true">&#10003;<\/span>/g) || []).length, 4);
+  assert.doesNotMatch(progress, /<span>[1-4]<\/span>/);
 });
 
 test("step progress is sticky-header content and transitions do not force scrolling", () => {
@@ -71,7 +145,6 @@ test("step progress is sticky-header content and transitions do not force scroll
 test("mobile estimate is limited to review step while desktop remains available", () => {
   assert.match(html, /class="estimate-card"/);
   assert.match(app, /planner\.dataset\.currentStep = String\(step\)/);
-  const css = readFileSync(new URL("../css/styles.css", import.meta.url), "utf8");
   assert.match(css, /planner-shell:not\(\[data-current-step="4"\]\) \.estimate-card \{ display: none; \}/);
 });
 
@@ -84,4 +157,13 @@ test("phone is required client-side and review triggers same-origin CRM", () => 
 test("persisted response distinguishes complete delivery from pending delivery", () => {
   assert.match(app, /enquiry\.deliveryComplete/);
   assert.match(app, /Quotation delivery is pending and can be retried safely/);
+});
+
+test("successful submission hides navigation while failure keeps it available", () => {
+  assert.match(html, /id="form-actions"/);
+  const handler = app.match(/finishButton\.addEventListener\("click"[\s\S]*?\n\}\);/)?.[0] || "";
+  assert.match(handler, /formActions\.hidden = true/);
+  assert.match(handler, /catch \(error\)[\s\S]*submissionStatus\.textContent = error\.message/);
+  assert.doesNotMatch(handler.match(/catch \(error\)[\s\S]*?finally/)?.[0] || "", /formActions\.hidden = true/);
+  assert.match(app, /restartButton\.addEventListener[\s\S]*formActions\.hidden = false/);
 });

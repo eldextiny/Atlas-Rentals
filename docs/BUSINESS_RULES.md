@@ -13,9 +13,9 @@
 ## Calculation order
 
 1. Rental days are inclusive of both start and end dates. A same-day rental is one day.
-2. Each laptop subtotal is `quantity × rental days × applicable daily rate`.
-3. Standard and High Performance quantities are combined for the minimum-order check.
-4. At least five laptops are required in total.
+2. One laptop category is selected per enquiry; its subtotal is `quantity × rental days × applicable daily rate`.
+3. The selected category maps to its existing server quantity field and the unselected category maps to zero.
+4. At least five laptops are required.
 5. Delivery & Retrieval is compulsory and is added once regardless of quantity or duration.
 6. Technician support is `technician days × ₦35,000`.
 7. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
@@ -23,11 +23,12 @@
 
 ## Validation
 
-- Service location must be Lagos or Abuja.
+- Service location may be Abuja, Lagos, or another specified Nigerian city.
 - End date must be the same as or later than the start date.
 - Laptop and technician quantities must be whole, non-negative numbers.
 - Technician support requires at least one technician day.
 - An estimate is non-binding and does not confirm availability or create a booking.
+- A quotation estimate is valid for 30 days.
 
 ## Enquiry submission
 

@@ -118,7 +118,7 @@ legend { margin-bottom: .65rem; }
 .choice-card b, .choice-card small, .service-card b, .service-card small { display: block; }
 .choice-card small, .service-card small { margin-top: .2rem; color: var(--muted); font-weight: 500; }
 label:has(> input:not([type="radio"]):not([type="checkbox"])), label:has(> textarea) { display: grid; gap: .45rem; }
-input[type="date"], input[type="number"], input[type="text"], input[type="email"], input[type="tel"], textarea { width: 100%; padding: .8rem .9rem; color: var(--ink); background: white; border: 1px solid #b9c1be; border-radius: 9px; }
+input[type="date"], input[type="number"], input[type="text"], input[type="email"], input[type="tel"], select, textarea { width: 100%; padding: .8rem .9rem; color: var(--ink); background: white; border: 1px solid #b9c1be; border-radius: 9px; }
 textarea { resize: vertical; }
 .field-grid { margin-bottom: 1rem; }
 .field-error { min-height: 1.25rem; margin: .45rem 0 0; color: var(--danger); font-size: .8rem; font-weight: 700; }
@@ -129,6 +129,33 @@ textarea { resize: vertical; }
 .product strong small { color: var(--muted); font-weight: 500; }
 .product-tag { color: var(--success); font-size: .68rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .product-tag.warm { color: var(--orange-dark); }
+.laptop-selection { display: grid; gap: .65rem; }
+.category-select-wrap { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding: 2px; background: linear-gradient(120deg, rgba(17,10,221,.35), rgba(31,157,104,.42)); border-radius: 15px; box-shadow: 0 5px 16px rgba(18,56,91,.08); transition: box-shadow .2s ease, transform .2s ease; }
+.category-select-wrap:hover { box-shadow: 0 7px 20px rgba(18,56,91,.14); }
+.category-select-wrap:has(select:focus-visible) { box-shadow: 0 0 0 4px rgba(17,10,221,.16), 0 8px 22px rgba(18,56,91,.13); }
+.category-select-wrap:has(select[aria-invalid="true"]) { background: var(--danger); box-shadow: 0 0 0 3px rgba(176,35,52,.12); }
+.category-select-wrap:has(select:valid) { background: linear-gradient(120deg, var(--brand-blue), var(--brand-green)); }
+.category-select-wrap select { position: relative; z-index: 1; grid-column: 1 / -1; grid-row: 1; min-height: 3.45rem; padding: .9rem 3.2rem .9rem 3.25rem; appearance: none; color: var(--ink); background: #fff; border: 0; border-radius: 13px; font-weight: 750; cursor: pointer; transition: background-color .2s ease, color .2s ease; }
+.category-select-wrap select:hover { background: #fbfcff; }
+.category-select-wrap select:focus-visible { outline: 0; }
+.category-select-icon { position: relative; z-index: 2; grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 2rem; height: 2rem; margin-left: .65rem; pointer-events: none; color: var(--brand-blue); background: var(--pale-blue); border-radius: 8px; }
+.category-select-icon svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.category-select-chevron { position: relative; z-index: 2; grid-column: 3; grid-row: 1; width: .7rem; height: .7rem; margin-right: 1rem; pointer-events: none; border-right: 2px solid var(--brand-navy); border-bottom: 2px solid var(--brand-navy); transform: rotate(45deg) translateY(-3px); transform-origin: center; transition: transform .2s ease, border-color .2s ease; }
+.category-select-wrap:has(select:focus-visible) .category-select-chevron { border-color: var(--brand-blue); transform: rotate(225deg) translate(-2px, -2px); }
+.category-hint { margin-top: -.15rem; color: var(--muted); font-size: .76rem; }
+.city-select-wrap { margin-bottom: .65rem; }
+.custom-city-field { display: grid; gap: .45rem; margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #f5f7ff, #effaf5); border: 1px solid #c6dcd4; border-radius: 12px; }
+.custom-city-field[hidden] { display: none; }
+.laptop-selection .category-details { display: grid; grid-template-columns: 1fr auto; gap: .35rem 1rem; margin: .35rem 0 .65rem; padding: 1.2rem 1.25rem; background: linear-gradient(135deg, #f5f7ff, #effaf5); border: 1px solid #b9d9cd; border-left: 4px solid var(--brand-green); box-shadow: 0 8px 22px rgba(18,56,91,.07); }
+.laptop-selection .category-details[hidden] { display: none; }
+.category-details .selected-category-state { grid-column: 1 / -1; width: fit-content; padding: .2rem .55rem; color: #075d38; background: #dff5e9; border-radius: 99px; font-size: .67rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.category-details h4 { margin: .3rem 0 0; color: var(--brand-navy); }
+.category-details .category-daily-rate { align-self: center; color: var(--brand-blue); font-size: 1.05rem; }
+.category-details .category-best-use { grid-column: 1 / -1; margin: .2rem 0 0; }
+.category-details .category-specs { grid-column: 1 / -1; margin: .15rem 0 0; color: #405551; font-size: .79rem; font-weight: 650; }
+.category-details .category-specs span + span::before { content: "•"; margin: 0 .5rem; color: var(--brand-green); }
+.category-details .category-minimum { grid-column: 1 / -1; margin: .2rem 0 0; color: var(--muted); font-size: .8rem; font-weight: 750; }
+input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(176,35,52,.1); }
 .minimum-meter { display: grid; gap: .45rem; margin-top: 1rem; color: var(--muted); font-size: .8rem; font-weight: 700; }
 progress { width: 100%; height: .45rem; border: 0; border-radius: 10px; overflow: hidden; }
 progress::-webkit-progress-bar { background: var(--line); }
@@ -191,6 +218,9 @@ footer p { margin: 0; }
 @media (max-width: 600px) {
   .site-header { gap: .55rem; padding: .9rem 1rem; }
   .brand-logo { height: 2rem; }
+  .category-select-wrap select { min-height: 3.25rem; padding-right: 2.8rem; padding-left: 3rem; font-size: .88rem; }
+  .laptop-selection .category-details { grid-template-columns: 1fr; }
+  .category-details .category-daily-rate { justify-self: start; }
   .header-title { gap: .25rem; }
   .header-title-atlas { font-size: .95rem; }
   .header-title-rental { font-size: .7rem; }

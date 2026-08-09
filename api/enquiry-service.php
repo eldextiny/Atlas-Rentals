@@ -217,7 +217,7 @@ final class EnquiryService
             'email' => strtolower($text($input['email'])), 'phone' => $text($input['phone']),
         ];
         if (!preg_match('/^[a-f0-9]{32}$/', $value['journeyId'])) $errors['journeyId'] = 'The journey identity is invalid.';
-        if (!in_array($value['location'], ['Lagos', 'Abuja'], true)) $errors['location'] = 'Choose Lagos or Abuja.';
+        $this->length($value['location'], 2, 120, 'location', $errors);
         $this->length($value['fullName'], 2, 160, 'fullName', $errors);
         $this->length($value['organization'], 2, 200, 'organization', $errors);
         if (!filter_var($value['email'], FILTER_VALIDATE_EMAIL) || strlen($value['email']) > 254) $errors['email'] = 'Enter a valid email address.';

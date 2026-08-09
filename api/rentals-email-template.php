@@ -55,7 +55,7 @@ function atlasRentalsEmailShell(string $preheader, string $body): string
         . '<div style="display:none;max-height:0;overflow:hidden;opacity:0;">' . atlasRentalsHtml($preheader) . '</div>'
         . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;"><tr><td align="center" style="padding:24px 12px;">'
         . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,42,.08);">'
-        . '<tr><td style="padding:24px 28px;background:#12385b;border-bottom:5px solid #1f9d68;"><div style="color:#ffffff;font-size:21px;font-weight:700;letter-spacing:.3px;">DY-PLUS</div><div style="margin-top:4px;color:#d9f5e8;font-size:14px;font-weight:600;">ATLAS Rentals</div></td></tr>'
+        . '<tr><td style="padding:24px 28px;background:#12385b;border-bottom:5px solid #1f9d68;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td><div style="color:#ffffff;font-size:21px;font-weight:700;letter-spacing:.3px;">DY-PLUS</div><div style="margin-top:4px;color:#d9f5e8;font-size:14px;font-weight:600;">ATLAS Rentals</div></td><td align="right" width="110"><img src="https://laptops.dyplus.com.ng/assets/dyplus-logo.png" width="100" alt="DY-PLUS company logo" style="display:block;width:100px;max-width:100%;height:auto;border:0;"></td></tr></table></td></tr>'
         . $body
         . '<tr><td style="padding:20px 28px;background:#f8fafc;border-top:1px solid #e5e7eb;text-align:center;color:#64748b;font-size:12px;line-height:1.6;">DY-PLUS NIG. LTD.<br>ATLAS Rentals by DY-PLUS</td></tr>'
         . '</table></td></tr></table></body></html>';
@@ -84,7 +84,7 @@ function atlasRentalsBuildEmail(array $record, string $audience): array
         $body = $intro . atlasRentalsEmailSection('Rental summary', $rentalRows)
             . atlasRentalsEmailSection('Quotation breakdown', $itemRows)
             . atlasRentalsEmailSection('Commercial summary', $totals)
-            . '<tr><td style="padding:0 28px 26px;"><div style="padding:14px 16px;background:#f0fdf4;border-left:4px solid #1f9d68;color:#334155;font-size:13px;line-height:1.6;">This estimate remains subject to equipment availability and DY-PLUS review. This enquiry does not confirm availability or create a booking.</div></td></tr>';
+            . '<tr><td style="padding:0 28px 26px;"><div style="padding:14px 16px;background:#f0fdf4;border-left:4px solid #1f9d68;color:#334155;font-size:13px;line-height:1.6;">This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review. This enquiry does not confirm availability or create a booking.</div></td></tr>';
         $opening = ['Dear ' . $m['name'] . ',', '', 'Thank you for contacting ATLAS Rentals by DY-PLUS. We have received your laptop rental enquiry.'];
     } else {
         $intro = '<tr><td style="padding:28px 28px 20px;"><h1 style="margin:0 0 12px;color:#12385b;font-size:22px;">New ATLAS Rentals Enquiry</h1>'
@@ -94,12 +94,12 @@ function atlasRentalsBuildEmail(array $record, string $audience): array
             . atlasRentalsEmailSection('Operational details', $rentalRows)
             . atlasRentalsEmailSection('Equipment and services', $itemRows)
             . atlasRentalsEmailSection('Commercial review', $totals)
-            . '<tr><td style="padding:0 28px 26px;"><div style="padding:14px 16px;background:#fff7ed;border-left:4px solid #f59e0b;color:#334155;font-size:13px;line-height:1.6;">Review availability and confirm the booking position before making any commitment to the customer.</div></td></tr>';
+            . '<tr><td style="padding:0 28px 26px;"><div style="padding:14px 16px;background:#fff7ed;border-left:4px solid #f59e0b;color:#334155;font-size:13px;line-height:1.6;">This estimate is valid for 30 days. Review availability and confirm the booking position before making any commitment to the customer.</div></td></tr>';
         $opening = ['A new ATLAS Rentals enquiry requires operational and commercial review.'];
     }
 
     $lines = array_merge($opening, ['', 'REFERENCE', $m['reference'], '', 'CUSTOMER', $m['name'], 'Organisation: ' . $m['organization'], 'Email: ' . $m['email'], 'Phone: ' . $m['phone'], '', 'RENTAL DETAILS', 'Dates: ' . $m['start'] . ' to ' . $m['end'], 'Duration: ' . $m['days'] . ' inclusive day(s)', 'Location: ' . $m['location'], '', 'QUOTATION BREAKDOWN', 'Standard laptops: ' . $itemRows[0][1], 'High-performance laptops: ' . $itemRows[1][1]]);
     if ($m['technicianRequired']) $lines[] = 'Technician: ' . $m['technicianDays'] . ' days x ' . $m['technicianRate'] . ' — ' . $m['technicianAmount'];
-    $lines = array_merge($lines, ['Delivery & retrieval: ' . $m['delivery'], '', 'COMMERCIAL SUMMARY', 'Subtotal before VAT: ' . $m['subtotal'], 'VAT (7.5%): ' . $m['vat'], 'Estimated total: ' . $m['total'], '', 'This estimate remains subject to equipment availability and DY-PLUS review.', 'This enquiry does not confirm availability or create a booking.', '', 'DY-PLUS NIG. LTD. | ATLAS Rentals']);
+    $lines = array_merge($lines, ['Delivery & retrieval: ' . $m['delivery'], '', 'COMMERCIAL SUMMARY', 'Subtotal before VAT: ' . $m['subtotal'], 'VAT (7.5%): ' . $m['vat'], 'Estimated total: ' . $m['total'], '', 'This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review.', 'This enquiry does not confirm availability or create a booking.', '', 'DY-PLUS NIG. LTD. | ATLAS Rentals']);
     return ['html' => atlasRentalsEmailShell($audience === 'client' ? 'Your ATLAS Rentals quotation is attached.' : 'A new ATLAS Rentals enquiry requires review.', $body), 'text' => implode("\n", $lines)];
 }

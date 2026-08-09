@@ -31,7 +31,7 @@ Create and verify these private, non-public runtime directories before release:
 - `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/delivery-state`
 - `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/quotation-pdfs`
 
-PHP must be able to read and write both directories. The application does not alter their permissions. State and PDF retention is 30 days; quotation validity is 7 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
+PHP must be able to read and write both directories. The application does not alter their permissions. State and PDF retention is 30 days; quotation validity is 30 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
 
 The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
 

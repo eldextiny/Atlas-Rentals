@@ -19,7 +19,7 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 
 ## Data flow
 
-Form values remain in their controls while users move through the four steps. The browser renders an estimate, then submits a stable payload. The server independently normalizes and validates it, recalculates pricing, hashes the canonical material content, and stores it in MySQL. Success is shown only after the transaction commits.
+Form values remain in their controls while users move through the four steps. Step 2 holds one selected laptop category and one quantity; the browser maps these to the existing standard/high-performance quantity fields and forces the unselected field to zero. The browser renders an estimate, then submits the stable payload. The server independently normalizes and validates it, recalculates pricing, hashes the canonical material content, and stores it in MySQL. Success is shown only after the transaction commits.
 
 The yearly counter row is locked with `SELECT ... FOR UPDATE`. Counter increment and enquiry insertion occur in one InnoDB transaction. An identical retry resolves by the unique idempotency hash and returns its original reference. A failed transaction rolls back the counter increment.
 
@@ -31,4 +31,4 @@ Pricing constants and formulas remain outside DOM code. Browser totals are displ
 
 ## Accessibility
 
-The interface uses semantic landmarks, explicit labels, fieldsets, live estimate updates, keyboard-operable step controls, visible focus styles, inline validation messages and reduced-motion support.
+The interface uses semantic landmarks, explicit labels, fieldsets, live estimate updates, keyboard-operable step controls, accessible progress check marks, visible focus styles, inline validation messages and reduced-motion support.

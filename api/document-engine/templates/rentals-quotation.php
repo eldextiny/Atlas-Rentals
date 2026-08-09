@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../pdf-png.php';
 
-const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v3-logo';
+const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v4-validity-30';
 const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
 
 function atlasRentalsPdfText(mixed $value): string
@@ -102,7 +102,7 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $text(42, $y, 'Reference: ' . $reference, 9.5, true);
     $text(300, $y, 'Issue date: ' . $created->format('d F Y'), 9.5);
     $y -= 16;
-    $text(300, $y, 'Valid until: ' . $created->modify('+7 days')->format('d F Y'), 9.5);
+    $text(300, $y, 'Valid until: ' . $created->modify('+30 days')->format('d F Y'), 9.5);
     $y -= 17;
 
     $section('Customer Details');
@@ -121,7 +121,7 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $item('VAT (7.5%)', '', atlasRentalsPdfMoney($record['vat_amount']));
     $item('ESTIMATED TOTAL', '', atlasRentalsPdfMoney($record['estimated_total']), true);
     $section('Availability and Booking');
-    foreach (atlasRentalsPdfWrap('This estimate is valid for 7 days and remains subject to equipment availability and DY-PLUS review. This enquiry does not confirm availability or create a booking.', 92) as $wrapped) {
+    foreach (atlasRentalsPdfWrap('This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review. This enquiry does not confirm availability or create a booking.', 92) as $wrapped) {
         $ensure(13); $text(48, $y, $wrapped, 8.8, false, [0.25, 0.32, 0.40]); $y -= 13;
     }
     $finishPage();

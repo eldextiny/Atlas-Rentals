@@ -13,16 +13,35 @@ function integer(value) {
   return Number.isInteger(number) && number >= 0 ? number : value;
 }
 
+export function personalDetailsError(name, value, validity = {}) {
+  const empty = String(value ?? "").trim() === "";
+  if (name === "fullName") return empty ? "Enter your full name." : "";
+  if (name === "organization") return empty ? "Enter your organisation name." : "";
+  if (name === "email") {
+    if (empty) return "Enter your email address.";
+    return validity.typeMismatch ? "Enter a valid email address." : "";
+  }
+  if (name === "phone") {
+    if (empty) return "Enter your phone number.";
+    return validity.patternMismatch ? "Enter a valid phone number." : "";
+  }
+  return "";
+}
+
 export function buildEnquiryPayload(form, journeyId) {
   const values = Object.fromEntries(new FormData(form));
   const technicianRequired = form.elements.technicianRequired.checked;
+  const laptopQuantity = integer(values.laptopQuantity);
+  const standardSelected = values.laptopCategory === "standard";
+  const performanceSelected = values.laptopCategory === "performance";
+  const location = values.serviceCity === "Others" ? text(values.customCity) : text(values.serviceCity);
   return {
     journeyId,
-    location: text(values.location),
+    location,
     startDate: text(values.startDate),
     endDate: text(values.endDate),
-    standardQuantity: integer(values.standardQuantity),
-    performanceQuantity: integer(values.performanceQuantity),
+    standardQuantity: standardSelected ? laptopQuantity : 0,
+    performanceQuantity: performanceSelected ? laptopQuantity : 0,
     technicianRequired,
     technicianDays: technicianRequired ? integer(values.technicianDays) : 0,
     fullName: text(values.fullName),

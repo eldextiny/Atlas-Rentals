@@ -7,6 +7,23 @@ export const PRICING = Object.freeze({
   minimumLaptopQuantity: 5,
 });
 
+export const LAPTOP_CATALOGUE = Object.freeze({
+  standard: Object.freeze({
+    title: "Standard Business Laptop",
+    dailyRate: PRICING.standardDailyRate,
+    summary: "Training, assessments, office and browser work",
+    bestSuitedFor: "Training, assessments, office tools and browser-based work.",
+    features: Object.freeze(["Business-class configuration", "Office and browser ready", "Everyday productivity"]),
+  }),
+  performance: Object.freeze({
+    title: "High Performance Laptop",
+    dailyRate: PRICING.performanceDailyRate,
+    summary: "Creative, technical and data-intensive work",
+    bestSuitedFor: "Creative, technical and data-intensive sessions.",
+    features: Object.freeze(["Higher-spec configuration", "Creative and data workloads", "Technical sessions"]),
+  }),
+});
+
 function requireNonNegativeInteger(value, fieldName) {
   if (!Number.isInteger(value) || value < 0) {
     throw new TypeError(`${fieldName} must be a non-negative integer.`);
@@ -92,8 +109,8 @@ export function validateBooking({
 } = {}) {
   const errors = {};
 
-  if (!new Set(["Lagos", "Abuja"]).has(location)) {
-    errors.location = "Choose Lagos or Abuja.";
+  if (typeof location !== "string" || location.trim().length < 2 || location.trim().length > 120) {
+    errors.location = "Enter a valid service city.";
   }
 
   let rentalDays = 0;

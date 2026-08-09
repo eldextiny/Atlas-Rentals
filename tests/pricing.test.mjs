@@ -109,16 +109,26 @@ test("negative and fractional quantities fail deterministically", () => {
 
 test("booking validation reports location, date and minimum errors", () => {
   const result = validateBooking({
-    location: "Kano",
+    location: "X",
     startDate: "2026-08-05",
     endDate: "2026-08-04",
     standardQuantity: 2,
     performanceQuantity: 2,
   });
   assert.equal(result.valid, false);
-  assert.match(result.errors.location, /Lagos or Abuja/);
+  assert.match(result.errors.location, /valid service city/);
   assert.match(result.errors.dates, /on or after/);
   assert.match(result.errors.quantity, /at least 5/);
+});
+
+test("booking validation accepts a specified Nigerian service city", () => {
+  const result = validateBooking({
+    location: "Port Harcourt",
+    startDate: "2026-08-05",
+    endDate: "2026-08-05",
+    standardQuantity: 5,
+  });
+  assert.equal(result.valid, true);
 });
 
 test("technician selection requires at least one support day", () => {

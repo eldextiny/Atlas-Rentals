@@ -70,6 +70,12 @@ $tests['server pricing, inclusive dates and technician rate'] = function (): voi
     expect($result['reference'] === 'ARQ-2026-000001', 'reference format mismatch');
     expect($result['estimatedTotal'] === 311750.0, 'server total mismatch');
 };
+$tests['specified service city uses the existing location contract'] = function (): void {
+    $payload = valid_payload(); $payload['location'] = 'Port Harcourt';
+    $preview = service(new MemoryStore())->preview($payload);
+    expect($preview['normalized']['location'] === 'Port Harcourt', 'custom location was not preserved');
+    $payload['location'] = 'X'; expect_validation($payload, 'location');
+};
 $tests['identical retry returns original reference'] = function (): void {
     $service = service($store = new MemoryStore());
     $first = $service->submit(valid_payload());
