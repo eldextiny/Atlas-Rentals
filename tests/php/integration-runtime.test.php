@@ -70,6 +70,41 @@ $tests['client and administrator emails are branded, distinct, escaped, and reta
     check(str_contains($admin['html'], 'operational and commercial review') && str_contains($admin['html'], 'Customer and contact'), 'admin review purpose missing');
     check($client['html'] !== $admin['html'] && $client['text'] !== $admin['text'], 'recipient emails are not distinct');
 };
+$tests['client WhatsApp CTA uses private configuration and omits safely'] = function () use ($record): void {
+    $digits = implode('', array_fill(0, 12, '9'));
+    $configured = '+' . substr($digits, 0, 3) . ' (' . substr($digits, 3, 3) . ') ' . substr($digits, 6);
+    $client = atlasRentalsBuildEmail($record, 'client', ['whatsapp_number' => $configured]);
+    $admin = atlasRentalsBuildEmail($record, 'admin', ['whatsapp_number' => $configured]);
+    $message = 'Hello DY-PLUS, I’m following up on laptop rental enquiry ARQ-2026-000001.';
+    $url = 'https://wa.me/' . $digits . '?text=' . rawurlencode($message);
+    check(str_contains($client['html'], 'Chat with us on WhatsApp') && str_contains($client['html'], atlasRentalsHtml($url)), 'configured client WhatsApp CTA missing');
+    check(str_contains($client['text'], $url), 'plain-text WhatsApp fallback missing');
+    check(preg_match('#https://wa\.me/(\d+)\?text=#', $client['text'], $match) === 1 && $match[1] === $digits, 'WhatsApp destination was not normalized to digits');
+    check(str_contains($client['text'], rawurlencode('ARQ-2026-000001')), 'authoritative enquiry reference was not encoded');
+    check(!str_contains($admin['html'], 'Chat with us on WhatsApp') && !str_contains($admin['text'], 'wa.me/'), 'administrator received customer WhatsApp CTA');
+    foreach ([[], ['whatsapp_number' => 'invalid']] as $missing) {
+        $without = atlasRentalsBuildEmail($record, 'client', $missing);
+        check(!str_contains($without['html'], 'Chat with us on WhatsApp') && !str_contains($without['text'], 'wa.me/'), 'missing WhatsApp configuration did not omit CTA');
+        check(str_contains($without['html'], 'Laptop Rental Quotation') && str_contains($without['text'], 'Estimated total'), 'missing WhatsApp configuration broke email rendering');
+    }
+};
+$tests['WhatsApp environment configuration takes precedence over private configuration'] = function () use ($root): void {
+    $privateDigits = implode('', array_fill(0, 12, '8')); $environmentDigits = implode('', array_fill(0, 12, '9'));
+    $privatePath = $root . DIRECTORY_SEPARATOR . 'integrations.php';
+    file_put_contents($privatePath, '<?php return ' . var_export(['whatsapp_number' => $privateDigits], true) . ';');
+    putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG=' . $privatePath); putenv('ATLAS_RENTALS_WHATSAPP_NUMBER');
+    check(atlasRentalsIntegrationConfig()['whatsapp_number'] === $privateDigits, 'private WhatsApp fallback was not loaded');
+    putenv('ATLAS_RENTALS_WHATSAPP_NUMBER=' . $environmentDigits);
+    check(atlasRentalsIntegrationConfig()['whatsapp_number'] === $environmentDigits, 'WhatsApp environment variable did not take precedence');
+    putenv('ATLAS_RENTALS_WHATSAPP_NUMBER'); putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG'); unlink($privatePath);
+};
+$tests['standard rental service wording replaces compulsory service'] = function () use ($record): void {
+    $client = atlasRentalsBuildEmail($record, 'client'); $admin = atlasRentalsBuildEmail($record, 'admin'); $pdf = atlasRentalsRenderQuotationPdf($record);
+    foreach ([$client['html'], $client['text'], $admin['html'], $admin['text'], $pdf] as $presentation) {
+        check(str_contains($presentation, 'Standard rental service'), 'standard rental service wording missing');
+        check(!str_contains($presentation, 'Compulsory service'), 'obsolete compulsory service wording remains');
+    }
+};
 $tests['email CRM and PDF models share authoritative tiered snapshot'] = function () use ($record, $config): void {
     $tiered = $record; $payload = json_decode($tiered['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
     $payload['standardQuantity'] = 6; $payload['performanceQuantity'] = 0; $payload['startDate'] = '2026-08-01'; $payload['endDate'] = '2026-09-09'; $payload['technicianDays'] = 40;
@@ -138,7 +173,8 @@ $tests['PDF contains required quotation content'] = function () use ($record, $p
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath); $bytes = file_get_contents($pdf['path']);
     check(str_starts_with($bytes, '%PDF-1.4') && str_ends_with($bytes, '%%EOF'), 'PDF structure invalid');
     check(str_contains($bytes, '/Subtype /Image') && str_contains($bytes, '/Width 200 /Height 129') && str_contains($bytes, '/SMask'), 'approved logo was not embedded with transparency');
-    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
+    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
+    check(!str_contains($bytes, 'Compulsory service'), 'PDF retained obsolete service wording');
     check(str_contains($bytes, 'VAT \\(7.5%\\)'), 'PDF missing VAT (7.5%)');
     $long = $record; $long['enquiry_reference'] = 'ARQ-2026-000099';
     $payload = json_decode($long['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
@@ -152,11 +188,13 @@ $tests['PDF renderer version rotates the cached document fingerprint'] = functio
     $previousPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v2'), 0, 16);
     $logoPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v3-logo'), 0, 16);
     $tieredPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v5-tiered-rates'), 0, 16);
+    $previousRatePlanPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v6-rate-plan'), 0, 16);
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath);
     check($pdf['fingerprint'] !== $old, 'presentation version did not rotate PDF fingerprint');
     check($pdf['fingerprint'] !== $previousPresentation, 'logo renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] !== $logoPresentation, '30-day renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] !== $tieredPresentation, 'rate-plan renderer reused the tiered-only presentation fingerprint');
+    check($pdf['fingerprint'] !== $previousRatePlanPresentation, 'standard-service renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] === substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|' . ATLAS_RENTALS_PDF_PRESENTATION_VERSION), 0, 16), 'PDF fingerprint is not presentation-version bound');
 };
 $tests['PDF capability is stable authorized confined and side-effect free'] = function () use ($record, $preview, $config, $statePath, $pdfPath): void {

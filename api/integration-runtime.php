@@ -19,7 +19,7 @@ function atlasRentalsIntegrationConfig(): array
         'from_name' => 'ATLAS_RENTALS_FROM_NAME', 'reply_to' => 'ATLAS_RENTALS_REPLY_TO',
         'admin_email' => 'ATLAS_RENTALS_ADMIN_EMAIL', 'crm_endpoint' => 'ATLAS_RENTALS_CRM_ENDPOINT',
         'crm_token' => 'ATLAS_RENTALS_CRM_TOKEN', 'crm_source' => 'ATLAS_RENTALS_CRM_SOURCE',
-        'crm_service' => 'ATLAS_RENTALS_CRM_SERVICE',
+        'crm_service' => 'ATLAS_RENTALS_CRM_SERVICE', 'whatsapp_number' => 'ATLAS_RENTALS_WHATSAPP_NUMBER',
     ];
     $result = [];
     foreach ($map as $key => $environment) {
@@ -241,7 +241,7 @@ function atlasRentalsSendEmail(array $record, array $pdf, string $audience, arra
     if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || !function_exists('curl_init')) return atlasRentalsSafeResult(false, 'EMAIL_UNAVAILABLE', true);
     $reference = $record['enquiry_reference'];
     $subject = $audience === 'client' ? "We received your Atlas Rentals enquiry {$reference}" : "New Atlas Rentals enquiry {$reference}";
-    $message = atlasRentalsBuildEmail($record, $audience);
+    $message = atlasRentalsBuildEmail($record, $audience, $config);
     $payload = ['from' => trim(($config['from_name'] ?: 'Atlas Rentals by DY-PLUS') . ' <' . $config['from_email'] . '>'), 'to' => [$recipient], 'subject' => $subject, 'html' => $message['html'], 'text' => $message['text'],
         'attachments' => [['filename' => $reference . '-quotation.pdf', 'content' => base64_encode((string)file_get_contents($pdf['path']))]]];
     if (filter_var($config['reply_to'] ?? '', FILTER_VALIDATE_EMAIL)) $payload['reply_to'] = $config['reply_to'];

@@ -40,6 +40,7 @@ test("delivery runtime has ordered resumable PDF and recipient operations", () =
   assert.match(runtime, /delivery-state/);
   assert.match(runtime, /ATLAS_RENTALS_PDF_PRESENTATION_VERSION/);
   assert.match(runtime, /'html' => \$message\['html'\], 'text' => \$message\['text'\]/);
+  assert.match(runtime, /atlasRentalsBuildEmail\(\$record, \$audience, \$config\)/);
   assert.match(runtime, /\['client', 'admin'\]/);
   assert.match(runtime, /attachments/);
 });
@@ -87,6 +88,13 @@ test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(emailTemplate, /Laptop Rental Quotation/);
   assert.match(emailTemplate, /New ATLAS Rentals Enquiry/);
   assert.match(emailTemplate, /Delivery & retrieval/);
+  assert.match(emailTemplate, /Standard rental service/);
+  assert.match(pdfTemplate, /Standard rental service/);
+  assert.doesNotMatch(emailTemplate + pdfTemplate, /Compulsory service/);
+  assert.match(emailTemplate, /Chat with us on WhatsApp/);
+  assert.match(emailTemplate, /rawurlencode\(\$message\)/);
+  assert.match(emailTemplate, /https:\/\/wa\.me\//);
+  assert.match(emailTemplate, /\$audience === 'client'/);
   assert.match(pdfTemplate, /ATLAS_RENTALS_PDF_PRESENTATION_VERSION/);
   assert.match(pdfTemplate, /assets\/dyplus-logo\.png/);
   assert.match(pdfTemplate, /\/Im1 Do/);
@@ -94,6 +102,14 @@ test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(pdfTemplate, /Laptop Rental Quotation/);
   assert.match(pdfTemplate, /Availability and Booking/);
   assert.doesNotMatch(emailTemplate + pdfTemplate, /sourceLanguage|targetLanguage|translation request/i);
+});
+
+test("WhatsApp destination is privately configured and never hardcoded", () => {
+  const example = readFileSync(new URL("../api/integrations-config.example.php", import.meta.url), "utf8");
+  assert.match(runtime, /'whatsapp_number' => 'ATLAS_RENTALS_WHATSAPP_NUMBER'/);
+  assert.match(example, /'whatsapp_number' => 'international-digits-only'/);
+  assert.doesNotMatch(runtime + emailTemplate + example, /(?:wa\.me\/|whatsapp_number'\s*=>\s*')[0-9]{8,}/i);
+  assert.match(emailTemplate, /preg_replace\('\/\\D\+\/', '', \(string\)\$value\)/);
 });
 
 test("removed fields are absent from browser and server request contracts", () => {

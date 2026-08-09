@@ -53,6 +53,28 @@ function atlasRentalsEmailSection(string $title, array $rows): string
         . atlasRentalsEmailRows($rows) . '</table></td></tr>';
 }
 
+function atlasRentalsNormalizeWhatsAppNumber(mixed $value): ?string
+{
+    $digits = preg_replace('/\D+/', '', (string)$value) ?? '';
+    return preg_match('/^[1-9]\d{7,14}$/D', $digits) === 1 ? $digits : null;
+}
+
+function atlasRentalsWhatsAppUrl(string $reference, array $config): ?string
+{
+    $number = atlasRentalsNormalizeWhatsAppNumber($config['whatsapp_number'] ?? '');
+    if ($number === null) return null;
+    $message = 'Hello DY-PLUS, I’m following up on laptop rental enquiry ' . $reference . '.';
+    return 'https://wa.me/' . $number . '?text=' . rawurlencode($message);
+}
+
+function atlasRentalsEmailWhatsAppCta(string $url): string
+{
+    return '<tr><td align="center" style="padding:0 28px 26px;">'
+        . '<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" bgcolor="#1f9d68" style="border-radius:999px;">'
+        . '<a href="' . atlasRentalsHtml($url) . '" style="display:inline-block;padding:13px 21px;color:#ffffff;text-decoration:none;font-size:14px;line-height:1.25;font-weight:700;">Chat with us on WhatsApp</a>'
+        . '</td></tr></table></td></tr>';
+}
+
 function atlasRentalsEmailShell(string $preheader, string $body): string
 {
     return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
@@ -66,7 +88,7 @@ function atlasRentalsEmailShell(string $preheader, string $body): string
         . '</table></td></tr></table></body></html>';
 }
 
-function atlasRentalsBuildEmail(array $record, string $audience): array
+function atlasRentalsBuildEmail(array $record, string $audience, array $config = []): array
 {
     if (!in_array($audience, ['client', 'admin'], true)) throw new InvalidArgumentException('Invalid email audience.');
     $m = atlasRentalsEmailModel($record);
@@ -92,17 +114,19 @@ function atlasRentalsBuildEmail(array $record, string $audience): array
         ['Per-unit rental', $m['performancePerUnit']], ['Equipment amount', $m['performanceAmount']],
     ]);
     if ($m['technicianRequired']) $itemRows[] = ['Technician', $m['technicianDays'] . ' days × ' . $m['technicianRate'] . ' — ' . $m['technicianAmount']];
-    $itemRows[] = ['Delivery & retrieval', $m['delivery']];
+    $itemRows[] = ['Delivery & retrieval', 'Standard rental service — ' . $m['delivery']];
     $totals = [['Subtotal before VAT', $m['subtotal']], ['VAT (7.5%)', $m['vat']], ['Estimated total', $m['total']]];
 
     if ($audience === 'client') {
         $intro = '<tr><td style="padding:28px 28px 20px;"><h1 style="margin:0 0 12px;color:#12385b;font-size:22px;">Laptop Rental Quotation</h1>'
             . '<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">Dear ' . atlasRentalsHtml($m['name']) . ',</p>'
             . '<p style="margin:0;color:#475569;font-size:14px;line-height:1.65;">Thank you for contacting ATLAS Rentals by DY-PLUS. We have received your laptop rental enquiry and attached your quotation for review.</p></td></tr>';
+        $whatsAppUrl = atlasRentalsWhatsAppUrl($m['reference'], $config);
         $body = $intro . atlasRentalsEmailSection('Rental summary', $rentalRows)
             . atlasRentalsEmailSection('Quotation breakdown', $itemRows)
             . atlasRentalsEmailSection('Commercial summary', $totals)
-            . '<tr><td style="padding:0 28px 26px;"><div style="padding:14px 16px;background:#f0fdf4;border-left:4px solid #1f9d68;color:#334155;font-size:13px;line-height:1.6;">This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review. This enquiry does not confirm availability or create a booking.</div></td></tr>';
+            . '<tr><td style="padding:0 28px 26px;"><div style="padding:14px 16px;background:#f0fdf4;border-left:4px solid #1f9d68;color:#334155;font-size:13px;line-height:1.6;">This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review. This enquiry does not confirm availability or create a booking.</div></td></tr>'
+            . ($whatsAppUrl === null ? '' : atlasRentalsEmailWhatsAppCta($whatsAppUrl));
         $opening = ['Dear ' . $m['name'] . ',', '', 'Thank you for contacting ATLAS Rentals by DY-PLUS. We have received your laptop rental enquiry.'];
     } else {
         $intro = '<tr><td style="padding:28px 28px 20px;"><h1 style="margin:0 0 12px;color:#12385b;font-size:22px;">New ATLAS Rentals Enquiry</h1>'
@@ -118,6 +142,8 @@ function atlasRentalsBuildEmail(array $record, string $audience): array
 
     $lines = array_merge($opening, ['', 'REFERENCE', $m['reference'], '', 'CUSTOMER', $m['name'], 'Organisation: ' . $m['organization'], 'Email: ' . $m['email'], 'Phone: ' . $m['phone'], '', 'RENTAL DETAILS', 'Dates: ' . $m['start'] . ' to ' . $m['end'], 'Duration: ' . $m['days'] . ' inclusive day(s) (' . $m['durationLabel'] . ')', 'Rental rate plan: ' . $m['ratePlanLabel'], 'Location: ' . $m['location'], '', 'QUOTATION BREAKDOWN']);
     foreach ($itemRows as [$label, $value]) $lines[] = $label . ': ' . $value;
-    $lines = array_merge($lines, ['Delivery & retrieval: ' . $m['delivery'], '', 'COMMERCIAL SUMMARY', 'Subtotal before VAT: ' . $m['subtotal'], 'VAT (7.5%): ' . $m['vat'], 'Estimated total: ' . $m['total'], '', 'This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review.', 'This enquiry does not confirm availability or create a booking.', '', 'DY-PLUS NIG. LTD. | ATLAS Rentals']);
+    $lines = array_merge($lines, ['', 'COMMERCIAL SUMMARY', 'Subtotal before VAT: ' . $m['subtotal'], 'VAT (7.5%): ' . $m['vat'], 'Estimated total: ' . $m['total'], '', 'This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review.', 'This enquiry does not confirm availability or create a booking.']);
+    if ($audience === 'client' && isset($whatsAppUrl) && $whatsAppUrl !== null) $lines = array_merge($lines, ['', 'Chat with us on WhatsApp:', $whatsAppUrl]);
+    $lines = array_merge($lines, ['', 'DY-PLUS NIG. LTD. | ATLAS Rentals']);
     return ['html' => atlasRentalsEmailShell($audience === 'client' ? 'Your ATLAS Rentals quotation is attached.' : 'A new ATLAS Rentals enquiry requires review.', $body), 'text' => implode("\n", $lines)];
 }

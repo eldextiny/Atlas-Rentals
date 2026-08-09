@@ -11,4 +11,5 @@ return [
     'crm_token' => 'private-bearer-token',
     'crm_source' => 'Atlas Rentals',
     'crm_service' => 'Laptop Rental',
+    'whatsapp_number' => 'international-digits-only',
 ];
