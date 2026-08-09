@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/rentals-pricing.php';
+
 function atlasRentalsHtml(mixed $value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -9,22 +11,25 @@ function atlasRentalsHtml(mixed $value): string
 function atlasRentalsEmailModel(array $record): array
 {
     $data = json_decode((string)$record['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+    $pricing = atlasRentalsPricingFromRecord($record);
     $money = static fn(mixed $value): string => '₦' . number_format((float)$value, 2);
     $days = (int)$record['rental_days'];
-    $standardAmount = (int)$record['standard_quantity'] * $days * (float)$record['standard_daily_rate'];
-    $performanceAmount = (int)$record['performance_quantity'] * $days * (float)$record['performance_daily_rate'];
-    $technicianAmount = (int)$record['technician_days'] * (float)$record['technician_daily_rate'];
+    $standard = $pricing['standard']; $performance = $pricing['performance'];
     return [
         'reference' => (string)$record['enquiry_reference'], 'name' => (string)$data['fullName'],
         'organization' => (string)$data['organization'], 'email' => (string)$data['email'],
         'phone' => (string)$data['phone'], 'location' => (string)$data['location'],
         'start' => (string)$data['startDate'], 'end' => (string)$data['endDate'], 'days' => $days,
-        'standardQuantity' => (int)$record['standard_quantity'], 'standardRate' => $money($record['standard_daily_rate']),
-        'standardAmount' => $money($standardAmount), 'performanceQuantity' => (int)$record['performance_quantity'],
-        'performanceRate' => $money($record['performance_daily_rate']), 'performanceAmount' => $money($performanceAmount),
+        'legacyPricing' => (bool)($pricing['legacyPricing'] ?? false),
+        'ratePlan' => (string)$pricing['ratePlan'], 'ratePlanLabel' => (string)$pricing['ratePlanLabel'],
+        'durationLabel' => $pricing['durationLabel'], 'standardQuantity' => (int)$record['standard_quantity'],
+        'standardDailyRate' => $money($standard['dailyRate']), 'standardWeeklyRate' => $money($standard['weeklyRate']), 'standardMonthlyRate' => $money($standard['monthlyRate']),
+        'standardPerUnit' => $money($standard['perUnitRental']), 'standardAmount' => $money($standard['equipmentAmount']), 'performanceQuantity' => (int)$record['performance_quantity'],
+        'performanceDailyRate' => $money($performance['dailyRate']), 'performanceWeeklyRate' => $money($performance['weeklyRate']), 'performanceMonthlyRate' => $money($performance['monthlyRate']),
+        'performancePerUnit' => $money($performance['perUnitRental']), 'performanceAmount' => $money($performance['equipmentAmount']),
         'technicianRequired' => (int)$record['technician_required'] === 1,
         'technicianDays' => (int)$record['technician_days'], 'technicianRate' => $money($record['technician_daily_rate']),
-        'technicianAmount' => $money($technicianAmount), 'delivery' => $money($record['delivery_fee']),
+        'technicianAmount' => $money($pricing['technicianAmount']), 'delivery' => $money($pricing['deliveryFee']),
         'subtotal' => $money($record['subtotal']), 'vat' => $money($record['vat_amount']),
         'total' => $money($record['estimated_total']),
     ];
@@ -67,12 +72,25 @@ function atlasRentalsBuildEmail(array $record, string $audience): array
     $m = atlasRentalsEmailModel($record);
     $rentalRows = [
         ['Quotation reference', $m['reference']], ['Rental period', $m['start'] . ' to ' . $m['end']],
-        ['Inclusive duration', $m['days'] . ' day' . ($m['days'] === 1 ? '' : 's')], ['Location', $m['location']],
+        ['Inclusive duration', $m['days'] . ' day' . ($m['days'] === 1 ? '' : 's') . ' (' . $m['durationLabel'] . ')'], ['Rental rate plan', $m['ratePlanLabel']], ['Location', $m['location']],
     ];
-    $itemRows = [
-        ['Standard laptops', $m['standardQuantity'] . ' × ' . $m['days'] . ' days × ' . $m['standardRate'] . ' — ' . $m['standardAmount']],
-        ['High-performance laptops', $m['performanceQuantity'] . ' × ' . $m['days'] . ' days × ' . $m['performanceRate'] . ' — ' . $m['performanceAmount']],
-    ];
+    $itemRows = [];
+    $rateText = static function (array $m, string $prefix): string {
+        if ($m['legacyPricing'] || $m['ratePlan'] === 'daily') return 'Daily ' . $m[$prefix . 'DailyRate'];
+        if ($m['ratePlan'] === 'weekly') return 'Weekly ' . $m[$prefix . 'WeeklyRate'];
+        if ($m['ratePlan'] === 'monthly') return 'Monthly ' . $m[$prefix . 'MonthlyRate'];
+        return 'Daily ' . $m[$prefix . 'DailyRate'] . ' | Weekly ' . $m[$prefix . 'WeeklyRate'] . ' | Monthly ' . $m[$prefix . 'MonthlyRate'];
+    };
+    if ($m['standardQuantity'] > 0) $itemRows = array_merge($itemRows, [
+        ['Category', 'Standard Business Laptop'], ['Quantity', $m['standardQuantity'] . ' laptops'], ['Applied duration', $m['durationLabel']],
+        ['Applied rate', $rateText($m, 'standard')],
+        ['Per-unit rental', $m['standardPerUnit']], ['Equipment amount', $m['standardAmount']],
+    ]);
+    if ($m['performanceQuantity'] > 0) $itemRows = array_merge($itemRows, [
+        ['Category', 'High Performance Laptop'], ['Quantity', $m['performanceQuantity'] . ' laptops'], ['Applied duration', $m['durationLabel']],
+        ['Applied rate', $rateText($m, 'performance')],
+        ['Per-unit rental', $m['performancePerUnit']], ['Equipment amount', $m['performanceAmount']],
+    ]);
     if ($m['technicianRequired']) $itemRows[] = ['Technician', $m['technicianDays'] . ' days × ' . $m['technicianRate'] . ' — ' . $m['technicianAmount']];
     $itemRows[] = ['Delivery & retrieval', $m['delivery']];
     $totals = [['Subtotal before VAT', $m['subtotal']], ['VAT (7.5%)', $m['vat']], ['Estimated total', $m['total']]];
@@ -98,8 +116,8 @@ function atlasRentalsBuildEmail(array $record, string $audience): array
         $opening = ['A new ATLAS Rentals enquiry requires operational and commercial review.'];
     }
 
-    $lines = array_merge($opening, ['', 'REFERENCE', $m['reference'], '', 'CUSTOMER', $m['name'], 'Organisation: ' . $m['organization'], 'Email: ' . $m['email'], 'Phone: ' . $m['phone'], '', 'RENTAL DETAILS', 'Dates: ' . $m['start'] . ' to ' . $m['end'], 'Duration: ' . $m['days'] . ' inclusive day(s)', 'Location: ' . $m['location'], '', 'QUOTATION BREAKDOWN', 'Standard laptops: ' . $itemRows[0][1], 'High-performance laptops: ' . $itemRows[1][1]]);
-    if ($m['technicianRequired']) $lines[] = 'Technician: ' . $m['technicianDays'] . ' days x ' . $m['technicianRate'] . ' — ' . $m['technicianAmount'];
+    $lines = array_merge($opening, ['', 'REFERENCE', $m['reference'], '', 'CUSTOMER', $m['name'], 'Organisation: ' . $m['organization'], 'Email: ' . $m['email'], 'Phone: ' . $m['phone'], '', 'RENTAL DETAILS', 'Dates: ' . $m['start'] . ' to ' . $m['end'], 'Duration: ' . $m['days'] . ' inclusive day(s) (' . $m['durationLabel'] . ')', 'Rental rate plan: ' . $m['ratePlanLabel'], 'Location: ' . $m['location'], '', 'QUOTATION BREAKDOWN']);
+    foreach ($itemRows as [$label, $value]) $lines[] = $label . ': ' . $value;
     $lines = array_merge($lines, ['Delivery & retrieval: ' . $m['delivery'], '', 'COMMERCIAL SUMMARY', 'Subtotal before VAT: ' . $m['subtotal'], 'VAT (7.5%): ' . $m['vat'], 'Estimated total: ' . $m['total'], '', 'This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review.', 'This enquiry does not confirm availability or create a booking.', '', 'DY-PLUS NIG. LTD. | ATLAS Rentals']);
     return ['html' => atlasRentalsEmailShell($audience === 'client' ? 'Your ATLAS Rentals quotation is attached.' : 'A new ATLAS Rentals enquiry requires review.', $body), 'text' => implode("\n", $lines)];
 }

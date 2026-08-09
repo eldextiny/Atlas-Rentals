@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const service = readFileSync(new URL("../api/enquiry-service.php", import.meta.url), "utf8");
+const serverPricing = readFileSync(new URL("../api/rentals-pricing.php", import.meta.url), "utf8");
 const endpoint = readFileSync(new URL("../api/submit-enquiry.php", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../api/integration-runtime.php", import.meta.url), "utf8");
 const emailTemplate = readFileSync(new URL("../api/rentals-email-template.php", import.meta.url), "utf8");
@@ -65,9 +66,9 @@ test("removed fields are absent from browser and server request contracts", () =
 });
 
 test("server pricing retains every protected rate", () => {
-  assert.match(service, /STANDARD_RATE = 10000/);
-  assert.match(service, /PERFORMANCE_RATE = 15000/);
-  assert.match(service, /DELIVERY_FEE = 40000/);
-  assert.match(service, /TECHNICIAN_RATE = 35000/);
-  assert.match(service, /VAT_RATE = 0\.075/);
+  assert.match(serverPricing, /'dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000/);
+  assert.match(serverPricing, /'dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500/);
+  assert.match(serverPricing, /'deliveryFee' => 40000/);
+  assert.match(serverPricing, /'technicianDailyRate' => 35000/);
+  assert.match(serverPricing, /'vatRate' => 0\.075/);
 });

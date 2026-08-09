@@ -2,10 +2,13 @@
 
 ## Rates
 
-| Item | Rate |
+| Laptop category | Daily | Weekly (7 days) | Monthly (30 days) |
+| --- | ---: | ---: | ---: |
+| Standard Business Laptop | ₦10,000 | ₦59,500 | ₦185,000 |
+| High Performance Laptop | ₦15,000 | ₦89,500 | ₦225,500 |
+
+| Other item | Rate |
 | --- | ---: |
-| Standard Business Laptop | ₦10,000 per laptop per rental day |
-| High Performance Laptop | ₦15,000 per laptop per rental day |
 | Compulsory Delivery & Retrieval | ₦40,000 once per booking |
 | Optional technician | ₦35,000 per technician day |
 | VAT | 7.5% |
@@ -13,13 +16,17 @@
 ## Calculation order
 
 1. Rental days are inclusive of both start and end dates. A same-day rental is one day.
-2. One laptop category is selected per enquiry; its subtotal is `quantity × rental days × applicable daily rate`.
-3. The selected category maps to its existing server quantity field and the unselected category maps to zero.
-4. At least five laptops are required.
-5. Delivery & Retrieval is compulsory and is added once regardless of quantity or duration.
-6. Technician support is `technician days × ₦35,000`.
-7. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
-8. The estimate total is the pre-VAT subtotal plus VAT.
+2. Every new enquiry selects exactly one rate plan: Daily, Weekly, Monthly or Best Available.
+3. Daily is `inclusive days × daily rate`; Weekly requires a whole multiple of 7 days; Monthly requires a whole multiple of 30 days.
+4. Best Available decomposes inclusive days deterministically: `months = floor(days / 30)`, then `weeks = floor((days % 30) / 7)`, then remaining `days = (days % 30) % 7`.
+5. Best Available per-unit charge is `(months × monthly rate) + (weeks × weekly rate) + (remaining days × daily rate)`. This is not a cheapest-combination search, and partial weeks/months are never rounded upward.
+6. Equipment amount is `per-unit charge × quantity`.
+7. The selected category maps to its existing server quantity field and the unselected category maps to zero.
+8. At least five laptops are required.
+9. Delivery & Retrieval is compulsory and is added once regardless of quantity or duration.
+10. Technician support is `technician days × ₦35,000`.
+11. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
+12. The estimate total is the pre-VAT subtotal plus VAT.
 
 ## Validation
 

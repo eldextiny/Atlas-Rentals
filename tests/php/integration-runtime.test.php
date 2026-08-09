@@ -8,9 +8,9 @@ $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'atlas-rentals-' . bin2hex(ra
 $statePath = $root . DIRECTORY_SEPARATOR . 'state'; $pdfPath = $root . DIRECTORY_SEPARATOR . 'pdf';
 mkdir($statePath, 0700, true); mkdir($pdfPath, 0700, true);
 $config = ['state_path' => $statePath, 'pdf_path' => $pdfPath, 'crm_source' => 'Atlas Rentals', 'crm_service' => 'Laptop Rental'];
-$normalized = ['location' => 'Lagos', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'standardQuantity' => 3, 'performanceQuantity' => 2, 'technicianRequired' => true, 'technicianDays' => 2, 'fullName' => 'Ada User', 'organization' => 'Example Ltd', 'email' => 'ada@example.com', 'phone' => '+2348028557479'];
+$normalized = ['location' => 'Lagos', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'ratePlan' => 'best', 'standardQuantity' => 3, 'performanceQuantity' => 2, 'technicianRequired' => true, 'technicianDays' => 2, 'fullName' => 'Ada User', 'organization' => 'Example Ltd', 'email' => 'ada@example.com', 'phone' => '+2348028557479'];
 $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $normalized, 'canonical' => json_encode($normalized), 'pricing' => ['rentalDays' => 3, 'estimatedTotal' => 311750]];
-$pricing = ['standardDailyRate' => 10000, 'performanceDailyRate' => 15000, 'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'vatRate' => .075, 'subtotal' => 290000, 'vatAmount' => 21750, 'estimatedTotal' => 311750];
+$pricing = atlasRentalsCalculatePricing($normalized, 3);
 $record = ['enquiry_reference' => 'ARQ-2026-000001', 'normalized_payload' => json_encode($normalized), 'pricing_snapshot' => json_encode($pricing), 'created_at' => '2026-08-05 12:00:00', 'rental_days' => 3, 'standard_quantity' => 3, 'performance_quantity' => 2, 'technician_required' => 1, 'technician_days' => 2, 'standard_daily_rate' => 10000, 'performance_daily_rate' => 15000, 'delivery_fee' => 40000, 'technician_daily_rate' => 35000, 'subtotal' => 290000, 'vat_amount' => 21750, 'estimated_total' => 311750, 'email' => 'ada@example.com', 'full_name' => 'Ada User', 'organization' => 'Example Ltd', 'location' => 'Lagos', 'start_date' => '2026-08-05', 'end_date' => '2026-08-07'];
 
 $tests = [];
@@ -31,6 +31,51 @@ $tests['client and administrator emails are branded, distinct, escaped, and reta
     check(str_contains($client['html'], 'Dear Ada') && str_contains($client['html'], 'Thank you'), 'client acknowledgement purpose missing');
     check(str_contains($admin['html'], 'operational and commercial review') && str_contains($admin['html'], 'Customer and contact'), 'admin review purpose missing');
     check($client['html'] !== $admin['html'] && $client['text'] !== $admin['text'], 'recipient emails are not distinct');
+};
+$tests['email CRM and PDF models share authoritative tiered snapshot'] = function () use ($record, $config): void {
+    $tiered = $record; $payload = json_decode($tiered['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+    $payload['standardQuantity'] = 6; $payload['performanceQuantity'] = 0; $payload['startDate'] = '2026-08-01'; $payload['endDate'] = '2026-09-09'; $payload['technicianDays'] = 40;
+    $pricing = atlasRentalsCalculatePricing($payload, 40);
+    $tiered['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR); $tiered['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR);
+    $tiered['rental_days'] = 40; $tiered['standard_quantity'] = 6; $tiered['performance_quantity'] = 0; $tiered['technician_days'] = 40;
+    $tiered['subtotal'] = $pricing['subtotal']; $tiered['vat_amount'] = $pricing['vatAmount']; $tiered['estimated_total'] = $pricing['estimatedTotal'];
+    $email = atlasRentalsBuildEmail($tiered, 'client'); $pdf = atlasRentalsRenderQuotationPdf($tiered);
+    check(str_contains($email['html'], '1 month + 1 week + 3 days') && str_contains($email['text'], '185,000.00') && str_contains($email['text'], '59,500.00'), 'email tier presentation mismatch');
+    check(str_contains($email['html'], 'Best Available Rate') && str_contains($email['text'], 'Rental rate plan: Best Available Rate'), 'email rate plan missing');
+    check(str_contains($pdf, 'Best Available Rate') && str_contains($pdf, '1 month + 1 week + 3 days') && str_contains($pdf, 'month at NGN 185,000.00') && str_contains($pdf, 'week at NGN 59,500.00') && str_contains($pdf, 'unit NGN 274,500.00'), 'PDF tier presentation mismatch');
+    $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $payload, 'pricing' => $pricing];
+    $crm = atlasRentalsCrmPayload($preview, null, $config);
+    check($crm['estimate']['standard']['perUnitRental'] === 274500 && $crm['estimate']['duration']['days'] === 3, 'CRM authoritative pricing mismatch');
+};
+$tests['all rate plans propagate through snapshot CRM email and PDF'] = function () use ($record, $config): void {
+    foreach ([['daily', 6, 'Daily Rate'], ['weekly', 14, 'Weekly Rate - 7 days'], ['monthly', 60, 'Monthly Rate - 30 days'], ['best', 37, 'Best Available Rate']] as [$plan, $days, $label]) {
+        $item = $record; $normalized = json_decode($item['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+        $normalized['ratePlan'] = $plan; $normalized['startDate'] = '2026-01-01'; $normalized['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
+        $pricing = atlasRentalsCalculatePricing($normalized, $days); $item['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR); $item['rental_days'] = $days;
+        $item['subtotal'] = $pricing['subtotal']; $item['vat_amount'] = $pricing['vatAmount']; $item['estimated_total'] = $pricing['estimatedTotal'];
+        $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $normalized, 'pricing' => $pricing];
+        check(atlasRentalsCrmPayload($preview, null, $config)['estimate']['ratePlan'] === $plan, "CRM missing {$plan}");
+        check(str_contains(atlasRentalsBuildEmail($item, 'client')['html'], $label), "email missing {$plan}");
+        check(str_contains(atlasRentalsRenderQuotationPdf($item), $label), "PDF missing {$plan}");
+    }
+};
+$tests['legacy stored snapshots retain their original daily calculation'] = function () use ($record): void {
+    $legacy = $record;
+    $normalized = json_decode($legacy['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); unset($normalized['ratePlan']); $legacy['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR);
+    $legacy['pricing_snapshot'] = json_encode(['standardDailyRate' => 10000, 'performanceDailyRate' => 15000, 'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'vatRate' => .075, 'subtotal' => 290000, 'vatAmount' => 21750, 'estimatedTotal' => 311750], JSON_THROW_ON_ERROR);
+    $model = atlasRentalsEmailModel($legacy);
+    check($model['legacyPricing'] === true && $model['standardPerUnit'] === '₦30,000.00' && $model['total'] === '₦311,750.00', 'historical pricing was recalculated');
+    $message = atlasRentalsBuildEmail($legacy, 'client');
+    check(!str_contains($message['html'], 'Weekly') && str_contains($message['html'], 'Daily'), 'legacy quotation was presented as tiered pricing');
+    check(str_contains($message['html'], 'Historical stored pricing'), 'historical rate-plan compatibility label missing');
+};
+$tests['historical tiered snapshots without a rate plan remain authoritative'] = function () use ($record): void {
+    $historical = $record; $snapshot = json_decode($historical['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR);
+    unset($snapshot['ratePlan'], $snapshot['ratePlanLabel']); $snapshot['standard']['perUnitRental'] = 123456; $snapshot['standard']['equipmentAmount'] = 370368;
+    $historical['pricing_snapshot'] = json_encode($snapshot, JSON_THROW_ON_ERROR);
+    $normalized = json_decode($historical['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); unset($normalized['ratePlan']); $historical['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR);
+    $model = atlasRentalsEmailModel($historical);
+    check($model['ratePlanLabel'] === 'Historical stored pricing' && $model['standardPerUnit'] === '₦123,456.00', 'historical tiered snapshot was repriced');
 };
 $tests['optional technician presentation and approved rate are preserved'] = function () use ($record): void {
     $with = atlasRentalsBuildEmail($record, 'client');
@@ -55,7 +100,7 @@ $tests['PDF contains required quotation content'] = function () use ($record, $p
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath); $bytes = file_get_contents($pdf['path']);
     check(str_starts_with($bytes, '%PDF-1.4') && str_ends_with($bytes, '%%EOF'), 'PDF structure invalid');
     check(str_contains($bytes, '/Subtype /Image') && str_contains($bytes, '/Width 200 /Height 129') && str_contains($bytes, '/SMask'), 'approved logo was not embedded with transparency');
-    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Standard laptops', 'High-performance laptops', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
+    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
     check(str_contains($bytes, 'VAT \\(7.5%\\)'), 'PDF missing VAT (7.5%)');
     $long = $record; $long['enquiry_reference'] = 'ARQ-2026-000099';
     $payload = json_decode($long['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
@@ -68,10 +113,12 @@ $tests['PDF renderer version rotates the cached document fingerprint'] = functio
     $old = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot']), 0, 16);
     $previousPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v2'), 0, 16);
     $logoPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v3-logo'), 0, 16);
+    $tieredPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v5-tiered-rates'), 0, 16);
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath);
     check($pdf['fingerprint'] !== $old, 'presentation version did not rotate PDF fingerprint');
     check($pdf['fingerprint'] !== $previousPresentation, 'logo renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] !== $logoPresentation, '30-day renderer reused the previous presentation fingerprint');
+    check($pdf['fingerprint'] !== $tieredPresentation, 'rate-plan renderer reused the tiered-only presentation fingerprint');
     check($pdf['fingerprint'] === substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|' . ATLAS_RENTALS_PDF_PRESENTATION_VERSION), 0, 16), 'PDF fingerprint is not presentation-version bound');
 };
 $tests['partial email failure resumes without duplicating completed client'] = function () use ($record, $preview, $config, $pdfPath): void {

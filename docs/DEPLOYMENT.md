@@ -9,7 +9,7 @@ AR-H1 combines the static planner with a same-origin PHP JSON endpoint and MySQL
 1. Run `npm test`.
 2. Run `npm run check`.
 3. Run `php tests/php/enquiry-service.test.php` and PHP syntax checks in an isolated environment.
-4. Serve the site locally over HTTP and walk through both cities, both laptop types, mixed quantities, optional services, submission failure and confirmed enquiry receipt.
+4. Serve the site locally over HTTP and walk through all city choices, both laptop types, all four rate plans and incompatible 7/30-day boundaries, optional services, submission failure and confirmed enquiry receipt.
 5. Verify keyboard navigation and responsive layouts at narrow and wide widths.
 6. Confirm the canonical URL and social metadata remain unchanged.
 
@@ -33,7 +33,7 @@ Create and verify these private, non-public runtime directories before release:
 
 PHP must be able to read and write both directories. The application does not alter their permissions. State and PDF retention is 30 days; quotation validity is 30 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
 
-The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
+The pricing snapshot JSON stores the selected rate plan, duration blocks, all laptop rates, per-unit and equipment amounts, technician, delivery, subtotal, VAT and total without a schema change. Historical records are not rewritten. The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
 
 ## Release unit
 

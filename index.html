@@ -135,6 +135,20 @@
                 </div>
                 <small class="category-hint" id="category-hint">Choose the performance level that best suits your event.</small>
                 <article class="product category-details" id="category-details" aria-live="polite" hidden></article>
+                <label for="rate-plan">Rental rate plan</label>
+                <div class="category-select-wrap rate-plan-select-wrap">
+                  <span class="category-select-icon rate-plan-select-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h14v16H5zM8 2v4M16 2v4M5 9h14M8 13h3M13 13h3M8 17h3"/></svg></span>
+                  <select id="rate-plan" name="ratePlan" aria-describedby="rate-plan-help rate-plan-error" required>
+                    <option value="">Choose a rental rate plan</option>
+                    <option value="daily">Daily Rate</option>
+                    <option value="weekly">Weekly Rate — 7 days</option>
+                    <option value="monthly">Monthly Rate — 30 days</option>
+                    <option value="best">Best Available Rate — automatic monthly → weekly → daily decomposition</option>
+                  </select>
+                  <span class="category-select-chevron" aria-hidden="true"></span>
+                </div>
+                <small class="category-hint rate-plan-help" id="rate-plan-help">Choose how the inclusive rental duration should be priced.</small>
+                <p class="field-error" id="rate-plan-error"></p>
                 <label for="laptop-quantity">Laptop quantity</label>
                 <input id="laptop-quantity" name="laptopQuantity" type="number" min="5" step="1" value="5" inputmode="numeric" aria-describedby="quantity-error" required>
               </div>

@@ -1,5 +1,5 @@
 const PAYLOAD_FIELDS = Object.freeze([
-  "journeyId", "location", "startDate", "endDate",
+  "journeyId", "location", "startDate", "endDate", "ratePlan",
   "standardQuantity", "performanceQuantity", "technicianRequired",
   "technicianDays", "fullName", "organization", "email", "phone",
 ]);
@@ -40,6 +40,7 @@ export function buildEnquiryPayload(form, journeyId) {
     location,
     startDate: text(values.startDate),
     endDate: text(values.endDate),
+    ratePlan: text(values.ratePlan),
     standardQuantity: standardSelected ? laptopQuantity : 0,
     performanceQuantity: performanceSelected ? laptopQuantity : 0,
     technicianRequired,

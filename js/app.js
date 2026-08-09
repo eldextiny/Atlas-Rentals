@@ -1,4 +1,4 @@
-import { calculateEstimate, calculateRentalDays, LAPTOP_CATALOGUE, PRICING, validateBooking } from "./pricing.js";
+import { calculateEstimate, calculateRentalDays, LAPTOP_CATALOGUE, PRICING, RATE_PLANS, validateBooking } from "./pricing.js";
 import { buildEnquiryPayload, clearJourneyId, createJourneyId, createSubmissionGuard, personalDetailsError } from "./enquiry.js";
 
 const form = document.querySelector("#rental-form");
@@ -12,6 +12,8 @@ const customCityWrap = document.querySelector("#custom-city-wrap");
 const customCityInput = document.querySelector("#custom-city");
 const laptopCategory = document.querySelector("#laptop-category");
 const laptopQuantity = document.querySelector("#laptop-quantity");
+const ratePlan = document.querySelector("#rate-plan");
+const ratePlanHelp = document.querySelector("#rate-plan-help");
 const categoryDetails = document.querySelector("#category-details");
 const technicianRequired = document.querySelector("#technician-required");
 const technicianDaysWrap = document.querySelector("#technician-days-wrap");
@@ -75,6 +77,7 @@ function plannerState() {
     standardQuantity: category === "standard" ? quantity : 0,
     performanceQuantity: category === "performance" ? quantity : 0,
     rentalDays: rentalDays(),
+    ratePlan: ratePlan.value,
     technicianRequired: techSelected,
     technicianDays: techSelected ? numberValue("technicianDays") : 0,
   };
@@ -89,6 +92,20 @@ function setText(selector, text) {
   document.querySelector(selector).textContent = text;
 }
 
+function renderRatePlanHelp(category, plan) {
+  const details = LAPTOP_CATALOGUE[category];
+  const selectedPlan = RATE_PLANS[plan];
+  if (!details || !selectedPlan) {
+    ratePlanHelp.textContent = "Choose how the inclusive rental duration should be priced.";
+    return;
+  }
+  const applicable = plan === "daily" ? `Daily rate: ${currency.format(details.dailyRate)}.`
+    : plan === "weekly" ? `Weekly rate: ${currency.format(details.weeklyRate)} per 7 days.`
+      : plan === "monthly" ? `Monthly rate: ${currency.format(details.monthlyRate)} per 30 days.`
+        : `Uses monthly ${currency.format(details.monthlyRate)}, weekly ${currency.format(details.weeklyRate)}, then daily ${currency.format(details.dailyRate)} blocks.`;
+  ratePlanHelp.textContent = `${selectedPlan.help} ${applicable}`;
+}
+
 function renderCategoryDetails(category) {
   const details = LAPTOP_CATALOGUE[category] ?? null;
   categoryDetails.hidden = details === null;
@@ -96,13 +113,14 @@ function renderCategoryDetails(category) {
     categoryDetails.replaceChildren();
     return;
   }
-  categoryDetails.innerHTML = `<span class="selected-category-state">Selected category</span><h4>${details.title}</h4><strong class="category-daily-rate">${currency.format(details.dailyRate)}/day</strong><p class="category-best-use"><strong>Best suited for:</strong> ${details.bestSuitedFor}</p><div class="category-specs">${details.features.map((detail) => `<span>${detail}</span>`).join("")}</div><p class="category-minimum">Minimum quantity: ${PRICING.minimumLaptopQuantity} laptops</p>`;
+  categoryDetails.innerHTML = `<span class="selected-category-state">Selected category</span><h4>${details.title}</h4><div class="category-rates"><span>Daily: <strong>${currency.format(details.dailyRate)}</strong></span><span>Weekly — ${PRICING.daysPerWeek} days: <strong>${currency.format(details.weeklyRate)}</strong></span><span>Monthly — ${PRICING.daysPerMonth} days: <strong>${currency.format(details.monthlyRate)}</strong></span></div><p class="category-best-use"><strong>Best suited for:</strong> ${details.bestSuitedFor}</p><div class="category-specs">${details.features.map((detail) => `<span>${detail}</span>`).join("")}</div><p class="category-minimum">Minimum quantity: ${PRICING.minimumLaptopQuantity} laptops</p>`;
 }
 
 function updateEstimate() {
   const state = plannerState();
   const result = estimate();
   renderCategoryDetails(state.laptopCategory);
+  renderRatePlanHelp(state.laptopCategory, state.ratePlan);
   setText("#standard-summary", `${result.standardQuantity} × ${result.rentalDays} days`);
   setText("#performance-summary", `${result.performanceQuantity} × ${result.rentalDays} days`);
   setText("#standard-cost", currency.format(result.standardRental));
@@ -132,9 +150,11 @@ function estimateMarkup(result) {
   const technicianLine = result.technicianDays
     ? `<div class="summary-line"><span>Technician (${result.technicianDays} days)</span><strong>${currency.format(result.technician)}</strong></div>`
     : "";
-  const categoryLine = result.standardQuantity
-    ? `<div class="summary-line"><span>Standard Business Laptop (${result.standardQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.standardRental)}</strong></div>`
-    : `<div class="summary-line"><span>High Performance Laptop (${result.performanceQuantity} × ${result.rentalDays} days)</span><strong>${currency.format(result.performanceRental)}</strong></div>`;
+  const selectedPricing = result.standardQuantity ? result.standardPricing : result.performancePricing;
+  const categoryName = result.standardQuantity ? "Standard Business Laptop" : "High Performance Laptop";
+  const quantity = result.standardQuantity || result.performanceQuantity;
+  const equipmentAmount = result.standardQuantity ? result.standardRental : result.performanceRental;
+  const categoryLine = `<div class="summary-group tiered-rental-summary"><h5>${categoryName}</h5><div class="summary-line"><span>Rate plan</span><strong>${result.ratePlanLabel}</strong></div><div class="summary-line"><span>Quantity</span><strong>${quantity}</strong></div><div class="summary-line"><span>Applied duration</span><strong>${result.durationLabel}</strong></div><div class="summary-line"><span>Applied rates</span><strong>${selectedPricing.months ? `${selectedPricing.months} × ${currency.format(selectedPricing.monthlyRate)} monthly` : ""}${selectedPricing.months && (selectedPricing.weeks || selectedPricing.days) ? " + " : ""}${selectedPricing.weeks ? `${selectedPricing.weeks} × ${currency.format(selectedPricing.weeklyRate)} weekly` : ""}${selectedPricing.weeks && selectedPricing.days ? " + " : ""}${selectedPricing.days ? `${selectedPricing.days} × ${currency.format(selectedPricing.dailyRate)} daily` : ""}</strong></div><div class="summary-line"><span>Per-unit rental</span><strong>${currency.format(selectedPricing.perUnitRental)}</strong></div><div class="summary-line"><span>Equipment amount</span><strong>${currency.format(equipmentAmount)}</strong></div></div>`;
   return `
     ${categoryLine}
     <div class="summary-line"><span>Rental subtotal</span><strong>${currency.format(result.rentalSubtotal)}</strong></div>
@@ -213,6 +233,7 @@ function validateCurrentStep() {
   showError("location-error");
   showError("dates-error");
   showError("quantity-error");
+  showError("rate-plan-error");
   showError("technician-error");
   showError("details-error");
 
@@ -249,6 +270,13 @@ function validateCurrentStep() {
       laptopCategory.focus();
       return false;
     }
+    if (booking.errors.ratePlan) {
+      showError("rate-plan-error", booking.errors.ratePlan);
+      ratePlan.setAttribute("aria-invalid", "true");
+      ratePlan.focus();
+      return false;
+    }
+    ratePlan.removeAttribute("aria-invalid");
     showError("quantity-error", booking.errors.quantity);
     if (booking.errors.quantity) {
       laptopCategory.removeAttribute("aria-invalid");
@@ -366,6 +394,14 @@ personalFieldNames.forEach((name) => {
 });
 laptopCategory.addEventListener("change", clearLaptopSelectionErrorIfValid);
 laptopQuantity.addEventListener("input", clearLaptopSelectionErrorIfValid);
+ratePlan.addEventListener("change", () => {
+  const state = plannerState();
+  const message = validateBooking(state).errors.ratePlan || "";
+  showError("rate-plan-error", message);
+  if (message) ratePlan.setAttribute("aria-invalid", "true");
+  else ratePlan.removeAttribute("aria-invalid");
+  updateEstimate();
+});
 serviceCity.addEventListener("change", () => {
   updateCustomCityState({ clearWhenHidden: true });
   if (serviceCity.value) serviceCity.removeAttribute("aria-invalid");
@@ -433,8 +469,9 @@ restartButton.addEventListener("click", () => {
   serviceCity.removeAttribute("aria-invalid");
   customCityInput.removeAttribute("aria-invalid");
   laptopCategory.removeAttribute("aria-invalid");
+  ratePlan.removeAttribute("aria-invalid");
   laptopQuantity.removeAttribute("aria-invalid");
-  ["location-error", "dates-error", "quantity-error", "technician-error", "details-error"].forEach((id) => showError(id));
+  ["location-error", "dates-error", "quantity-error", "rate-plan-error", "technician-error", "details-error"].forEach((id) => showError(id));
   goToStep(1);
 });
 

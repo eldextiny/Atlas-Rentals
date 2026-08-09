@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/rentals-pricing.php';
+
 final class EnquiryValidationException extends RuntimeException
 {
     public function __construct(public readonly array $errors)
@@ -102,18 +104,13 @@ final class PdoEnquiryStore implements EnquiryStore
 
 final class EnquiryService
 {
-    private const STANDARD_RATE = 10000;
-    private const PERFORMANCE_RATE = 15000;
-    private const DELIVERY_FEE = 40000;
-    private const TECHNICIAN_RATE = 35000;
-    private const VAT_RATE = 0.075;
     private const ALLOWED_FIELDS = [
-        'journeyId', 'location', 'startDate', 'endDate', 'standardQuantity',
+        'journeyId', 'location', 'startDate', 'endDate', 'ratePlan', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
         'organization', 'email', 'phone',
     ];
     private const REQUIRED_FIELDS = [
-        'journeyId', 'location', 'startDate', 'endDate', 'standardQuantity',
+        'journeyId', 'location', 'startDate', 'endDate', 'ratePlan', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
         'organization', 'email', 'phone',
     ];
@@ -126,6 +123,15 @@ final class EnquiryService
 
     public function submit(array $input): array
     {
+        if (!array_key_exists('ratePlan', $input)) {
+            $legacyInput = $input; $legacyInput['ratePlan'] = 'best';
+            $legacyPreview = $this->preview($legacyInput); $legacyNormalized = $legacyPreview['normalized'];
+            unset($legacyNormalized['ratePlan']);
+            $legacyCanonical = json_encode($legacyNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $historical = $this->store->findByHash(hash('sha256', $legacyCanonical));
+            if ($historical !== null) return $this->result($historical, true);
+            throw new EnquiryValidationException(['ratePlan' => 'Select a rental rate plan.']);
+        }
         $preview = $this->preview($input);
         $normalized = $preview['normalized'];
         $canonical = $preview['canonical'];
@@ -136,18 +142,8 @@ final class EnquiryService
         }
 
         $days = $this->rentalDays($normalized['startDate'], $normalized['endDate']);
-        $rental = ($normalized['standardQuantity'] * self::STANDARD_RATE
-            + $normalized['performanceQuantity'] * self::PERFORMANCE_RATE) * $days;
-        $technician = $normalized['technicianDays'] * self::TECHNICIAN_RATE;
-        $subtotal = $rental + self::DELIVERY_FEE + $technician;
-        $vat = (int) round($subtotal * self::VAT_RATE);
-        $pricing = [
-            'currency' => 'NGN', 'standardDailyRate' => self::STANDARD_RATE,
-            'performanceDailyRate' => self::PERFORMANCE_RATE,
-            'deliveryFee' => self::DELIVERY_FEE, 'technicianDailyRate' => self::TECHNICIAN_RATE,
-            'vatRate' => self::VAT_RATE, 'subtotal' => $subtotal,
-            'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat,
-        ];
+        $pricing = atlasRentalsCalculatePricing($normalized, $days);
+        $subtotal = $pricing['subtotal']; $vat = $pricing['vatAmount'];
         $bytes = $this->randomBytes ? ($this->randomBytes)(16) : random_bytes(16);
         $record = [
             'internal_id' => bin2hex($bytes), 'idempotency_hash' => $hash, 'status' => 'received',
@@ -159,10 +155,10 @@ final class EnquiryService
             'technician_days' => $normalized['technicianDays'], 'full_name' => $normalized['fullName'],
             'organization' => $normalized['organization'], 'email' => $normalized['email'],
             'phone' => $normalized['phone'], 'description' => null,
-            'currency' => 'NGN', 'standard_daily_rate' => $this->money(self::STANDARD_RATE),
-            'performance_daily_rate' => $this->money(self::PERFORMANCE_RATE),
-            'delivery_fee' => $this->money(self::DELIVERY_FEE),
-            'technician_daily_rate' => $this->money(self::TECHNICIAN_RATE),
+            'currency' => 'NGN', 'standard_daily_rate' => $this->money(ATLAS_RENTALS_PRICING['standard']['dailyRate']),
+            'performance_daily_rate' => $this->money(ATLAS_RENTALS_PRICING['performance']['dailyRate']),
+            'delivery_fee' => $this->money(ATLAS_RENTALS_PRICING['deliveryFee']),
+            'technician_daily_rate' => $this->money(ATLAS_RENTALS_PRICING['technicianDailyRate']),
             'subtotal' => $this->money($subtotal), 'vat_rate' => '7.50',
             'vat_amount' => $this->money($vat), 'estimated_total' => $this->money($subtotal + $vat),
             'normalized_payload' => $canonical,
@@ -179,20 +175,11 @@ final class EnquiryService
         unset($normalized['journeyId']);
         $canonical = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $days = $this->rentalDays($normalized['startDate'], $normalized['endDate']);
-        $rental = ($normalized['standardQuantity'] * self::STANDARD_RATE
-            + $normalized['performanceQuantity'] * self::PERFORMANCE_RATE) * $days;
-        $technician = $normalized['technicianDays'] * self::TECHNICIAN_RATE;
-        $subtotal = $rental + self::DELIVERY_FEE + $technician;
-        $vat = (int) round($subtotal * self::VAT_RATE);
+        $pricing = atlasRentalsCalculatePricing($normalized, $days);
         return [
             'journeyId' => $journeyId, 'normalized' => $normalized, 'canonical' => $canonical,
             'hash' => hash('sha256', $canonical),
-            'pricing' => [
-                'rentalDays' => $days, 'standardDailyRate' => self::STANDARD_RATE,
-                'performanceDailyRate' => self::PERFORMANCE_RATE, 'deliveryFee' => self::DELIVERY_FEE,
-                'technicianDailyRate' => self::TECHNICIAN_RATE, 'subtotal' => $subtotal,
-                'vatRate' => self::VAT_RATE, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat,
-            ],
+            'pricing' => $pricing,
         ];
     }
 
@@ -202,7 +189,7 @@ final class EnquiryService
         $unexpected = array_diff(array_keys($input), self::ALLOWED_FIELDS);
         if ($unexpected) $errors['payload'] = 'Unexpected fields are not allowed.';
         foreach (self::REQUIRED_FIELDS as $field) {
-            if (!array_key_exists($field, $input)) $errors[$field] = 'This field is required.';
+            if (!array_key_exists($field, $input)) $errors[$field] = $field === 'ratePlan' ? 'Select a rental rate plan.' : 'This field is required.';
         }
         if ($errors) throw new EnquiryValidationException($errors);
 
@@ -210,7 +197,7 @@ final class EnquiryService
             ? preg_replace('/\s+/u', ' ', trim($value)) : '';
         $value = [
             'journeyId' => $text($input['journeyId']), 'location' => $text($input['location']),
-            'startDate' => $text($input['startDate']), 'endDate' => $text($input['endDate']),
+            'startDate' => $text($input['startDate']), 'endDate' => $text($input['endDate']), 'ratePlan' => $text($input['ratePlan']),
             'standardQuantity' => $input['standardQuantity'], 'performanceQuantity' => $input['performanceQuantity'],
             'technicianRequired' => $input['technicianRequired'], 'technicianDays' => $input['technicianDays'],
             'fullName' => $text($input['fullName']), 'organization' => $text($input['organization']),
@@ -235,8 +222,14 @@ final class EnquiryService
             && $value['standardQuantity'] + $value['performanceQuantity'] < 5) $errors['quantity'] = 'Select at least 5 laptops.';
         if ($value['technicianRequired'] === true && (!is_int($value['technicianDays']) || $value['technicianDays'] < 1)) $errors['technicianDays'] = 'Enter at least 1 technician day.';
         if ($value['technicianRequired'] === false && $value['technicianDays'] !== 0) $errors['technicianDays'] = 'Technician days must be zero when support is not selected.';
-        try { $this->rentalDays($value['startDate'], $value['endDate']); }
-        catch (Throwable) { $errors['dates'] = 'Enter valid inclusive rental dates.'; }
+        try {
+            $rentalDays = $this->rentalDays($value['startDate'], $value['endDate']);
+            atlasRentalsRatePlanUnitPrice($rentalDays, ATLAS_RENTALS_PRICING['standard'], $value['ratePlan']);
+        }
+        catch (InvalidArgumentException $error) {
+            if (str_contains($error->getMessage(), 'Rate') || str_contains($error->getMessage(), 'rate plan')) $errors['ratePlan'] = $error->getMessage();
+            else $errors['dates'] = 'Enter valid inclusive rental dates.';
+        }
         if ($errors) throw new EnquiryValidationException($errors);
         return $value;
     }

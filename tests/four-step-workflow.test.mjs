@@ -96,6 +96,20 @@ test("step two uses one required category and maps one quantity to the stable co
   assert.match(app, /performanceQuantity: category === "performance" \? quantity : 0/);
 });
 
+test("step two requires an accessible native rental rate-plan selector", () => {
+  const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.match(stepTwo, /select id="rate-plan" name="ratePlan"[^>]*aria-describedby="rate-plan-help rate-plan-error"[^>]*required/);
+  const plans = [...stepTwo.matchAll(/<option value="(daily|weekly|monthly|best)">([^<]+)<\/option>/g)].map((match) => [match[1], match[2].trim()]);
+  assert.deepEqual(plans, [["daily", "Daily Rate"], ["weekly", "Weekly Rate — 7 days"], ["monthly", "Monthly Rate — 30 days"], ["best", "Best Available Rate — automatic monthly → weekly → daily decomposition"]]);
+  assert.match(stepTwo, /class="category-select-icon rate-plan-select-icon"[^>]*aria-hidden="true"/);
+  assert.match(app, /ratePlan: ratePlan\.value/);
+  assert.match(app, /ratePlan\.focus\(\)/);
+  assert.match(app, /ratePlan\.setAttribute\("aria-invalid", "true"\)/);
+  assert.match(app, /ratePlan\.removeAttribute\("aria-invalid"\)/);
+  const goToStepBody = app.match(/function goToStep[\s\S]*?\n\}/)?.[0] || "";
+  assert.doesNotMatch(goToStepBody, /ratePlan\.value\s*=/);
+});
+
 test("native category selector exposes polished accessible state hooks", () => {
   assert.match(html, /class="category-select-wrap"/);
   assert.match(html, /class="category-select-icon"[^>]*aria-hidden="true"/);
@@ -106,12 +120,18 @@ test("native category selector exposes polished accessible state hooks", () => {
   assert.match(css, /selected-category-state/);
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.match(app, /selected-category-state/);
-  assert.match(app, /category-daily-rate/);
+  assert.match(app, /category-rates/);
   assert.match(app, /category-best-use/);
   assert.match(app, /category-specs/);
   assert.match(app, /Best suited for:/);
   assert.match(app, /Minimum quantity:/);
   assert.match(app, /LAPTOP_CATALOGUE\[category\]/);
+  assert.match(app, /Daily:/);
+  assert.match(app, /Weekly —/);
+  assert.match(app, /Monthly —/);
+  assert.match(app, /Applied duration/);
+  assert.match(app, /Per-unit rental/);
+  assert.match(app, /Equipment amount/);
 });
 
 test("personal validation is field-local, focuses first invalid and clears corrected errors", () => {

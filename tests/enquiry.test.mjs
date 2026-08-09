@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildEnquiryPayload, createSubmissionGuard, hasStablePayloadShape, personalDetailsError } from "../js/enquiry.js";
 
 const payload = {
-  journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05",
+  journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05", ratePlan: "best",
   endDate: "2026-08-06", standardQuantity: 5, performanceQuantity: 0,
   technicianRequired: false, technicianDays: 0, fullName: "Ada User",
   organization: "Example Ltd", email: "ada@example.com", phone: "+2348000000000",
@@ -28,6 +28,7 @@ test("payload creation normalizes a copy without mutating entered values", () =>
   assert.equal(result.standardQuantity, 0);
   assert.equal(result.performanceQuantity, 5);
   assert.equal(result.technicianDays, 0);
+  assert.equal(result.ratePlan, "best");
   assert.equal(payload.email, "ada@example.com");
 });
 

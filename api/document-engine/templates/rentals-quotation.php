@@ -2,8 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../pdf-png.php';
+require_once __DIR__ . '/../../rentals-pricing.php';
 
-const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v4-validity-30';
+const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v6-rate-plan';
 const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
 
 function atlasRentalsPdfText(mixed $value): string
@@ -36,9 +37,9 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $created = new DateTimeImmutable((string)$record['created_at']);
     $reference = (string)$record['enquiry_reference'];
     $days = (int)$record['rental_days'];
-    $standardAmount = (int)$record['standard_quantity'] * $days * (float)$record['standard_daily_rate'];
-    $performanceAmount = (int)$record['performance_quantity'] * $days * (float)$record['performance_daily_rate'];
-    $technicianAmount = (int)$record['technician_days'] * (float)$record['technician_daily_rate'];
+    $pricing = atlasRentalsPricingFromRecord($record);
+    $standard = $pricing['standard']; $performance = $pricing['performance'];
+    $technicianAmount = $pricing['technicianAmount'];
     $logo = atlasRentalsPdfLoadRgbaPng(ATLAS_RENTALS_PDF_LOGO_PATH);
     $logoHeight = 46.0; $logoWidth = $logoHeight * ($logo['width'] / $logo['height']);
     $pages = [];
@@ -88,10 +89,10 @@ function atlasRentalsRenderQuotationPdf(array $record): string
         $y -= 5; $line(48, $y + 2, 547); $y -= 7;
     };
     $item = static function (string $description, string $calculation, string $amount, bool $emphasis = false) use (&$y, $ensure, $text, $line, $rect): void {
-        $descriptionLines = atlasRentalsPdfWrap($description, 34); $height = max(27, count($descriptionLines) * 11 + 12); $ensure($height);
+        $descriptionLines = atlasRentalsPdfWrap($description, 34); $calculationLines = atlasRentalsPdfWrap($calculation, 29); $height = max(27, max(count($descriptionLines), count($calculationLines)) * 11 + 12); $ensure($height);
         if ($emphasis) $rect(42, $y - $height + 8, 511, $height, [0.94, 0.98, 0.96]);
         foreach ($descriptionLines as $index => $wrapped) $text(48, $y - ($index * 11), $wrapped, 8.8, $emphasis);
-        $text(300, $y, $calculation, 8.3, false, [0.35, 0.42, 0.50]);
+        foreach ($calculationLines as $index => $wrapped) $text(278, $y - ($index * 11), $wrapped, 7.7, false, [0.35, 0.42, 0.50]);
         $text(455, $y, $amount, 8.8, true, $emphasis ? [0.04, 0.43, 0.23] : [0.12, 0.18, 0.27]);
         $y -= $height; $line(48, $y + 8, 547); $y -= 2;
     };
@@ -110,10 +111,11 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $row('Email', $data['email']); $row('Phone', $data['phone']);
     $section('Rental Details');
     $row('Rental period', $data['startDate'] . ' to ' . $data['endDate']);
-    $row('Duration', $days . ' inclusive day' . ($days === 1 ? '' : 's')); $row('Location', $data['location']);
+    $row('Duration', $days . ' inclusive day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
+    $row('Rental rate plan', $pricing['ratePlanLabel']);
     $section('Itemised Quotation');
-    $item('Standard laptops', $record['standard_quantity'] . ' x ' . $days . ' days x ' . atlasRentalsPdfMoney($record['standard_daily_rate']), atlasRentalsPdfMoney($standardAmount));
-    $item('High-performance laptops', $record['performance_quantity'] . ' x ' . $days . ' days x ' . atlasRentalsPdfMoney($record['performance_daily_rate']), atlasRentalsPdfMoney($performanceAmount));
+    if ((int)$record['standard_quantity'] > 0) $item('Standard Business Laptop - ' . $record['standard_quantity'] . ' units', atlasRentalsAppliedRatesLabel($standard, 'atlasRentalsPdfMoney') . ' | per unit ' . atlasRentalsPdfMoney($standard['perUnitRental']), atlasRentalsPdfMoney($standard['equipmentAmount']));
+    if ((int)$record['performance_quantity'] > 0) $item('High Performance Laptop - ' . $record['performance_quantity'] . ' units', atlasRentalsAppliedRatesLabel($performance, 'atlasRentalsPdfMoney') . ' | per unit ' . atlasRentalsPdfMoney($performance['perUnitRental']), atlasRentalsPdfMoney($performance['equipmentAmount']));
     if ((int)$record['technician_required'] === 1) $item('Technician', $record['technician_days'] . ' days x ' . atlasRentalsPdfMoney($record['technician_daily_rate']), atlasRentalsPdfMoney($technicianAmount));
     $item('Delivery & retrieval', 'Compulsory service', atlasRentalsPdfMoney($record['delivery_fee']));
     $section('Commercial Summary');
