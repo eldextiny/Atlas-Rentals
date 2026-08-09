@@ -210,33 +210,36 @@
           </form>
 
           <aside class="estimate-card" aria-labelledby="estimate-title" aria-live="polite">
-            <div class="estimate-heading"><div><p class="panel-label">Live estimate</p><h3 id="estimate-title">Your rental plan</h3></div><span id="estimate-duration">Dates pending</span></div>
-            <section class="estimate-group" aria-labelledby="estimate-equipment-title">
-              <h4 id="estimate-equipment-title">Selected equipment</h4><dl>
-              <div id="standard-estimate-row"><dt>Standard laptops <small id="standard-summary">0 × 0 days</small></dt><dd id="standard-cost">₦0</dd></div>
-              <div id="performance-estimate-row"><dt>High performance <small id="performance-summary">0 × 0 days</small></dt><dd id="performance-cost">₦0</dd></div>
-              </dl>
-            </section>
-            <section class="estimate-group" aria-labelledby="estimate-plan-title">
-              <h4 id="estimate-plan-title">Rental plan</h4><dl>
-                <div><dt>Duration</dt><dd id="estimate-duration-detail">Dates pending</dd></div>
-                <div><dt>Rate plan</dt><dd id="estimate-rate-plan">Plan pending</dd></div>
+            <div class="estimate-heading"><div><span class="estimate-badge">Estimate only</span><h3 id="estimate-title">Estimated rental cost</h3><p>Your estimate updates as you change the rental details.</p></div></div>
+            <section class="estimate-group estimate-selection" aria-labelledby="estimate-selection-title">
+              <h4 id="estimate-selection-title">Rental selection</h4><dl>
+                <div><dt>Laptop category</dt><dd id="estimate-category">Select a laptop category</dd></div>
+                <div><dt>Quantity</dt><dd id="estimate-quantity">Quantity pending</dd></div>
+                <div><dt>Rental period</dt><dd id="estimate-duration-detail">Dates pending</dd></div>
+                <div><dt>Rental days</dt><dd id="estimate-rental-days">Days pending</dd></div>
+                <div><dt>Selected rate plan</dt><dd id="estimate-rate-plan">Plan pending</dd></div>
+                <div><dt>Applied duration</dt><dd id="estimate-billing-blocks">Billing blocks pending</dd></div>
+                <div><dt>Rate per laptop</dt><dd id="estimate-rate-per-laptop">Rate pending</dd></div>
+                <div class="selection-equipment-total"><dt>Equipment rental total</dt><dd id="estimate-equipment-total">₦0</dd></div>
               </dl>
             </section>
             <section class="estimate-group" aria-labelledby="estimate-services-title">
-              <h4 id="estimate-services-title">Services</h4><dl>
-              <div id="technician-estimate-row"><dt>Technician <small id="technician-summary">Not selected</small></dt><dd id="technician-cost">₦0</dd></div>
-              <div><dt>Delivery &amp; Retrieval <small>Included rental service</small></dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
+              <h4 id="estimate-services-title">Additional services</h4><dl>
+                <div id="technician-estimate-row" hidden><dt>On-site technician</dt><dd id="technician-summary">Not selected</dd></div>
+                <div><dt>Delivery &amp; retrieval</dt><dd><span class="included-status">Included</span></dd></div>
               </dl>
             </section>
             <section class="estimate-group estimate-commercial" aria-labelledby="estimate-commercial-title">
-              <h4 id="estimate-commercial-title">Estimate summary</h4><dl>
-              <div><dt>Subtotal</dt><dd id="estimate-subtotal">₦40,000</dd></div>
-              <div class="vat-row"><dt>VAT <small>7.5%</small></dt><dd id="vat-cost">₦0</dd></div>
+              <h4 id="estimate-commercial-title">Cost summary</h4><dl>
+                <div class="money-row"><dt>Equipment rental</dt><dd id="summary-equipment-cost">₦0</dd></div>
+                <div class="money-row" id="summary-technician-row" hidden><dt>Technician</dt><dd id="technician-cost">₦0</dd></div>
+                <div class="money-row"><dt>Delivery &amp; retrieval</dt><dd id="delivery-retrieval-cost">₦40,000</dd></div>
+                <div class="money-row subtotal-row"><dt>Subtotal</dt><dd id="estimate-subtotal">₦40,000</dd></div>
+                <div class="money-row vat-row"><dt>VAT <small>7.5%</small></dt><dd id="vat-cost">₦0</dd></div>
               </dl>
+              <div class="total-row"><span>Estimated total</span><strong id="total-cost">₦0</strong></div>
             </section>
-            <div class="total-row"><span>Estimated total</span><strong id="total-cost">₦0</strong></div>
-            <p class="estimate-disclaimer">Estimate only — availability and booking require DY-PLUS confirmation.</p>
+            <p class="estimate-disclaimer">This estimate is not a confirmed booking. Availability remains subject to DY-PLUS confirmation.</p>
             <p id="minimum-status" class="minimum-status">Select at least 5 laptops to continue.</p>
           </aside>
         </div>

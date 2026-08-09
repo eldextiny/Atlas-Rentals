@@ -111,7 +111,7 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $row('Email', $data['email']); $row('Phone', $data['phone']);
     $section('Rental Details');
     $row('Rental period', $data['startDate'] . ' to ' . $data['endDate']);
-    $row('Duration', $days . ' inclusive day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
+    $row('Rental days', $days . ' day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
     $row('Rental rate plan', $pricing['ratePlanLabel']);
     $section('Itemised Quotation');
     if ((int)$record['standard_quantity'] > 0) $item('Standard Business Laptop - ' . $record['standard_quantity'] . ' units', atlasRentalsAppliedRatesLabel($standard, 'atlasRentalsPdfMoney') . ' | per unit ' . atlasRentalsPdfMoney($standard['perUnitRental']), atlasRentalsPdfMoney($standard['equipmentAmount']));

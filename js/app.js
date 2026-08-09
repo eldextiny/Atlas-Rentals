@@ -45,6 +45,7 @@ let scheduleValidated = false;
 let personalValidationActive = false;
 let journeyId = createJourneyId();
 let transitionInProgress = false;
+let reviewPreparationInProgress = false;
 let workflowComplete = false;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -144,22 +145,35 @@ function updateEstimate() {
   const result = estimate();
   renderCategoryDetails(state.laptopCategory);
   renderRatePlanHelp(state.laptopCategory, state.ratePlan);
-  setText("#standard-summary", `${result.standardQuantity} × ${result.rentalDays} days`);
-  setText("#performance-summary", `${result.performanceQuantity} × ${result.rentalDays} days`);
-  setText("#standard-cost", currency.format(result.standardRental));
-  setText("#performance-cost", currency.format(result.performanceRental));
-  document.querySelector("#standard-estimate-row").hidden = state.laptopCategory !== "standard";
-  document.querySelector("#performance-estimate-row").hidden = state.laptopCategory !== "performance";
+  const selectedDetails = LAPTOP_CATALOGUE[state.laptopCategory] || null;
+  const selectedPricing = state.laptopCategory === "standard" ? result.standardPricing : result.performancePricing;
+  const equipmentTotal = state.laptopCategory === "standard" ? result.standardRental : result.performanceRental;
+  const rentalPeriod = result.rentalDays && state.startDate && state.endDate
+    ? `${state.startDate} to ${state.endDate}`
+    : "Dates pending";
+  const ratePerLaptop = !selectedDetails || !state.ratePlan || !result.rentalDays
+    ? "Rate pending"
+    : state.ratePlan === "daily" ? `${currency.format(selectedDetails.dailyRate)} per day`
+      : state.ratePlan === "weekly" ? `${currency.format(selectedDetails.weeklyRate)} per 7 days`
+        : state.ratePlan === "monthly" ? `${currency.format(selectedDetails.monthlyRate)} per 30 days`
+          : `${currency.format(selectedPricing.perUnitRental)} for the applied duration`;
+  setText("#estimate-category", selectedDetails?.title || "Select a laptop category");
+  setText("#estimate-quantity", selectedDetails ? `${result.totalQuantity} laptop${result.totalQuantity === 1 ? "" : "s"}` : "Quantity pending");
+  setText("#estimate-duration-detail", rentalPeriod);
+  setText("#estimate-rental-days", result.rentalDays ? `${result.rentalDays} day${result.rentalDays === 1 ? "" : "s"}` : "Days pending");
+  setText("#estimate-rate-plan", state.ratePlan ? result.ratePlanLabel : "Plan pending");
+  setText("#estimate-billing-blocks", state.ratePlan && result.rentalDays ? result.durationLabel : "Billing blocks pending");
+  setText("#estimate-rate-per-laptop", ratePerLaptop);
+  setText("#estimate-equipment-total", currency.format(equipmentTotal));
+  setText("#summary-equipment-cost", currency.format(equipmentTotal));
   setText("#delivery-retrieval-cost", currency.format(result.deliveryRetrieval));
-  setText("#technician-summary", result.technicianDays ? `${result.technicianDays} days` : "Not selected");
+  setText("#technician-summary", result.technicianDays ? `${result.technicianDays} day${result.technicianDays === 1 ? "" : "s"} selected` : "Not selected");
   setText("#technician-cost", currency.format(result.technician));
-  document.querySelector("#technician-estimate-row").hidden = currentStep === 4 && result.technicianDays === 0;
-  setText("#estimate-duration-detail", result.rentalDays ? `${result.rentalDays} inclusive day${result.rentalDays === 1 ? "" : "s"}` : "Dates pending");
-  setText("#estimate-rate-plan", result.ratePlanLabel);
+  document.querySelector("#technician-estimate-row").hidden = result.technicianDays === 0;
+  document.querySelector("#summary-technician-row").hidden = result.technicianDays === 0;
   setText("#estimate-subtotal", currency.format(result.subtotalBeforeVat));
   setText("#vat-cost", currency.format(result.vat));
   setText("#total-cost", currency.format(result.total));
-  setText("#estimate-duration", result.rentalDays ? `${result.rentalDays} day${result.rentalDays === 1 ? "" : "s"}` : "Dates pending");
 
   const minimumStatus = document.querySelector("#minimum-status");
   minimumStatus.textContent = result.meetsMinimum
@@ -202,7 +216,8 @@ function renderReview(state, result) {
   document.querySelector("#review-content").innerHTML = `
     <div class="summary-group"><h4>Schedule</h4>
       <div class="summary-line"><span>Location</span><strong>${escaped(state.location)}</strong></div>
-      <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)} (${state.rentalDays} days)</strong></div>
+      <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)}</strong></div>
+      <div class="summary-line"><span>Rental days</span><strong>${state.rentalDays}</strong></div>
     </div>
     <div class="summary-group"><h4>Equipment &amp; support</h4>
       <div class="summary-line"><span>${state.laptopCategory === "standard" ? "Standard Business Laptop" : "High Performance Laptop"}</span><strong>${state.laptopQuantity}</strong></div>
@@ -329,6 +344,14 @@ function transitionDelay(milliseconds) {
   return reducedMotion.matches ? Promise.resolve() : new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
+function overlayDelay(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, reducedMotion.matches ? 80 : milliseconds));
+}
+
+function scrollWorkflowToTop() {
+  planner.scrollIntoView({ behavior: reducedMotion.matches ? "auto" : "smooth", block: "start" });
+}
+
 function updateStepChrome(step) {
   planner.dataset.currentStep = String(step);
   stepButtons.forEach((button, index) => {
@@ -395,6 +418,7 @@ function openLaptopSelection(category) {
 }
 
 nextButton.addEventListener("click", async () => {
+  if (reviewPreparationInProgress) return;
   if (currentStep === 2 && !scheduleValidated) {
     goToStep(1);
     return;
@@ -403,7 +427,23 @@ nextButton.addEventListener("click", async () => {
   if (currentStep === 1) scheduleValidated = true;
   highestStep = Math.max(highestStep, currentStep + 1);
   const nextStep = currentStep + 1;
-  await goToStep(nextStep);
+  if (nextStep === 4) {
+    reviewPreparationInProgress = true;
+    nextButton.disabled = true;
+    showSubmissionOverlay("review");
+    try {
+      await overlayDelay(800);
+      hideSubmissionOverlay();
+      scrollWorkflowToTop();
+      await goToStep(nextStep);
+    } finally {
+      hideSubmissionOverlay();
+      reviewPreparationInProgress = false;
+      if (currentStep === 3) nextButton.disabled = false;
+    }
+  } else {
+    await goToStep(nextStep);
+  }
   if (nextStep === 4) {
     submissionStatus.textContent = "Preparing your review…";
     try {
@@ -495,11 +535,12 @@ function setSubmissionSurfacesInert(inert) {
 
 function showSubmissionOverlay(state) {
   const succeeded = state === "success";
+  const reviewing = state === "review";
   submissionOverlay.dataset.state = state;
-  submissionOverlayTitle.textContent = succeeded ? "Enquiry received" : "Submitting your enquiry…";
+  submissionOverlayTitle.textContent = succeeded ? "Enquiry received" : reviewing ? "Preparing your estimate…" : "Submitting your enquiry…";
   submissionOverlayMessage.textContent = succeeded
     ? "Your quotation is ready."
-    : "Please wait while we securely prepare your quotation.";
+    : reviewing ? "We’re organising your rental details and pricing." : "Please wait while we securely prepare your quotation.";
   submissionOverlay.toggleAttribute("aria-busy", !succeeded);
   submissionOverlay.hidden = false;
   document.body.classList.add("has-submission-overlay");
@@ -526,7 +567,7 @@ finishButton.addEventListener("click", async () => {
   try {
     const enquiry = await submitEnquiry(buildEnquiryPayload(form, journeyId));
     showSubmissionOverlay("success");
-    await transitionDelay(600);
+    await overlayDelay(600);
     document.querySelector("#enquiry-reference").textContent = enquiry.reference;
     successMessage.hidden = false;
     finishButton.hidden = true;

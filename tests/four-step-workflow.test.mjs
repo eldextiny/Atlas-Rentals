@@ -68,7 +68,7 @@ test("final review and local reset contracts are retained", () => {
   assert.match(app, /restartButton\.addEventListener\("click"/);
   assert.match(app, /form\.reset\(\)/);
   assert.match(app, /technicianDaysInput\.disabled = true/);
-  assert.match(app, /currentStep === 4 && result\.technicianDays === 0/);
+  assert.match(app, /technician-estimate-row"\)\.hidden = result\.technicianDays === 0/);
 });
 
 test("confirmation is persisted-enquiry wording rather than booking confirmation", () => {
@@ -170,12 +170,26 @@ test("progress markers form one labelled row with three decorative connector seg
   assert.match(app, /button\.removeAttribute\("aria-current"\)/);
 });
 
-test("step progress is sticky-header content and transitions do not force scrolling", () => {
+test("step progress is sticky-header content and Review reveals from the workflow top", () => {
   const header = html.match(/<header class="site-header">[\s\S]*?<\/header>/)?.[0] || "";
   assert.match(header, /header-progress/);
   assert.deepEqual([...header.matchAll(/data-step-target="(\d)"/g)].map((match) => Number(match[1])), [1, 2, 3, 4]);
   const goToStepBody = app.match(/function goToStep[\s\S]*?\n\}/)?.[0] || "";
-  assert.doesNotMatch(goToStepBody, /scrollIntoView|scrollTo/);
+  assert.match(app, /function scrollWorkflowToTop\(\)[\s\S]*planner\.scrollIntoView\(\{ behavior: reducedMotion\.matches \? "auto" : "smooth", block: "start" \}\)/);
+  assert.match(app, /scrollWorkflowToTop\(\)[\s\S]*await goToStep\(nextStep\)/);
+  assert.match(goToStepBody, /incoming\.querySelector\("h3"\)[\s\S]*focus\(\{ preventScroll: true \}\)/);
+});
+
+test("review overlay validates first, delays Step 4 and locks duplicate navigation", () => {
+  const handler = app.match(/nextButton\.addEventListener\("click"[\s\S]*?\n\}\);/)?.[0] || "";
+  assert.match(handler, /if \(reviewPreparationInProgress\) return/);
+  assert.match(handler, /if \(!validateCurrentStep\(\)\) return[\s\S]*showSubmissionOverlay\("review"\)/);
+  assert.match(handler, /reviewPreparationInProgress = true[\s\S]*nextButton\.disabled = true/);
+  assert.match(handler, /showSubmissionOverlay\("review"\)[\s\S]*await overlayDelay\(800\)[\s\S]*hideSubmissionOverlay\(\)[\s\S]*scrollWorkflowToTop\(\)[\s\S]*await goToStep\(nextStep\)/);
+  assert.match(app, /Preparing your estimate…/);
+  assert.match(app, /We’re organising your rental details and pricing\./);
+  assert.match(app, /function overlayDelay\(milliseconds\)[\s\S]*reducedMotion\.matches \? 80 : milliseconds/);
+  assert.doesNotMatch(handler, /form\.reset\(\)/);
 });
 
 test("mobile estimate is limited to review step while desktop remains available", () => {
@@ -216,18 +230,42 @@ test("confirmed enquiry result prioritises reference, quotation and restrained r
   assert.match(css, /\.success-actions \{[^}]*display: grid/);
 });
 
-test("estimate groups equipment, plan, services and commercial totals", () => {
+test("estimate presents rental selection, additional services and ordered costs", () => {
   const estimate = html.match(/<aside class="estimate-card"[\s\S]*?<\/aside>/)?.[0] || "";
-  for (const heading of ["Selected equipment", "Rental plan", "Services", "Estimate summary", "Estimated total"]) {
+  for (const heading of ["Estimated rental cost", "Rental selection", "Additional services", "Cost summary", "Estimated total"]) {
     assert.match(estimate, new RegExp(heading));
   }
+  assert.match(estimate, /Your estimate updates as you change the rental details\./);
+  assert.match(estimate, /class="estimate-badge">Estimate only/);
+  for (const detail of ["Laptop category", "Quantity", "Rental period", "Rental days", "Selected rate plan", "Applied duration", "Rate per laptop", "Equipment rental total"]) {
+    assert.match(estimate, new RegExp(detail));
+  }
+  assert.match(estimate, /id="estimate-rental-days"/);
+  assert.match(app, /setText\("#estimate-rental-days", result\.rentalDays/);
+  assert.match(app, /<span>Rental days<\/span>/);
   assert.match(estimate, /id="estimate-duration-detail"/);
   assert.match(estimate, /id="estimate-rate-plan"/);
   assert.match(estimate, /id="estimate-subtotal"/);
-  assert.match(estimate, /Estimate only — availability and booking require DY-PLUS confirmation/);
-  assert.match(app, /setText\("#estimate-rate-plan", result\.ratePlanLabel\)/);
+  assert.match(estimate, /not a confirmed booking/);
+  assert.match(app, /setText\("#estimate-rate-plan", state\.ratePlan \? result\.ratePlanLabel : "Plan pending"\)/);
   assert.match(app, /setText\("#estimate-subtotal", currency\.format\(result\.subtotalBeforeVat\)\)/);
   assert.match(css, /\.total-row strong \{[^}]*font-size: clamp/);
+  assert.doesNotMatch(estimate, /Compulsory/i);
+  const orderedRows = ["summary-equipment-cost", "summary-technician-row", "delivery-retrieval-cost", "estimate-subtotal", "vat-cost", "total-cost"];
+  const positions = orderedRows.map((id) => estimate.indexOf(`id="${id}"`));
+  assert.ok(positions.every((position) => position >= 0));
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+});
+
+test("estimate shows one selected category and conditionally hides technician", () => {
+  assert.doesNotMatch(html, /standard-estimate-row|performance-estimate-row/);
+  assert.match(app, /setText\("#estimate-category", selectedDetails\?\.title \|\| "Select a laptop category"\)/);
+  assert.match(app, /const equipmentTotal = state\.laptopCategory === "standard" \? result\.standardRental : result\.performanceRental/);
+  assert.match(html, /id="technician-estimate-row" hidden/);
+  assert.match(html, /id="summary-technician-row" hidden/);
+  assert.match(app, /document\.querySelector\("#technician-estimate-row"\)\.hidden = result\.technicianDays === 0/);
+  assert.match(app, /document\.querySelector\("#summary-technician-row"\)\.hidden = result\.technicianDays === 0/);
+  assert.match(html, /class="included-status">Included/);
 });
 
 test("review includes compact customer reassurance before submission", () => {
@@ -248,6 +286,17 @@ test("presentation polish preserves native selectors and responsive focus contra
   assert.match(css, /@media \(max-width: 768px\)/);
   assert.match(css, /min-height: 48px/);
   assert.match(css, /prefers-reduced-motion: reduce/);
+});
+
+test("every native workflow select uses readable Atlas-blue typography", () => {
+  assert.equal((html.match(/<select\b/g) || []).length, 3);
+  assert.match(css, /\.category-select-wrap select \{[^}]*color: var\(--brand-blue\)[^}]*font-size: 1\.025rem[^}]*line-height: 1\.55/);
+  assert.match(css, /\.category-select-wrap select:required:invalid \{[^}]*color: var\(--muted\)/);
+  assert.match(css, /\.category-select-wrap select:disabled \{[^}]*color: var\(--muted\)/);
+  assert.match(css, /\.category-select-wrap select option \{[^}]*color: var\(--brand-blue\)[^}]*font-size: 1rem[^}]*line-height: 1\.5/);
+  assert.match(css, /\.category-select-wrap select option\[value=""\] \{[^}]*color: var\(--muted\)/);
+  assert.match(css, /@media \(max-width: 600px\)[\s\S]*\.category-select-wrap select \{[^}]*min-height: 3\.25rem[^}]*padding: \.72rem 2\.8rem \.72rem 3rem[^}]*font-size: \.9rem[^}]*line-height: 1\.45/);
+  assert.match(css, /@media \(max-width: 600px\)[\s\S]*\.category-select-wrap select option \{[^}]*font-size: \.9rem[^}]*line-height: 1\.45/);
 });
 
 test("successful submission hides navigation while failure keeps it available", () => {
@@ -283,7 +332,8 @@ test("submission overlay waits for validation and authoritative success", () => 
   assert.match(handler, /if \(finishButton\.disabled \|\| !validateCurrentStep\(\)\) return/);
   assert.match(handler, /showSubmissionOverlay\("processing"\)[\s\S]*await submitEnquiry/);
   assert.match(handler, /await submitEnquiry[\s\S]*showSubmissionOverlay\("success"\)/);
-  assert.match(handler, /catch \(error\)[\s\S]*hideSubmissionOverlay\(\)[\s\S]*error\.message/);
+  assert.match(handler, /await submitEnquiry[\s\S]*showSubmissionOverlay\("success"\)[\s\S]*await overlayDelay\(600\)/);
+  assert.match(handler, /catch \(error\)[\s\S]*hideSubmissionOverlay\(\)[\s\S]*error\.message[\s\S]*finishButton\.focus\(\{ preventScroll: true \}\)/);
   assert.match(app, /Enquiry received/);
   assert.match(app, /Your quotation is ready\./);
   assert.match(app, /document\.body\.classList\.add\("has-submission-overlay"\)/);
@@ -306,6 +356,6 @@ test("confirmed submission completes every progress marker and restart resets pr
 
 test("customer-facing output uses included-service wording", () => {
   assert.doesNotMatch(html + app + emailTemplate + pdfTemplate + businessRules, /Compulsory/i);
-  assert.match(html + app, /Included rental service/);
+  assert.match(html + app, /Included(?: rental service| service)?/i);
   assert.match(app, /Included service/);
 });

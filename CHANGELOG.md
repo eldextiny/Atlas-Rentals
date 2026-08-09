@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added an accessible full-page estimate-preparation transition before Review while retaining the server-bound submission and confirmed-success overlay lifecycle.
+- Scroll the completed Review transition to the workflow top before heading focus, with instant reduced-motion behavior, and compact detailed native-select text on mobile.
+- Renamed the customer-facing inclusive-duration label to “Rental days” across the workflow, quotation email, and PDF while preserving inclusive date calculations.
+- Restructured the live estimate into clear rental-selection, additional-service, and cost-summary sections while preserving all existing calculations.
 - Refined the four-step planner hierarchy, grouped estimate presentation, native selector framing, review reassurance, and confirmed-enquiry result card without changing workflow or commercial rules.
 - Reassured customers at review, refined directional step transitions, added an accessible submission-status overlay, and completed all progress markers after confirmed submission.
 - Replaced demanding Delivery & Retrieval wording with included-service language across the customer interface and business-rules documentation.

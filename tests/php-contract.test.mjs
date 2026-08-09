@@ -90,6 +90,9 @@ test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(emailTemplate, /Delivery & retrieval/);
   assert.match(emailTemplate, /Standard rental service/);
   assert.match(pdfTemplate, /Standard rental service/);
+  assert.match(emailTemplate, /Rental days/);
+  assert.match(pdfTemplate, /Rental days/);
+  assert.doesNotMatch(emailTemplate + pdfTemplate, /Inclusive duration|inclusive day\(s\)/i);
   assert.doesNotMatch(emailTemplate + pdfTemplate, /Compulsory service/);
   assert.match(emailTemplate, /Chat with us on WhatsApp/);
   assert.match(emailTemplate, /rawurlencode\(\$message\)/);

@@ -1,0 +1,19 @@
+warning: in the working copy of 'CHANGELOG.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'api/document-engine/templates/rentals-quotation.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'api/rentals-email-template.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'css/styles.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'js/app.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/four-step-workflow.test.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/php-contract.test.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/php/integration-runtime.test.php', LF will be replaced by CRLF the next time Git touches it
+ CHANGELOG.md                                       |  4 [32m++[m
+ .../templates/rentals-quotation.php                |  2 [32m+[m[31m-[m
+ api/rentals-email-template.php                     |  4 [32m+[m[31m-[m
+ css/styles.css                                     | 56 [32m+++++++++++[m[31m------[m
+ index.html                                         | 41 [32m++++++[m[31m------[m
+ js/app.js                                          | 73 [32m+++++++++++++++++[m[31m-----[m
+ tests/four-step-workflow.test.mjs                  | 68 [32m+++++++++++++++++[m[31m---[m
+ tests/php-contract.test.mjs                        |  3 [32m+[m
+ tests/php/integration-runtime.test.php             |  4 [32m+[m[31m-[m
+ 9 files changed, 189 insertions(+), 66 deletions(-)
