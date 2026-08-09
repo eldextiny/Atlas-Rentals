@@ -38,7 +38,6 @@ export const RATE_PLANS = Object.freeze({
   daily: Object.freeze({ label: "Daily Rate", help: "Charged for every inclusive rental day." }),
   weekly: Object.freeze({ label: "Weekly Rate — 7 days", help: "Available only when the inclusive duration is a whole multiple of 7 days." }),
   monthly: Object.freeze({ label: "Monthly Rate — 30 days", help: "Available only when the inclusive duration is a whole multiple of 30 days." }),
-  best: Object.freeze({ label: "Best Available Rate", help: "Automatically applies 30-day blocks, then 7-day blocks, then remaining daily blocks." }),
 });
 
 function requireNonNegativeInteger(value, fieldName) {
@@ -76,21 +75,6 @@ export function calculateRentalDays(startDate, endDate) {
   return elapsedDays + 1;
 }
 
-export function decomposeRentalDuration(totalDays) {
-  requireNonNegativeInteger(totalDays, "totalDays");
-  const months = Math.floor(totalDays / PRICING.daysPerMonth);
-  const remainingAfterMonths = totalDays % PRICING.daysPerMonth;
-  const weeks = Math.floor(remainingAfterMonths / PRICING.daysPerWeek);
-  const days = remainingAfterMonths % PRICING.daysPerWeek;
-  return Object.freeze({ totalDays, months, weeks, days });
-}
-
-export function calculateTieredPerUnit(totalDays, { dailyRate, weeklyRate, monthlyRate }) {
-  const duration = decomposeRentalDuration(totalDays);
-  const perUnitRental = duration.months * monthlyRate + duration.weeks * weeklyRate + duration.days * dailyRate;
-  return Object.freeze({ ...duration, dailyRate, weeklyRate, monthlyRate, perUnitRental });
-}
-
 export function calculateRatePlanPerUnit(totalDays, rates, ratePlan) {
   requireNonNegativeInteger(totalDays, "totalDays");
   if (!Object.hasOwn(RATE_PLANS, ratePlan)) return Object.freeze({ ratePlan, valid: false, error: "Select a rental rate plan.", months: 0, weeks: 0, days: 0, perUnitRental: 0, ...rates });
@@ -99,8 +83,7 @@ export function calculateRatePlanPerUnit(totalDays, rates, ratePlan) {
   let duration;
   if (ratePlan === "daily") duration = { totalDays, months: 0, weeks: 0, days: totalDays };
   else if (ratePlan === "weekly") duration = { totalDays, months: 0, weeks: totalDays / PRICING.daysPerWeek, days: 0 };
-  else if (ratePlan === "monthly") duration = { totalDays, months: totalDays / PRICING.daysPerMonth, weeks: 0, days: 0 };
-  else duration = decomposeRentalDuration(totalDays);
+  else duration = { totalDays, months: totalDays / PRICING.daysPerMonth, weeks: 0, days: 0 };
   const perUnitRental = duration.months * rates.monthlyRate + duration.weeks * rates.weeklyRate + duration.days * rates.dailyRate;
   return Object.freeze({ ...duration, ratePlan, ratePlanLabel: RATE_PLANS[ratePlan].label, valid: true, error: "", dailyRate: rates.dailyRate, weeklyRate: rates.weeklyRate, monthlyRate: rates.monthlyRate, perUnitRental });
 }
@@ -117,7 +100,7 @@ export function calculateEstimate({
   standardQuantity = 0,
   performanceQuantity = 0,
   rentalDays = 0,
-  ratePlan = "best",
+  ratePlan = "daily",
   technicianDays = 0,
 } = {}) {
   requireNonNegativeInteger(standardQuantity, "standardQuantity");
@@ -127,7 +110,9 @@ export function calculateEstimate({
 
   const standardPricing = calculateRatePlanPerUnit(rentalDays, LAPTOP_CATALOGUE.standard, ratePlan);
   const performancePricing = calculateRatePlanPerUnit(rentalDays, LAPTOP_CATALOGUE.performance, ratePlan);
-  const duration = standardPricing.valid ? { totalDays: rentalDays, months: standardPricing.months, weeks: standardPricing.weeks, days: standardPricing.days } : decomposeRentalDuration(rentalDays);
+  const duration = standardPricing.valid
+    ? { totalDays: rentalDays, months: standardPricing.months, weeks: standardPricing.weeks, days: standardPricing.days }
+    : { totalDays: rentalDays, months: 0, weeks: 0, days: 0 };
   const standardRental = standardQuantity * standardPricing.perUnitRental;
   const performanceRental = performanceQuantity * performancePricing.perUnitRental;
   const rentalSubtotal = standardRental + performanceRental;

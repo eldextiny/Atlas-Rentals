@@ -9,10 +9,11 @@ const ATLAS_RENTALS_PRICING = [
 ];
 const ATLAS_RENTALS_RATE_PLANS = [
     'daily' => 'Daily Rate', 'weekly' => 'Weekly Rate - 7 days',
-    'monthly' => 'Monthly Rate - 30 days', 'best' => 'Best Available Rate',
+    'monthly' => 'Monthly Rate - 30 days',
 ];
 
-function atlasRentalsDecomposeDuration(int $totalDays): array
+// Retained exclusively to interpret historical stored pricing material. New enquiries never call this path.
+function atlasRentalsHistoricalDecomposeDuration(int $totalDays): array
 {
     if ($totalDays < 0) throw new InvalidArgumentException('Rental days must be non-negative.');
     $months = intdiv($totalDays, ATLAS_RENTALS_PRICING['daysPerMonth']);
@@ -40,9 +41,9 @@ function atlasRentalsAppliedRatesLabel(array $tier, callable $money): string
     return implode(' + ', $parts);
 }
 
-function atlasRentalsTieredUnitPrice(int $totalDays, array $rates): array
+function atlasRentalsHistoricalTieredUnitPrice(int $totalDays, array $rates): array
 {
-    $duration = atlasRentalsDecomposeDuration($totalDays);
+    $duration = atlasRentalsHistoricalDecomposeDuration($totalDays);
     $amount = $duration['months'] * (int)$rates['monthlyRate']
         + $duration['weeks'] * (int)$rates['weeklyRate']
         + $duration['days'] * (int)$rates['dailyRate'];
@@ -56,8 +57,7 @@ function atlasRentalsRatePlanUnitPrice(int $totalDays, array $rates, string $rat
     if ($ratePlan === 'monthly' && $totalDays % ATLAS_RENTALS_PRICING['daysPerMonth'] !== 0) throw new InvalidArgumentException('Monthly Rate requires the rental duration to be a whole multiple of 30 days.');
     if ($ratePlan === 'daily') $duration = ['totalDays' => $totalDays, 'months' => 0, 'weeks' => 0, 'days' => $totalDays];
     elseif ($ratePlan === 'weekly') $duration = ['totalDays' => $totalDays, 'months' => 0, 'weeks' => intdiv($totalDays, 7), 'days' => 0];
-    elseif ($ratePlan === 'monthly') $duration = ['totalDays' => $totalDays, 'months' => intdiv($totalDays, 30), 'weeks' => 0, 'days' => 0];
-    else $duration = atlasRentalsDecomposeDuration($totalDays);
+    else $duration = ['totalDays' => $totalDays, 'months' => intdiv($totalDays, 30), 'weeks' => 0, 'days' => 0];
     $amount = $duration['months'] * (int)$rates['monthlyRate'] + $duration['weeks'] * (int)$rates['weeklyRate'] + $duration['days'] * (int)$rates['dailyRate'];
     return $duration + ['ratePlan' => $ratePlan, 'ratePlanLabel' => ATLAS_RENTALS_RATE_PLANS[$ratePlan], 'dailyRate' => (int)$rates['dailyRate'], 'weeklyRate' => (int)$rates['weeklyRate'], 'monthlyRate' => (int)$rates['monthlyRate'], 'perUnitRental' => $amount];
 }

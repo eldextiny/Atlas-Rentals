@@ -102,8 +102,10 @@ test("step two uses one required category and maps one quantity to the stable co
 test("step two requires an accessible native rental rate-plan selector", () => {
   const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(stepTwo, /select id="rate-plan" name="ratePlan"[^>]*aria-describedby="rate-plan-help rate-plan-error"[^>]*required/);
-  const plans = [...stepTwo.matchAll(/<option value="(daily|weekly|monthly|best)">([^<]+)<\/option>/g)].map((match) => [match[1], match[2].trim()]);
-  assert.deepEqual(plans, [["daily", "Daily Rate — Flexible billing for each inclusive rental day"], ["weekly", "Weekly Rate — Fixed blocks of 7 rental days"], ["monthly", "Monthly Rate — Fixed blocks of 30 rental days"], ["best", "Best Available Rate — Automatic monthly, weekly and daily combination"]]);
+  const ratePlanSelect = stepTwo.match(/<select id="rate-plan"[\s\S]*?<\/select>/)?.[0] || "";
+  const plans = [...ratePlanSelect.matchAll(/<option value="([^"]+)">([^<]+)<\/option>/g)].map((match) => [match[1], match[2].trim()]);
+  assert.deepEqual(plans, [["daily", "Daily Rate — Flexible billing for each inclusive rental day"], ["weekly", "Weekly Rate — Fixed blocks of 7 rental days"], ["monthly", "Monthly Rate — Fixed blocks of 30 rental days"]]);
+  assert.doesNotMatch(stepTwo, /Best Available|value="best"/i);
   assert.match(stepTwo, /class="category-select-icon rate-plan-select-icon"[^>]*aria-hidden="true"/);
   assert.match(app, /ratePlan: ratePlan\.value/);
   assert.match(app, /ratePlan\.focus\(\)/);

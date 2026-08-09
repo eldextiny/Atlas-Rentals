@@ -16,17 +16,18 @@
 ## Calculation order
 
 1. Rental days are inclusive of both start and end dates. A same-day rental is one day.
-2. Every new enquiry selects exactly one rate plan: Daily, Weekly, Monthly or Best Available.
+2. Every new enquiry selects exactly one rate plan: Daily, Weekly or Monthly.
 3. Daily is `inclusive days × daily rate`; Weekly requires a whole multiple of 7 days; Monthly requires a whole multiple of 30 days.
-4. Best Available decomposes inclusive days deterministically: `months = floor(days / 30)`, then `weeks = floor((days % 30) / 7)`, then remaining `days = (days % 30) % 7`.
-5. Best Available per-unit charge is `(months × monthly rate) + (weeks × weekly rate) + (remaining days × daily rate)`. This is not a cheapest-combination search, and partial weeks/months are never rounded upward.
-6. Equipment amount is `per-unit charge × quantity`.
-7. The selected category maps to its existing server quantity field and the unselected category maps to zero.
-8. At least five laptops are required.
-9. Delivery & Retrieval is an included rental service and is added once regardless of quantity or duration.
-10. Technician support is `technician days × ₦35,000`.
-11. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
-12. The estimate total is the pre-VAT subtotal plus VAT.
+4. Partial weeks and months are rejected and are never rounded or automatically decomposed.
+5. Equipment amount is `per-unit charge × quantity`.
+6. The selected category maps to its existing server quantity field and the unselected category maps to zero.
+7. At least five laptops are required.
+8. Delivery & Retrieval is an included rental service and is added once regardless of quantity or duration.
+9. Technician support is `technician days × ₦35,000`.
+10. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
+11. The estimate total is the pre-VAT subtotal plus VAT.
+
+Historical stored pricing snapshots, including snapshots whose `ratePlan` is `best`, remain authoritative for duplicate lookup, rendering and delivery retry. They are never recalculated, migrated or accepted as new enquiries.
 
 ## Validation
 

@@ -3,6 +3,7 @@ const PAYLOAD_FIELDS = Object.freeze([
   "standardQuantity", "performanceQuantity", "technicianRequired",
   "technicianDays", "fullName", "organization", "email", "phone",
 ]);
+const NEW_ENQUIRY_RATE_PLANS = Object.freeze(["daily", "weekly", "monthly"]);
 
 function text(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ");
@@ -69,7 +70,8 @@ export function clearJourneyId(storage = globalThis.sessionStorage) {
 
 export function hasStablePayloadShape(payload) {
   return PAYLOAD_FIELDS.every((field) => Object.hasOwn(payload, field)) &&
-    Object.keys(payload).every((field) => PAYLOAD_FIELDS.includes(field));
+    Object.keys(payload).every((field) => PAYLOAD_FIELDS.includes(field)) &&
+    NEW_ENQUIRY_RATE_PLANS.includes(payload.ratePlan);
 }
 
 export function createSubmissionGuard(submit) {

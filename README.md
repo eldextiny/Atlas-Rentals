@@ -1,6 +1,6 @@
 # ATLAS Rentals
 
-ATLAS Rentals is the DY-PLUS laptop-rental enquiry planner for Nigerian service cities. Its four-step experience lets a customer select one laptop category, quantity and required Daily, Weekly, Monthly or Best Available rate plan, provides a deterministic itemized estimate, and securely submits validated enquiries for review. An enquiry is not a confirmed booking; availability and final pricing remain subject to DY-PLUS confirmation.
+ATLAS Rentals is the DY-PLUS laptop-rental enquiry planner for Nigerian service cities. Its four-step experience lets a customer select one laptop category, quantity and required Daily, Weekly or Monthly rate plan, provides a deterministic itemized estimate, and securely submits validated enquiries for review. An enquiry is not a confirmed booking; availability and final pricing remain subject to DY-PLUS confirmation.
 
 ## Run locally
 

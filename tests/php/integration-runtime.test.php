@@ -18,7 +18,7 @@ $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'atlas-rentals-' . bin2hex(ra
 $statePath = $root . DIRECTORY_SEPARATOR . 'state'; $pdfPath = $root . DIRECTORY_SEPARATOR . 'pdf';
 mkdir($statePath, 0700, true); mkdir($pdfPath, 0700, true);
 $config = ['state_path' => $statePath, 'pdf_path' => $pdfPath, 'crm_source' => 'Atlas Rentals', 'crm_service' => 'Laptop Rental'];
-$normalized = ['location' => 'Lagos', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'ratePlan' => 'best', 'standardQuantity' => 3, 'performanceQuantity' => 2, 'technicianRequired' => true, 'technicianDays' => 2, 'fullName' => 'Ada User', 'organization' => 'Example Ltd', 'email' => 'ada@example.com', 'phone' => '+2348028557479'];
+$normalized = ['location' => 'Lagos', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'ratePlan' => 'daily', 'standardQuantity' => 3, 'performanceQuantity' => 2, 'technicianRequired' => true, 'technicianDays' => 2, 'fullName' => 'Ada User', 'organization' => 'Example Ltd', 'email' => 'ada@example.com', 'phone' => '+2348028557479'];
 $pricing = atlasRentalsCalculatePricing($normalized, 3);
 $crmNormalized = $normalized; $crmNormalized['standardQuantity'] = 5; $crmNormalized['performanceQuantity'] = 0;
 $crmPricing = atlasRentalsCalculatePricing($crmNormalized, 3);
@@ -32,10 +32,10 @@ $tests['CRM payload exactly matches the deployed receiver contract'] = function 
     check($payload === [
         'sourceModule' => 'Atlas Rental', 'documentType' => 'Laptop Rental Quotation', 'documentReference' => 'ARQ-2026-000001',
         'client' => ['organisation' => 'Example Ltd', 'contactPerson' => 'Ada User', 'email' => 'ada@example.com', 'phone' => '+2348028557479'],
-        'title' => 'Laptop Rental Quotation', 'category' => 'Standard Business Laptop', 'serviceMode' => 'Best Available Rate',
+        'title' => 'Laptop Rental Quotation', 'category' => 'Standard Business Laptop', 'serviceMode' => 'Daily Rate',
         'venue' => 'Lagos', 'durationValue' => 3, 'durationUnit' => 'days',
         'commercial' => ['subtotalNgn' => 260000, 'vatNgn' => 19500, 'grandTotalNgn' => 279500],
-        'documentContext' => ['standardQuantity' => 5, 'performanceQuantity' => 0, 'technicianRequired' => true, 'technicianDays' => 2, 'ratePlan' => 'best', 'ratePlanLabel' => 'Best Available Rate', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'rentalDays' => 3, 'currency' => 'NGN', 'enquiryReference' => 'ARQ-2026-000001'],
+        'documentContext' => ['standardQuantity' => 5, 'performanceQuantity' => 0, 'technicianRequired' => true, 'technicianDays' => 2, 'ratePlan' => 'daily', 'ratePlanLabel' => 'Daily Rate', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'rentalDays' => 3, 'currency' => 'NGN', 'enquiryReference' => 'ARQ-2026-000001'],
     ], 'CRM payload mapping changed');
     foreach (['journeyId', 'enquiryReference', 'contact', 'organisation', 'location', 'dates', 'laptops', 'technician', 'estimate', 'source', 'service', 'stage'] as $obsolete) check(!array_key_exists($obsolete, $payload), "obsolete CRM field {$obsolete} returned");
 };
@@ -107,10 +107,18 @@ $tests['standard rental service wording replaces compulsory service'] = function
         check(!str_contains($presentation, 'Compulsory service'), 'obsolete compulsory service wording remains');
     }
 };
-$tests['email CRM and PDF models share authoritative tiered snapshot'] = function () use ($record, $config): void {
+$tests['historical best snapshot remains authoritative for email PDF CRM and retries'] = function () use ($record, $config): void {
     $tiered = $record; $payload = json_decode($tiered['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
-    $payload['standardQuantity'] = 6; $payload['performanceQuantity'] = 0; $payload['startDate'] = '2026-08-01'; $payload['endDate'] = '2026-09-09'; $payload['technicianDays'] = 40;
-    $pricing = atlasRentalsCalculatePricing($payload, 40);
+    $payload['ratePlan'] = 'best'; $payload['standardQuantity'] = 6; $payload['performanceQuantity'] = 0; $payload['startDate'] = '2026-08-01'; $payload['endDate'] = '2026-09-09'; $payload['technicianDays'] = 40;
+    $standard = atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['standard']) + ['quantity' => 6];
+    $performance = atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['performance']) + ['quantity' => 0];
+    $standard['equipmentAmount'] = 6 * $standard['perUnitRental']; $performance['equipmentAmount'] = 0;
+    $subtotal = $standard['equipmentAmount'] + 40000 + (40 * 35000); $vat = (int)round($subtotal * .075);
+    $pricing = ['currency' => 'NGN', 'ratePlan' => 'best', 'ratePlanLabel' => 'Best Available Rate', 'rentalDays' => 40,
+        'duration' => ['totalDays' => 40, 'months' => 1, 'weeks' => 1, 'days' => 3], 'durationLabel' => '1 month + 1 week + 3 days',
+        'standard' => $standard, 'performance' => $performance, 'equipmentAmount' => $standard['equipmentAmount'],
+        'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'technicianAmount' => 1400000,
+        'vatRate' => .075, 'subtotal' => $subtotal, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat];
     $tiered['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR); $tiered['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR);
     $tiered['rental_days'] = 40; $tiered['standard_quantity'] = 6; $tiered['performance_quantity'] = 0; $tiered['technician_days'] = 40;
     $tiered['subtotal'] = $pricing['subtotal']; $tiered['vat_amount'] = $pricing['vatAmount']; $tiered['estimated_total'] = $pricing['estimatedTotal'];
@@ -122,8 +130,8 @@ $tests['email CRM and PDF models share authoritative tiered snapshot'] = functio
     $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
     check($crm['serviceMode'] === 'Best Available Rate' && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], 'CRM authoritative pricing mismatch');
 };
-$tests['all rate plans propagate through snapshot CRM email and PDF'] = function () use ($record, $config): void {
-    foreach ([['daily', 6, 'Daily Rate'], ['weekly', 14, 'Weekly Rate - 7 days'], ['monthly', 60, 'Monthly Rate - 30 days'], ['best', 37, 'Best Available Rate']] as [$plan, $days, $label]) {
+$tests['all active rate plans propagate through snapshot CRM email and PDF'] = function () use ($record, $config): void {
+    foreach ([['daily', 6, 'Daily Rate'], ['weekly', 14, 'Weekly Rate - 7 days'], ['monthly', 60, 'Monthly Rate - 30 days']] as [$plan, $days, $label]) {
         $item = $record; $normalized = json_decode($item['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
         $normalized['ratePlan'] = $plan; $normalized['standardQuantity'] = 5; $normalized['performanceQuantity'] = 0; $normalized['startDate'] = '2026-01-01'; $normalized['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
         $pricing = atlasRentalsCalculatePricing($normalized, $days); $item['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR); $item['rental_days'] = $days;

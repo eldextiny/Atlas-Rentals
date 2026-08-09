@@ -131,3 +131,15 @@ test("server pricing retains every protected rate", () => {
   assert.match(serverPricing, /'technicianDailyRate' => 35000/);
   assert.match(serverPricing, /'vatRate' => 0\.075/);
 });
+
+test("new enquiries accept exactly three rate plans while historical best is lookup-only", () => {
+  const plans = serverPricing.match(/const ATLAS_RENTALS_RATE_PLANS = \[[\s\S]*?\];/)?.[0] || "";
+  assert.match(plans, /'daily'/);
+  assert.match(plans, /'weekly'/);
+  assert.match(plans, /'monthly'/);
+  assert.doesNotMatch(plans, /'best'|Best Available/i);
+  const activeCalculator = serverPricing.match(/function atlasRentalsRatePlanUnitPrice[\s\S]*?\n\}/)?.[0] || "";
+  assert.doesNotMatch(activeCalculator, /atlasRentalsHistoricalDecomposeDuration|best/i);
+  assert.match(serverPricing, /function atlasRentalsHistoricalDecomposeDuration/);
+  assert.match(service, /if \(\$input\['ratePlan'\] === 'best'\)[\s\S]*findByHash[\s\S]*throw new EnquiryValidationException/);
+});

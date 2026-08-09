@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildEnquiryPayload, createSubmissionGuard, hasStablePayloadShape, personalDetailsError } from "../js/enquiry.js";
 
 const payload = {
-  journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05", ratePlan: "best",
+  journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05", ratePlan: "daily",
   endDate: "2026-08-06", standardQuantity: 5, performanceQuantity: 0,
   technicianRequired: false, technicianDays: 0, fullName: "Ada User",
   organization: "Example Ltd", email: "ada@example.com", phone: "+2348000000000",
@@ -13,6 +13,7 @@ test("valid enquiry payload has the stable server contract", () => {
   assert.equal(hasStablePayloadShape(payload), true);
   assert.equal(hasStablePayloadShape({ ...payload, total: 1 }), false);
   assert.equal(hasStablePayloadShape((({ phone, ...rest }) => rest)(payload)), false);
+  assert.equal(hasStablePayloadShape({ ...payload, ratePlan: "best" }), false);
 });
 
 test("payload creation normalizes a copy without mutating entered values", () => {
@@ -28,7 +29,7 @@ test("payload creation normalizes a copy without mutating entered values", () =>
   assert.equal(result.standardQuantity, 0);
   assert.equal(result.performanceQuantity, 5);
   assert.equal(result.technicianDays, 0);
-  assert.equal(result.ratePlan, "best");
+  assert.equal(result.ratePlan, "daily");
   assert.equal(payload.email, "ada@example.com");
 });
 

@@ -92,6 +92,7 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
     $performanceQuantity = $requiredInteger($data, 'performanceQuantity');
     if (($standardQuantity > 0) === ($performanceQuantity > 0)) throw new UnexpectedValueException('CRM payload requires exactly one laptop category.');
     $ratePlan = $requiredText($data, 'ratePlan');
+    // `best` is accepted here only to resume delivery from an authoritative historical pricing snapshot.
     if (!in_array($ratePlan, ['daily', 'weekly', 'monthly', 'best'], true)) throw new UnexpectedValueException('CRM payload rate plan is unsupported.');
     if (($pricing['ratePlan'] ?? null) !== $ratePlan || ($pricing['currency'] ?? null) !== 'NGN') throw new UnexpectedValueException('CRM payload pricing snapshot is inconsistent.');
     if (($pricing['standard']['quantity'] ?? null) !== $standardQuantity || ($pricing['performance']['quantity'] ?? null) !== $performanceQuantity) throw new UnexpectedValueException('CRM payload quantities are inconsistent.');

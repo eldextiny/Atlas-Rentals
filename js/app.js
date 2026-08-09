@@ -115,17 +115,14 @@ function renderRatePlanHelp(category, plan) {
   }
   const applicable = plan === "daily" ? `Daily rate: ${currency.format(details.dailyRate)}.`
     : plan === "weekly" ? `Weekly rate: ${currency.format(details.weeklyRate)} per 7 days.`
-      : plan === "monthly" ? `Monthly rate: ${currency.format(details.monthlyRate)} per 30 days.`
-        : `Uses monthly ${currency.format(details.monthlyRate)}, weekly ${currency.format(details.weeklyRate)}, then daily ${currency.format(details.dailyRate)} blocks.`;
+      : `Monthly rate: ${currency.format(details.monthlyRate)} per 30 days.`;
   ratePlanHelp.textContent = `${selectedPlan.help} ${applicable}`;
   const requirement = plan === "weekly" ? "Requires a whole multiple of 7 inclusive rental days."
     : plan === "monthly" ? "Requires a whole multiple of 30 inclusive rental days."
-      : plan === "best" ? "No divisibility requirement; monthly blocks are applied before weekly and daily blocks."
-        : "No divisibility requirement; every inclusive rental day is charged.";
+      : "No divisibility requirement; every inclusive rental day is charged.";
   const recommendation = plan === "daily" ? "Best for short or irregular rental periods."
     : plan === "weekly" ? "Best for exact full-week rentals."
-      : plan === "monthly" ? "Best for exact 30-day rental blocks."
-        : "Recommended when you want the automatic combination for the selected duration.";
+      : "Best for exact 30-day rental blocks.";
   ratePlanDetails.hidden = false;
   ratePlanDetails.innerHTML = `<span class="selected-category-state">Selected plan</span><h4>${selectedPlan.label}</h4><p>${selectedPlan.help}</p><dl><div><dt>Applicable rate</dt><dd>${applicable.replace(/\.$/, "")}</dd></div><div><dt>Duration rule</dt><dd>${requirement}</dd></div><div><dt>Recommendation</dt><dd>${recommendation}</dd></div></dl>`;
 }

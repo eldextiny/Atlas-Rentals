@@ -124,11 +124,21 @@ final class EnquiryService
     public function submit(array $input): array
     {
         if (!array_key_exists('ratePlan', $input)) {
-            $legacyInput = $input; $legacyInput['ratePlan'] = 'best';
+            $legacyInput = $input; $legacyInput['ratePlan'] = 'daily';
             $legacyPreview = $this->preview($legacyInput); $legacyNormalized = $legacyPreview['normalized'];
             unset($legacyNormalized['ratePlan']);
             $legacyCanonical = json_encode($legacyNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $historical = $this->store->findByHash(hash('sha256', $legacyCanonical));
+            if ($historical !== null) return $this->result($historical, true);
+            throw new EnquiryValidationException(['ratePlan' => 'Select a rental rate plan.']);
+        }
+        if ($input['ratePlan'] === 'best') {
+            $historicalInput = $input; $historicalInput['ratePlan'] = 'daily';
+            $historicalPreview = $this->preview($historicalInput);
+            $historicalNormalized = $historicalPreview['normalized'];
+            $historicalNormalized['ratePlan'] = 'best';
+            $historicalCanonical = json_encode($historicalNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $historical = $this->store->findByHash(hash('sha256', $historicalCanonical));
             if ($historical !== null) return $this->result($historical, true);
             throw new EnquiryValidationException(['ratePlan' => 'Select a rental rate plan.']);
         }
