@@ -328,7 +328,8 @@ function updateStepChrome(step) {
     button.classList.toggle("is-active", buttonStep === step);
     const completed = buttonStep < highestStep && (buttonStep !== 1 || scheduleValidated);
     button.classList.toggle("is-complete", completed);
-    button.toggleAttribute("aria-current", buttonStep === step);
+    if (buttonStep === step) button.setAttribute("aria-current", "step");
+    else button.removeAttribute("aria-current");
   });
   backButton.hidden = step === 1;
   nextButton.hidden = step === totalSteps;

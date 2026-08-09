@@ -154,6 +154,19 @@ test("progress circles use accessible check marks instead of visible numbers", (
   assert.doesNotMatch(progress, /<span>[1-4]<\/span>/);
 });
 
+test("progress markers form one labelled row with three decorative connector segments", () => {
+  const progress = html.match(/<nav class="steps header-progress"[\s\S]*?<\/nav>/)?.[0] || "";
+  assert.deepEqual([...progress.matchAll(/<b>([^<]+)<\/b>/g)].map((match) => match[1]), ["Rental Details", "Laptops", "Support &amp; Details", "Review"]);
+  assert.equal((progress.match(/class="step(?: is-active)?"/g) || []).length, 4);
+  assert.match(css, /\.steps \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.step:not\(:last-child\)::before/);
+  assert.match(css, /\.step\.is-complete:not\(:last-child\)::before/);
+  assert.match(css, /\.step\.is-active span::after/);
+  assert.match(css, /@media \(max-width: 600px\)[\s\S]*--marker-size: 1\.5rem/);
+  assert.match(app, /button\.setAttribute\("aria-current", "step"\)/);
+  assert.match(app, /button\.removeAttribute\("aria-current"\)/);
+});
+
 test("step progress is sticky-header content and transitions do not force scrolling", () => {
   const header = html.match(/<header class="site-header">[\s\S]*?<\/header>/)?.[0] || "";
   assert.match(header, /header-progress/);
