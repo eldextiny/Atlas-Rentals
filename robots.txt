@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /private/
+Disallow: /tools/
+Disallow: /tests/
+Disallow: /docs/
+
+Sitemap: https://laptops.dyplus.com.ng/sitemap.xml

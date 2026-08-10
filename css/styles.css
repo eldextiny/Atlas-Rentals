@@ -285,6 +285,16 @@ progress::-moz-progress-bar { background: var(--brand-green); }
 @keyframes submission-pulse { 50% { opacity: .55; transform: scale(.78); } }
 @keyframes submission-card-in { from { opacity: 0; transform: translateY(10px) scale(.985); } }
 @keyframes submission-success-in { from { opacity: 0; transform: scale(.75); } }
+.faq-section { padding: clamp(4rem, 8vw, 6.5rem) max(2rem, calc((100vw - 1240px) / 2)); background: white; border-top: 1px solid var(--line); }
+.faq-intro { max-width: 720px; margin-bottom: 2rem; }
+.faq-intro h2 { margin-bottom: .9rem; color: var(--brand-navy); font-size: clamp(2.1rem, 4vw, 3.4rem); }
+.faq-intro > p:last-child { max-width: 62ch; margin-bottom: 0; color: var(--muted); font-size: 1rem; line-height: 1.7; }
+.faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.faq-grid article { min-width: 0; padding: clamp(1.2rem, 3vw, 1.6rem); background: linear-gradient(145deg, #fff, var(--pale-blue)); border: 1px solid #dce0f3; border-left: 4px solid var(--brand-blue); border-radius: 14px; box-shadow: 0 9px 24px rgba(8,7,84,.06); }
+.faq-grid article:nth-child(3n) { border-left-color: var(--brand-green); }
+.faq-grid h3 { margin-bottom: .65rem; color: var(--brand-blue); font-size: 1.02rem; line-height: 1.4; }
+.faq-grid p { margin-bottom: 0; color: #4d5568; font-size: .9rem; line-height: 1.7; overflow-wrap: anywhere; }
+.faq-grid strong { color: var(--brand-navy); }
 footer { display: grid; grid-template-columns: 1fr auto auto; gap: 2rem; align-items: center; max-width: 1240px; margin: auto; padding: 2.5rem 2rem; color: var(--muted); border-top: 1px solid var(--line); font-size: .8rem; }
 footer p { margin: 0; }
 
@@ -301,6 +311,7 @@ footer p { margin: 0; }
 }
 
 @media (max-width: 768px) {
+  .faq-grid { grid-template-columns: 1fr; }
   .review-reassurance { grid-template-columns: 1fr; gap: .65rem; }
   .review-reassurance > div { padding: .15rem; }
   .estimate-card { max-width: 100%; }
@@ -337,6 +348,7 @@ footer p { margin: 0; }
   .rate-card-title { min-height: 0; }
   .trust-row { gap: .55rem 1rem; font-size: .73rem; }
   .planner-shell { padding: 4rem 1rem; }
+  .faq-section { padding: 4rem 1rem; }
   .choice-grid, .field-grid { grid-template-columns: 1fr; }
   .product { grid-template-columns: 1fr; }
   .product label { max-width: 130px; }
