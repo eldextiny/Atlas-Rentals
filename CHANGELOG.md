@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added the AR-H5 SEO and AEO foundation with canonical social metadata, Organization/Service/WebSite/WebPage/FAQ structured data, visible rental FAQs, and index-safe robots and sitemap files.
 - Removed Best Available Rate from new enquiries while retaining lookup-only compatibility and authoritative rendering for historical stored snapshots.
 - Added an accessible full-page estimate-preparation transition before Review while retaining the server-bound submission and confirmed-success overlay lifecycle.
 - Scroll the completed Review transition to the workflow top before heading focus, with instant reduced-motion behavior, and compact detailed native-select text on mobile.
