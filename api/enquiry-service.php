@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+$composerAutoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (!is_file($composerAutoload)) {
+    throw new RuntimeException('Application dependencies are unavailable.');
+}
+require_once $composerAutoload;
 require_once __DIR__ . '/rentals-pricing.php';
 
 final class EnquiryValidationException extends RuntimeException
@@ -107,12 +112,12 @@ final class EnquiryService
     private const ALLOWED_FIELDS = [
         'journeyId', 'location', 'startDate', 'endDate', 'ratePlan', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
-        'organization', 'email', 'phone',
+        'organization', 'email', 'phoneCountry', 'phone',
     ];
     private const REQUIRED_FIELDS = [
         'journeyId', 'location', 'startDate', 'endDate', 'ratePlan', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
-        'organization', 'email', 'phone',
+        'organization', 'email', 'phoneCountry', 'phone',
     ];
 
     public function __construct(
@@ -200,7 +205,11 @@ final class EnquiryService
         $unexpected = array_diff(array_keys($input), self::ALLOWED_FIELDS);
         if ($unexpected) $errors['payload'] = 'Unexpected fields are not allowed.';
         foreach (self::REQUIRED_FIELDS as $field) {
-            if (!array_key_exists($field, $input)) $errors[$field] = $field === 'ratePlan' ? 'Select a rental rate plan.' : 'This field is required.';
+            if (!array_key_exists($field, $input)) {
+                if ($field === 'ratePlan') $errors[$field] = 'Select a rental rate plan.';
+                elseif ($field === 'phone' || $field === 'phoneCountry') $errors['phone'] = 'Enter a valid phone number for the selected country, or include the full international number beginning with +.';
+                else $errors[$field] = 'This field is required.';
+            }
         }
         if ($errors) throw new EnquiryValidationException($errors);
 
@@ -219,9 +228,10 @@ final class EnquiryService
         $this->length($value['fullName'], 2, 160, 'fullName', $errors);
         $this->length($value['organization'], 2, 200, 'organization', $errors);
         if (!filter_var($value['email'], FILTER_VALIDATE_EMAIL) || strlen($value['email']) > 254) $errors['email'] = 'Enter a valid email address.';
-        $normalizedPhone = $this->normalizePhone($value['phone']);
+        $phoneCountry = strtoupper($text($input['phoneCountry']));
+        $normalizedPhone = $this->normalizePhone($value['phone'], $phoneCountry);
         if ($normalizedPhone === null) {
-            $errors['phone'] = 'Enter a valid phone number.';
+            $errors['phone'] = 'Enter a valid phone number for the selected country, or include the full international number beginning with +.';
         } else {
             $value['phone'] = $normalizedPhone;
         }
@@ -258,22 +268,18 @@ final class EnquiryService
         return (int) $from->diff($to)->days + 1;
     }
 
-    private function normalizePhone(string $phone): ?string
+    private function normalizePhone(string $phone, string $phoneCountry): ?string
     {
-        if (preg_match('/^\+?[0-9 ()-]+$/', $phone) !== 1) return null;
-        $digits = preg_replace('/\D+/', '', $phone);
-
-        if (preg_match('/^0[789]\d{9}$/', $digits) === 1) {
-            return '+234' . substr($digits, 1);
+        if (preg_match('/^\+?[0-9 ()-]+$/u', $phone) !== 1 || preg_match('/^[A-Z]{2}$/', $phoneCountry) !== 1) return null;
+        $util = \libphonenumber\PhoneNumberUtil::getInstance();
+        if (!in_array($phoneCountry, $util->getSupportedRegions(), true)) return null;
+        try {
+            $number = $util->parse($phone, str_starts_with($phone, '+') ? null : $phoneCountry);
+            if (!$util->isValidNumber($number)) return null;
+            return $util->format($number, \libphonenumber\PhoneNumberFormat::E164);
+        } catch (\libphonenumber\NumberParseException) {
+            return null;
         }
-        if (preg_match('/^234[789]\d{9}$/', $digits) === 1) {
-            return '+' . $digits;
-        }
-        if (str_starts_with($phone, '+') && preg_match('/^[1-9]\d{7,14}$/', $digits) === 1) {
-            return '+' . $digits;
-        }
-
-        return null;
     }
 
     private function length(string $value, int $min, int $max, string $field, array &$errors): void

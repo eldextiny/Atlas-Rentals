@@ -126,6 +126,17 @@ test("removed fields are absent from browser and server request contracts", () =
   assert.match(service, /'description' => null/);
 });
 
+test("phone validation uses Composer metadata and preserves the existing downstream phone field", () => {
+  const submit = readFileSync(new URL("../api/submit-enquiry.php", import.meta.url), "utf8");
+  assert.match(service, /vendor\/autoload\.php/);
+  assert.match(service, /PhoneNumberUtil::getInstance\(\)/);
+  assert.match(service, /PhoneNumberFormat::E164/);
+  assert.match(service, /'phoneCountry'/);
+  assert.match(service, /'phone' => \$normalized\['phone'\]/);
+  assert.doesNotMatch(service, /'phone_country'|phone_country/);
+  assert.match(submit, /catch \(EnquiryValidationException \$error\)[\s\S]*respond\(422, \['ok' => false, 'error' => 'validation_failed', 'fields' => \$error->errors\]\)/);
+});
+
 test("server pricing retains every protected rate", () => {
   assert.match(serverPricing, /'dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000/);
   assert.match(serverPricing, /'dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500/);

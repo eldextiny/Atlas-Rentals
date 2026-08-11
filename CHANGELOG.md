@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Integrated global country-aware phone validation across the contact step and authoritative PHP boundary, with E.164 normalization, accessible server-error recovery, and shared multi-region fixtures while retaining the existing downstream phone contract.
+- Added the Phase A global-phone dependency foundation with locked PHP/browser libphonenumber packages, a deterministic same-origin browser bundle, and Cloudways build verification without changing the live enquiry workflow.
 - Added private check-before-cleanup journey expiry state, bounded tombstones, safe expired-session responses, and an authoritative estimate in the accessible success card.
 - Added the AR-H5 SEO and AEO foundation with canonical social metadata, Organization/Service/WebSite/WebPage/FAQ structured data, visible rental FAQs, and index-safe robots and sitemap files.
 - Removed Best Available Rate from new enquiries while retaining lookup-only compatibility and authoritative rendering for historical stored snapshots.

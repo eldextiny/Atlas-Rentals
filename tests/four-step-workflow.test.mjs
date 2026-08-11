@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+const enquiry = readFileSync(new URL("../js/enquiry.js", import.meta.url), "utf8");
 const css = readFileSync(new URL("../css/styles.css", import.meta.url), "utf8");
 const emailTemplate = readFileSync(new URL("../api/rentals-email-template.php", import.meta.url), "utf8");
 const pdfTemplate = readFileSync(new URL("../api/document-engine/templates/rentals-quotation.php", import.meta.url), "utf8");
@@ -141,7 +142,7 @@ test("native category selector exposes polished accessible state hooks", () => {
 
 test("personal validation is field-local, focuses first invalid and clears corrected errors", () => {
   for (const [name, id] of [["fullName", "full-name-error"], ["organization", "organization-error"], ["email", "email-error"], ["phone", "phone-error"]]) {
-    assert.match(html, new RegExp(`name="${name}"[^>]*aria-describedby="${id}"`));
+    assert.match(html, new RegExp(`name="${name}"[^>]*aria-describedby="[^"]*${id}[^"]*"`));
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(app, /firstInvalid\.field\.focus\(\)/);
@@ -201,10 +202,22 @@ test("mobile estimate is limited to review step while desktop remains available"
 });
 
 test("phone is required client-side and review uses reassuring customer copy", () => {
-  assert.match(html, /name="phone"[^>]*pattern="[^"]+"[^>]*required/);
+  assert.match(html, /name="phoneCountry"[^>]*autocomplete="country"[^>]*required/);
+  assert.match(html, /name="phone"[^>]*autocomplete="tel"[^>]*aria-describedby="phone-hint phone-error"[^>]*required/);
+  assert.match(html, /value="NG" selected>Nigeria \(\+234\)/);
+  assert.match(enquiry, /phoneCountryOptions[\s\S]*getCountryCallingCode/);
   assert.match(app, /nextStep === 4[\s\S]*fetch\("api\/review-enquiry\.php"/);
   assert.match(app, /Everything looks good\. Your enquiry is ready to submit\./);
   assert.doesNotMatch(app + html, /CRM synchronization|retried safely|delivery-state/i);
+});
+
+test("server phone rejection returns to contact details without clearing entered values", () => {
+  const submitter = app.match(/const submitEnquiry = createSubmissionGuard[\s\S]*?\n\}\);/)?.[0] || "";
+  const handler = app.match(/finishButton\.addEventListener\("click"[\s\S]*?\n\}\);/)?.[0] || "";
+  assert.match(submitter, /response\.status === 422[\s\S]*body\.fields\?\.phone[\s\S]*error\.fields = body\.fields/);
+  assert.match(app, /async function returnToPhoneError[\s\S]*goToStep\(3, \{ focusTarget: phoneInput \}\)[\s\S]*setPersonalFieldError\(phoneInput, message\)[\s\S]*phoneInput\.focus/);
+  assert.match(handler, /error\.fields\?\.phone[\s\S]*await returnToPhoneError\(error\.fields\.phone\)/);
+  assert.doesNotMatch(handler, /catch \(error\)[\s\S]*form\.reset\(\)/);
 });
 
 test("successful submission exposes only the authoritative quotation download lifecycle", () => {
@@ -293,7 +306,7 @@ test("presentation polish preserves native selectors and responsive focus contra
 });
 
 test("every native workflow select uses readable Atlas-blue typography", () => {
-  assert.equal((html.match(/<select\b/g) || []).length, 3);
+  assert.equal((html.match(/<select\b/g) || []).length, 4);
   assert.match(css, /\.category-select-wrap select \{[^}]*color: var\(--brand-blue\)[^}]*font-size: 1\.025rem[^}]*line-height: 1\.55/);
   assert.match(css, /\.category-select-wrap select:required:invalid \{[^}]*color: var\(--muted\)/);
   assert.match(css, /\.category-select-wrap select:disabled \{[^}]*color: var\(--muted\)/);

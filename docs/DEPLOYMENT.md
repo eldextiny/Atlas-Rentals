@@ -6,18 +6,35 @@ AR-H1 combines the static planner with a same-origin PHP JSON endpoint and MySQL
 
 ## Pre-release checks
 
-1. Run `npm test`.
-2. Run `npm run check`.
-3. Run `php tests/php/enquiry-service.test.php` and PHP syntax checks in an isolated environment.
-4. Serve the site locally over HTTP and walk through all city choices, both laptop types, all three rate plans and incompatible 7/30-day boundaries, optional services, submission failure and confirmed enquiry receipt.
-5. Verify keyboard navigation and responsive layouts at narrow and wide widths.
-6. Confirm the canonical URL and social metadata remain unchanged.
+1. Run `composer validate --strict`.
+2. Run `composer install --no-dev --classmap-authoritative --no-interaction` from the committed lockfile.
+3. Run `npm ci` from the committed lockfile.
+4. Run `npm run build` and verify `js/vendor/libphonenumber.js` exists.
+5. Run `npm test` and `npm run check`.
+6. Run `php tests/php/dependency-foundation.test.php`, `php tests/php/enquiry-service.test.php` and PHP syntax checks in an isolated environment.
+7. Serve the site locally over HTTP and walk through all city choices, both laptop types, all three rate plans and incompatible 7/30-day boundaries, optional services, submission failure and confirmed enquiry receipt.
+8. Verify keyboard navigation and responsive layouts at narrow and wide widths.
+9. Confirm the canonical URL and social metadata remain unchanged.
+
+## Reproducible dependency build
+
+Cloudways uses PHP 8.4.24, Composer 2.10.2, Node 18.17.1 and npm 9.6.7. Do not run dependency-update commands during deployment. `composer.lock` and `package-lock.json` are the only approved resolution inputs.
+
+```text
+composer install --no-dev --classmap-authoritative --no-interaction
+npm ci
+npm run build
+```
+
+Composer creates the production `vendor/` tree. npm creates the temporary build-time `node_modules/` tree. Rollup creates `js/vendor/libphonenumber.js`, the only browser libphonenumber runtime artifact. The browser bundle is served from the application origin and must never be replaced with a CDN URL or a runtime package-registry import. `js/enquiry.js` imports this bundle, and `api/enquiry-service.php` requires the root Composer autoloader; both dependency trees must therefore be present before the application release becomes active.
 
 ## Runtime and configuration
 
 - Serve `index.html`, `css/`, and `js/` from the same origin.
 - Serve `api/submit-enquiry.php` through PHP 8.1 or newer with PDO MySQL enabled.
 - Serve JavaScript modules with a valid JavaScript MIME type.
+- Deploy the generated `js/vendor/libphonenumber.js` file and Composer-generated `vendor/` tree with the application runtime.
+- Verify that a Nigerian national number and at least one non-Nigerian national number normalize identically in the browser and PHP fixture suites before release.
 - Use HTTPS in production.
 - Do not cache `index.html` longer than versioned assets unless a coordinated cache strategy exists.
 - Add security headers at the hosting layer during a separately approved deployment milestone.
@@ -38,8 +55,8 @@ The pricing snapshot JSON stores the selected rate plan, duration blocks, all la
 
 ## Release unit
 
-Upload the HTML, CSS, JavaScript and PHP runtime files atomically so the interface and server contract cannot be mixed across versions. Do not publish documentation, tests, the configuration example, or private configuration loader from the web document root.
+Upload the HTML, CSS, generated JavaScript bundle, PHP runtime files and Composer `vendor/` tree atomically so the interface, metadata and server contract cannot be mixed across versions. `node_modules/`, documentation, tests, configuration examples and private configuration loaders must not be published from the web document root.
 
 ## Rollback
 
-Retain the previous complete static release. If validation fails, restore the entire previous release as one unit rather than replacing individual runtime files.
+Retain the previous complete release, including its generated JavaScript and Composer dependency trees. If validation fails, restore that release as one unit rather than replacing individual runtime files. Do not run `composer update` or `npm install` as a rollback strategy.

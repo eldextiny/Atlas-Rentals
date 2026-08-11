@@ -4,7 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "rollup --config rollup.config.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check js/pricing.js && node --check js/enquiry.js && node --check js/app.js"
+    "check": "node --check js/pricing.js && node --check js/enquiry.js && node --check js/app.js && node --check js/vendor/libphonenumber.js"
+  },
+  "dependencies": {
+    "libphonenumber-js": "1.13.10"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "rollup": "4.62.4"
   }
 }

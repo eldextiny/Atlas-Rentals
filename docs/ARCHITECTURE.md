@@ -18,6 +18,8 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 - `api/review-enquiry.php` synchronizes an idempotent CRM review draft using the journey identity.
 - `api/integration-runtime.php` owns private configuration, recovery state, CRM transport, reusable PDF generation and recipient-specific Resend delivery.
 - `tests/pricing.test.mjs` protects the deterministic calculation contract using Node's built-in test runner.
+- `composer.json` and `composer.lock` pin the server-side `giggsey/libphonenumber-for-php` dependency for installation through Composer's optimized production autoloader.
+- `package.json` and `package-lock.json` pin `libphonenumber-js` and the Rollup toolchain. `rollup.config.mjs` deterministically bundles `js/vendor-src/libphonenumber-entry.js` into the deployable `js/vendor/libphonenumber.js` ES module.
 
 ## Data flow
 
@@ -30,6 +32,12 @@ The browser creates one random journey identity per planner journey. Review-stag
 Historical records are read through their stored pricing snapshots. A historical `best` payload is eligible only for an existing idempotency-hash lookup; if no matching record exists it fails validation before pricing or persistence. Historical snapshots continue through CRM, email, PDF and retry presentation without repricing.
 
 Journey identifiers are registered on first valid server use with a fixed 24-hour lifetime. The server checks the incoming identifier before cleanup, converts expired state to a retained tombstone, and returns a safe conflict without reaching persistence or delivery. Tombstones are retained for 90 days and cleanup never deletes the identifier currently being checked.
+
+## Phone dependency foundation
+
+The contact step builds its country list from the locally bundled libphonenumber metadata and defaults to Nigeria. National-format input is interpreted against the selected ISO region; a leading `+` invokes international parsing independently of that selection. Browser validation is advisory and builds a normalized request copy without overwriting the customer's visible input.
+
+The request-only `phoneCountry` value gives PHP the region context needed for independent validation. `EnquiryService` loads Composer's production autoloader, rejects invalid or unsupported combinations, and replaces the request phone with E.164 before canonical hashing and persistence. `phoneCountry` is intentionally excluded from the normalized payload and database contract, so PDF, email and CRM continue receiving only the existing authoritative `phone` field. A server `fields.phone` error returns the browser to Step 3 without resetting any controls.
 
 ## Design boundaries
 
