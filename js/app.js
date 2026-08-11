@@ -1,5 +1,5 @@
 import { calculateEstimate, calculateRentalDays, LAPTOP_CATALOGUE, PRICING, RATE_PLANS, validateBooking } from "./pricing.js";
-import { buildEnquiryPayload, clearJourneyId, createJourneyId, createSubmissionGuard, personalDetailsError } from "./enquiry.js";
+import { PHONE_VALIDATION_MESSAGE, buildEnquiryPayload, clearJourneyId, createJourneyId, createSubmissionGuard, normalizePhoneNumber, personalDetailsError, phoneCountryOptions } from "./enquiry.js";
 
 const form = document.querySelector("#rental-form");
 const steps = [...document.querySelectorAll(".form-step")];
@@ -19,6 +19,8 @@ const categoryDetails = document.querySelector("#category-details");
 const technicianRequired = document.querySelector("#technician-required");
 const technicianDaysWrap = document.querySelector("#technician-days-wrap");
 const technicianDaysInput = document.querySelector("#technician-days");
+const phoneCountry = document.querySelector("#phone-country");
+const phoneInput = document.querySelector("#phone");
 const rateCards = [...document.querySelectorAll("[data-laptop-category]")];
 const restartButton = document.querySelector("#restart-button");
 const finishButton = document.querySelector("#finish-button");
@@ -56,6 +58,22 @@ function numberValue(name) {
 
 function selectedLocation() {
   return serviceCity.value === "Others" ? customCityInput.value.trim() : serviceCity.value;
+}
+
+function populatePhoneCountries() {
+  const selected = phoneCountry.value || "NG";
+  const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+  const fragment = document.createDocumentFragment();
+  phoneCountryOptions((country) => displayNames.of(country) || country).forEach(({ country, callingCode, label }) => {
+    const option = document.createElement("option");
+    option.value = country;
+    option.textContent = `${label} (+${callingCode})`;
+    option.defaultSelected = country === "NG";
+    fragment.append(option);
+  });
+  phoneCountry.replaceChildren(fragment);
+  phoneCountry.value = selected;
+  if (!phoneCountry.value) phoneCountry.value = "NG";
 }
 
 function updateCustomCityState({ clearWhenHidden = false } = {}) {
@@ -225,7 +243,7 @@ function renderReview(state, result) {
       <div class="summary-line"><span>Contact</span><strong>${escaped(values.fullName)}</strong></div>
       <div class="summary-line"><span>Organization</span><strong>${escaped(values.organization)}</strong></div>
       <div class="summary-line"><span>Email</span><strong>${escaped(values.email)}</strong></div>
-      <div class="summary-line"><span>Phone</span><strong>${escaped(values.phone)}</strong></div>
+      <div class="summary-line"><span>Phone</span><strong>${escaped(normalizePhoneNumber(values.phone, values.phoneCountry) || values.phone)}</strong></div>
     </div>
     <div class="summary-group"><h4>Estimate</h4>${estimateMarkup(result)}</div>`;
 }
@@ -235,13 +253,26 @@ function showError(id, message = "") {
 }
 
 function personalFieldError(field) {
-  return personalDetailsError(field.name, field.value, field.validity);
+  return personalDetailsError(field.name, field.value, field.validity, phoneCountry.value);
 }
 
 function setPersonalFieldError(field, message) {
   showError(`${field.id}-error`, message);
   if (message) field.setAttribute("aria-invalid", "true");
   else field.removeAttribute("aria-invalid");
+  if (field === phoneInput) {
+    if (!phoneCountry.value && message) phoneCountry.setAttribute("aria-invalid", "true");
+    else phoneCountry.removeAttribute("aria-invalid");
+  }
+}
+
+async function returnToPhoneError(message = PHONE_VALIDATION_MESSAGE) {
+  personalValidationActive = true;
+  highestStep = Math.max(highestStep, 3);
+  if (currentStep !== 3) await goToStep(3, { focusTarget: phoneInput });
+  setPersonalFieldError(phoneInput, message);
+  showError("details-error", message);
+  phoneInput.focus({ preventScroll: true });
 }
 
 function validatePersonalDetails() {
@@ -449,6 +480,10 @@ nextButton.addEventListener("click", async () => {
         body: JSON.stringify(buildEnquiryPayload(form, journeyId)),
       });
       const body = await response.json().catch(() => null);
+      if (response.status === 422 && body?.fields?.phone) {
+        await returnToPhoneError(body.fields.phone);
+        return;
+      }
       if (!response.ok || !body?.ok) throw new Error();
       submissionStatus.textContent = "Everything looks good. Your enquiry is ready to submit.";
     } catch {
@@ -488,6 +523,14 @@ personalFieldNames.forEach((name) => {
     }
   });
 });
+phoneCountry.addEventListener("change", () => {
+  const message = personalFieldError(phoneInput);
+  if (personalValidationActive || message === "") setPersonalFieldError(phoneInput, message);
+  if (personalValidationActive) {
+    const firstMessage = personalFieldNames.map((fieldName) => personalFieldError(form.elements[fieldName])).find(Boolean) || "";
+    showError("details-error", firstMessage);
+  }
+});
 laptopCategory.addEventListener("change", clearLaptopSelectionErrorIfValid);
 laptopQuantity.addEventListener("input", clearLaptopSelectionErrorIfValid);
 ratePlan.addEventListener("change", () => {
@@ -520,6 +563,11 @@ const submitEnquiry = createSubmissionGuard(async (payload) => {
   const body = await response.json().catch(() => null);
   if (response.status === 409 && body?.error === "journey_expired") {
     throw new Error("Your enquiry session has expired. Your entered details are still here; refresh when you are ready to start a new session.");
+  }
+  if (response.status === 422 && body?.error === "validation_failed") {
+    const error = new Error(body.fields?.phone || "The enquiry could not be saved. Please check your details and try again.");
+    error.fields = body.fields || {};
+    throw error;
   }
   if (!response.ok || !body?.ok || !body.enquiry?.reference) {
     throw new Error("The enquiry could not be saved. Please check your details and try again.");
@@ -594,8 +642,13 @@ finishButton.addEventListener("click", async () => {
     successMessage.focus({ preventScroll: true });
   } catch (error) {
     hideSubmissionOverlay();
-    submissionStatus.textContent = error.message;
-    finishButton.focus({ preventScroll: true });
+    if (error.fields?.phone) {
+      submissionStatus.textContent = "";
+      await returnToPhoneError(error.fields.phone);
+    } else {
+      submissionStatus.textContent = error.message;
+      finishButton.focus({ preventScroll: true });
+    }
   } finally {
     form.removeAttribute("aria-busy");
     if (successMessage.hidden) finishButton.disabled = false;
@@ -623,6 +676,7 @@ restartButton.addEventListener("click", () => {
   document.querySelector("#success-estimate-summary").textContent = "";
   document.querySelector("#success-message").hidden = true;
   personalFieldNames.forEach((name) => setPersonalFieldError(form.elements[name], ""));
+  phoneCountry.removeAttribute("aria-invalid");
   updateCustomCityState({ clearWhenHidden: true });
   serviceCity.removeAttribute("aria-invalid");
   customCityInput.removeAttribute("aria-invalid");
@@ -636,6 +690,7 @@ restartButton.addEventListener("click", () => {
 
 document.querySelectorAll(".form-step h3").forEach((heading) => heading.setAttribute("tabindex", "-1"));
 document.querySelector("#year").textContent = new Date().getFullYear();
+populatePhoneCountries();
 technicianDaysInput.disabled = true;
 updateCustomCityState();
 updateEstimate();

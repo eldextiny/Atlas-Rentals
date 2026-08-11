@@ -36,7 +36,7 @@ function valid_payload(): array
         'standardQuantity' => 3, 'performanceQuantity' => 2,
         'technicianRequired' => true, 'technicianDays' => 2,
         'fullName' => 'Ada User', 'organization' => 'Example Limited',
-        'email' => 'ADA@example.com', 'phone' => '08028557479',
+        'email' => 'ADA@example.com', 'phoneCountry' => 'NG', 'phone' => '08028557479',
     ];
 }
 
@@ -163,30 +163,31 @@ $tests['validation rejects identity quantity dates contact and unexpected fields
     $payload = valid_payload(); unset($payload['organization']); expect_validation($payload, 'organization');
     $payload = valid_payload(); $payload['technicianDays'] = 0; expect_validation($payload, 'technicianDays');
 };
-$tests['phone representations normalize to E.164'] = function (): void {
-    foreach (['08028557479', '2348028557479', '+2348028557479'] as $phone) {
-        $payload = valid_payload(); $payload['phone'] = $phone;
+$tests['global phone fixtures normalize to E.164 and reject invalid numbers'] = function (): void {
+    $fixtures = json_decode(file_get_contents(__DIR__ . '/../fixtures/phone-numbers.json'), true, flags: JSON_THROW_ON_ERROR);
+    foreach ($fixtures['valid'] as $fixture) {
+        $payload = valid_payload(); $payload['phoneCountry'] = $fixture['region']; $payload['phone'] = $fixture['input'];
         $preview = service(new MemoryStore())->preview($payload);
-        expect($preview['normalized']['phone'] === '+2348028557479', 'phone normalization mismatch');
+        expect($preview['normalized']['phone'] === $fixture['e164'], "phone normalization mismatch for {$fixture['region']}: {$fixture['input']}");
+        expect(!array_key_exists('phoneCountry', $preview['normalized']), 'request-only phone country leaked into normalized contract');
     }
-    $international = valid_payload(); $international['phone'] = '+442071838750';
-    expect(service(new MemoryStore())->preview($international)['normalized']['phone'] === '+442071838750', 'international phone normalization mismatch');
-
-    foreach ([
-        'too short' => '0802',
-        'alphabetic' => '0802ABC7479',
-        'zero country code' => '+00012345678',
-        'invalid Nigerian prefix' => '02028557479',
-        'bare non-Nigerian digits' => '442071838750',
-        'too long' => '+1234567890123456',
-    ] as $case => $phone) {
-        $payload = valid_payload(); $payload['phone'] = $phone;
+    foreach ($fixtures['invalid'] as $fixture) {
+        $payload = valid_payload(); $payload['phoneCountry'] = $fixture['region']; $payload['phone'] = $fixture['input'];
         try { service(new MemoryStore())->submit($payload); }
         catch (EnquiryValidationException $error) {
-            expect(isset($error->errors['phone']), "Expected phone validation error for {$case}: {$phone}");
+            expect(($error->errors['phone'] ?? '') === 'Enter a valid phone number for the selected country, or include the full international number beginning with +.', "Expected exact phone validation error for {$fixture['region']}: {$fixture['input']}");
             continue;
         }
-        throw new RuntimeException("Expected validation failure for {$case}: {$phone}");
+        throw new RuntimeException("Expected validation failure for {$fixture['region']}: {$fixture['input']}");
+    }
+    foreach (['phone', 'phoneCountry'] as $missing) {
+        $payload = valid_payload(); unset($payload[$missing]);
+        try { service(new MemoryStore())->submit($payload); }
+        catch (EnquiryValidationException $error) {
+            expect(isset($error->errors['phone']) && !isset($error->errors['phoneCountry']), "Missing {$missing} did not fail through fields.phone");
+            continue;
+        }
+        throw new RuntimeException("Missing {$missing} was accepted");
     }
 };
 $tests['http parser rejects method content type malformed and oversized bodies'] = function (): void {

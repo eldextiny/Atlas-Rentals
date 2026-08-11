@@ -26,14 +26,15 @@ npm ci
 npm run build
 ```
 
-Composer creates the production `vendor/` tree. npm creates the temporary build-time `node_modules/` tree. Rollup creates `js/vendor/libphonenumber.js`, the only browser libphonenumber runtime artifact. The browser bundle is served from the application origin and must never be replaced with a CDN URL or a runtime package-registry import. Phase A does not load this bundle from `index.html` and does not load Composer's autoloader from the enquiry endpoints.
+Composer creates the production `vendor/` tree. npm creates the temporary build-time `node_modules/` tree. Rollup creates `js/vendor/libphonenumber.js`, the only browser libphonenumber runtime artifact. The browser bundle is served from the application origin and must never be replaced with a CDN URL or a runtime package-registry import. `js/enquiry.js` imports this bundle, and `api/enquiry-service.php` requires the root Composer autoloader; both dependency trees must therefore be present before the application release becomes active.
 
 ## Runtime and configuration
 
 - Serve `index.html`, `css/`, and `js/` from the same origin.
 - Serve `api/submit-enquiry.php` through PHP 8.1 or newer with PDO MySQL enabled.
 - Serve JavaScript modules with a valid JavaScript MIME type.
-- Deploy the generated `js/vendor/libphonenumber.js` file with the static JavaScript release and retain the Composer-generated `vendor/` tree for the later server integration phase.
+- Deploy the generated `js/vendor/libphonenumber.js` file and Composer-generated `vendor/` tree with the application runtime.
+- Verify that a Nigerian national number and at least one non-Nigerian national number normalize identically in the browser and PHP fixture suites before release.
 - Use HTTPS in production.
 - Do not cache `index.html` longer than versioned assets unless a coordinated cache strategy exists.
 - Add security headers at the hosting layer during a separately approved deployment milestone.

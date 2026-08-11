@@ -6,7 +6,7 @@ const payload = {
   journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05", ratePlan: "daily",
   endDate: "2026-08-06", standardQuantity: 5, performanceQuantity: 0,
   technicianRequired: false, technicianDays: 0, fullName: "Ada User",
-  organization: "Example Ltd", email: "ada@example.com", phone: "+2348000000000",
+  organization: "Example Ltd", email: "ada@example.com", phoneCountry: "NG", phone: "+2348028557479",
 };
 
 test("valid enquiry payload has the stable server contract", () => {
@@ -18,9 +18,10 @@ test("valid enquiry payload has the stable server contract", () => {
 
 test("payload creation normalizes a copy without mutating entered values", () => {
   const originalFormData = globalThis.FormData;
+  const enteredPhone = "0802 855 7479";
   globalThis.FormData = class {
     constructor() {}
-    *[Symbol.iterator]() { yield* Object.entries({ ...payload, serviceCity: "Lagos", laptopCategory: "performance", laptopQuantity: 5, email: " ADA@Example.COM " }); }
+    *[Symbol.iterator]() { yield* Object.entries({ ...payload, serviceCity: "Lagos", laptopCategory: "performance", laptopQuantity: 5, email: " ADA@Example.COM ", phone: enteredPhone }); }
   };
   const form = { elements: { technicianRequired: { checked: false } } };
   const result = buildEnquiryPayload(form, payload.journeyId);
@@ -30,6 +31,9 @@ test("payload creation normalizes a copy without mutating entered values", () =>
   assert.equal(result.performanceQuantity, 5);
   assert.equal(result.technicianDays, 0);
   assert.equal(result.ratePlan, "daily");
+  assert.equal(result.phoneCountry, "NG");
+  assert.equal(result.phone, "+2348028557479");
+  assert.equal(enteredPhone, "0802 855 7479");
   assert.equal(payload.email, "ada@example.com");
 });
 
@@ -66,9 +70,9 @@ test("personal details return one exact field-specific message", () => {
   assert.equal(personalDetailsError("email", ""), "Enter your email address.");
   assert.equal(personalDetailsError("email", "not-email", { typeMismatch: true }), "Enter a valid email address.");
   assert.equal(personalDetailsError("phone", ""), "Enter your phone number.");
-  assert.equal(personalDetailsError("phone", "123", { patternMismatch: true }), "Enter a valid phone number.");
+  assert.equal(personalDetailsError("phone", "123", {}, "NG"), "Enter a valid phone number for the selected country, or include the full international number beginning with +.");
   assert.equal(personalDetailsError("email", "ada@example.com", { typeMismatch: false }), "");
-  assert.equal(personalDetailsError("phone", "+2348028557479", { patternMismatch: false }), "");
+  assert.equal(personalDetailsError("phone", "+2348028557479", {}, "US"), "");
 });
 
 test("in-flight double submission returns one request promise", async () => {

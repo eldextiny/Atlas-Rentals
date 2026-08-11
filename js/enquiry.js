@@ -1,9 +1,12 @@
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "./vendor/libphonenumber.js";
+
 const PAYLOAD_FIELDS = Object.freeze([
   "journeyId", "location", "startDate", "endDate", "ratePlan",
   "standardQuantity", "performanceQuantity", "technicianRequired",
-  "technicianDays", "fullName", "organization", "email", "phone",
+  "technicianDays", "fullName", "organization", "email", "phoneCountry", "phone",
 ]);
 const NEW_ENQUIRY_RATE_PLANS = Object.freeze(["daily", "weekly", "monthly"]);
+export const PHONE_VALIDATION_MESSAGE = "Enter a valid phone number for the selected country, or include the full international number beginning with +.";
 
 function text(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ");
@@ -14,7 +17,24 @@ function integer(value) {
   return Number.isInteger(number) && number >= 0 ? number : value;
 }
 
-export function personalDetailsError(name, value, validity = {}) {
+export function phoneCountryOptions(displayName = (country) => country) {
+  return getCountries().map((country) => ({
+    country,
+    callingCode: getCountryCallingCode(country),
+    label: displayName(country),
+  })).sort((left, right) => left.label.localeCompare(right.label, "en"));
+}
+
+export function normalizePhoneNumber(value, country) {
+  const phone = text(value);
+  if (!phone || !/^[A-Z]{2}$/.test(country || "") || !/^\+?[0-9 ()-]+$/.test(phone)) return null;
+  const parsed = phone.startsWith("+")
+    ? parsePhoneNumberFromString(phone)
+    : parsePhoneNumberFromString(phone, country);
+  return parsed?.isValid() ? parsed.number : null;
+}
+
+export function personalDetailsError(name, value, validity = {}, phoneCountry = "NG") {
   const empty = String(value ?? "").trim() === "";
   if (name === "fullName") return empty ? "Enter your full name." : "";
   if (name === "organization") return empty ? "Enter your organisation name." : "";
@@ -24,7 +44,7 @@ export function personalDetailsError(name, value, validity = {}) {
   }
   if (name === "phone") {
     if (empty) return "Enter your phone number.";
-    return validity.patternMismatch ? "Enter a valid phone number." : "";
+    return normalizePhoneNumber(value, phoneCountry) ? "" : PHONE_VALIDATION_MESSAGE;
   }
   return "";
 }
@@ -49,7 +69,8 @@ export function buildEnquiryPayload(form, journeyId) {
     fullName: text(values.fullName),
     organization: text(values.organization),
     email: text(values.email).toLowerCase(),
-    phone: text(values.phone),
+    phoneCountry: text(values.phoneCountry).toUpperCase(),
+    phone: normalizePhoneNumber(values.phone, text(values.phoneCountry).toUpperCase()) || text(values.phone),
   };
 }
 

@@ -55,7 +55,7 @@ h1 { max-width: 880px; margin-bottom: 1.5rem; font-family: "Segoe UI Variable", 
 .button:hover { transform: translateY(-1px); }
 .button:active { transform: translateY(0) scale(.985); }
 .button:disabled { cursor: wait; opacity: .68; transform: none; }
-.button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, .step:focus-visible { outline: 3px solid #4e8cff; outline-offset: 3px; }
+.button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .step:focus-visible { outline: 3px solid #4e8cff; outline-offset: 3px; }
 .button-primary { color: white; background: var(--brand-blue); box-shadow: 0 10px 24px rgba(17,10,221,.22); }
 .button-primary:hover { background: var(--brand-blue-hover); }
 .button-secondary { color: var(--ink); background: transparent; border-color: #aeb8b4; }
@@ -144,6 +144,11 @@ input:focus-visible, textarea:focus-visible { border-color: var(--brand-blue); b
 input:not([type="checkbox"]):not([type="radio"]):valid:not(:placeholder-shown), textarea:valid:not(:placeholder-shown) { border-color: var(--brand-green); }
 textarea { resize: vertical; }
 .field-grid { gap: 1.15rem; margin-bottom: 1.15rem; }
+.phone-field-group { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 1rem; }
+.phone-field-group label { align-content: start; }
+.phone-field-group small { color: var(--muted); font-size: .75rem; font-weight: 500; line-height: 1.45; }
+.phone-field-group select { color: var(--brand-blue); font-weight: 700; }
+.phone-field-group select[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(176,35,52,.1); }
 .field-error { min-height: 1.25rem; margin: .42rem 0 0; color: var(--danger); font-size: .79rem; font-weight: 750; line-height: 1.45; }
 .product-list { display: grid; gap: 1rem; }
 .product { display: grid; grid-template-columns: 1fr 110px; gap: 1rem; align-items: center; padding: 1.25rem; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
@@ -352,6 +357,7 @@ footer p { margin: 0; }
   .planner-shell { padding: 4rem 1rem; }
   .faq-section { padding: 4rem 1rem; }
   .choice-grid, .field-grid { grid-template-columns: 1fr; }
+  .phone-field-group { grid-template-columns: 1fr; }
   .product { grid-template-columns: 1fr; }
   .product label { max-width: 130px; }
   .service-card { align-items: flex-start; flex-wrap: wrap; }

@@ -239,7 +239,10 @@
                 <label for="full-name">Full name<input id="full-name" name="fullName" type="text" autocomplete="name" aria-describedby="full-name-error" required><span class="field-error" id="full-name-error"></span></label>
                 <label for="organization">Organisation<input id="organization" name="organization" type="text" autocomplete="organization" aria-describedby="organization-error" required><span class="field-error" id="organization-error"></span></label>
                 <label for="email">Email address<input id="email" name="email" type="email" autocomplete="email" aria-describedby="email-error" required><span class="field-error" id="email-error"></span></label>
-                <label for="phone">Phone number<input id="phone" name="phone" type="tel" autocomplete="tel" pattern="(?:0\d{10}|234\d{10}|\+234\d{10}|\+[1-9]\d{7,14})" aria-describedby="phone-error" required><span class="field-error" id="phone-error"></span></label>
+                <div class="phone-field-group">
+                  <label for="phone-country">Country/region<select id="phone-country" name="phoneCountry" autocomplete="country" aria-describedby="phone-country-hint phone-error" required><option value="NG" selected>Nigeria (+234)</option></select><small id="phone-country-hint">Choose the country for a national-format number.</small></label>
+                  <label for="phone">Phone number<input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" aria-describedby="phone-hint phone-error" required><small id="phone-hint">Enter a national number, or a complete international number beginning with +.</small><span class="field-error" id="phone-error"></span></label>
+                </div>
               </div>
               <p class="field-error details-error-summary" id="details-error" aria-live="polite"></p>
             </section>

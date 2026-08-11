@@ -35,7 +35,9 @@ Journey identifiers are registered on first valid server use with a fixed 24-hou
 
 ## Phone dependency foundation
 
-Phase A installs matching libphonenumber metadata families for the browser and PHP without connecting them to the enquiry workflow. The browser artifact is generated locally during release and contains no runtime network import. PHP dependencies are loaded from Composer's production `vendor/` tree. Phase B must integrate both validators as one coordinated contract; until then, the existing phone field and validation remain unchanged.
+The contact step builds its country list from the locally bundled libphonenumber metadata and defaults to Nigeria. National-format input is interpreted against the selected ISO region; a leading `+` invokes international parsing independently of that selection. Browser validation is advisory and builds a normalized request copy without overwriting the customer's visible input.
+
+The request-only `phoneCountry` value gives PHP the region context needed for independent validation. `EnquiryService` loads Composer's production autoloader, rejects invalid or unsupported combinations, and replaces the request phone with E.164 before canonical hashing and persistence. `phoneCountry` is intentionally excluded from the normalized payload and database contract, so PDF, email and CRM continue receiving only the existing authoritative `phone` field. A server `fields.phone` error returns the browser to Step 3 without resetting any controls.
 
 ## Design boundaries
 

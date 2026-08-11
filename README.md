@@ -25,7 +25,7 @@ composer install --no-dev --classmap-authoritative
 php tests/php/dependency-foundation.test.php
 ```
 
-The dependency lockfiles are the release authority. `npm run build` creates the local, deployable `js/vendor/libphonenumber.js` browser bundle; browsers never fetch phone metadata from a CDN or package registry. Composer installs the PHP phone metadata under `vendor/`. Phase A establishes and verifies these dependencies only—the live enquiry workflow does not import either library yet.
+The dependency lockfiles are the release authority. `npm run build` creates the local, deployable `js/vendor/libphonenumber.js` browser bundle; browsers never fetch phone metadata from a CDN or package registry. Composer installs the PHP phone metadata under `vendor/`. The contact step uses the bundled browser metadata for advisory country-aware validation, while PHP independently validates and converts accepted numbers to E.164 before persistence and delivery.
 
 See `docs/` for architecture, business rules, roadmap and deployment guidance.
 
