@@ -1,0 +1,16 @@
+{
+  "name": "dy-plus/atlas-rentals",
+  "description": "Dependency foundation for the Atlas Rentals enquiry application.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.4",
+    "giggsey/libphonenumber-for-php": "^9.0"
+  },
+  "config": {
+    "allow-plugins": {},
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "prefer-stable": true
+}

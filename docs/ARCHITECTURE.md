@@ -18,6 +18,8 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 - `api/review-enquiry.php` synchronizes an idempotent CRM review draft using the journey identity.
 - `api/integration-runtime.php` owns private configuration, recovery state, CRM transport, reusable PDF generation and recipient-specific Resend delivery.
 - `tests/pricing.test.mjs` protects the deterministic calculation contract using Node's built-in test runner.
+- `composer.json` and `composer.lock` pin the server-side `giggsey/libphonenumber-for-php` dependency for installation through Composer's optimized production autoloader.
+- `package.json` and `package-lock.json` pin `libphonenumber-js` and the Rollup toolchain. `rollup.config.mjs` deterministically bundles `js/vendor-src/libphonenumber-entry.js` into the deployable `js/vendor/libphonenumber.js` ES module.
 
 ## Data flow
 
@@ -30,6 +32,10 @@ The browser creates one random journey identity per planner journey. Review-stag
 Historical records are read through their stored pricing snapshots. A historical `best` payload is eligible only for an existing idempotency-hash lookup; if no matching record exists it fails validation before pricing or persistence. Historical snapshots continue through CRM, email, PDF and retry presentation without repricing.
 
 Journey identifiers are registered on first valid server use with a fixed 24-hour lifetime. The server checks the incoming identifier before cleanup, converts expired state to a retained tombstone, and returns a safe conflict without reaching persistence or delivery. Tombstones are retained for 90 days and cleanup never deletes the identifier currently being checked.
+
+## Phone dependency foundation
+
+Phase A installs matching libphonenumber metadata families for the browser and PHP without connecting them to the enquiry workflow. The browser artifact is generated locally during release and contains no runtime network import. PHP dependencies are loaded from Composer's production `vendor/` tree. Phase B must integrate both validators as one coordinated contract; until then, the existing phone field and validation remain unchanged.
 
 ## Design boundaries
 
