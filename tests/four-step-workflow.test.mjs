@@ -212,6 +212,7 @@ test("successful submission exposes only the authoritative quotation download li
   assert.match(html, /id="download-quote"[^>]*download[^>]*hidden[^>]*aria-label="Download your Atlas Rentals quotation PDF"/);
   assert.match(html, /id="quotation-pending"[^>]*disabled[^>]*hidden>Preparing quotation…/);
   assert.match(app, /const pdf = enquiry\.pdf/);
+  assert.match(app, /success-estimate-summary[\s\S]*enquiry\.estimatedTotal/);
   assert.match(app, /pdf\.downloadUrl\.startsWith\("\/api\/download-quotation\.php\?"\)/);
   assert.match(app, /downloadQuote\.href = pdf\.downloadUrl/);
   assert.match(app, /Preparing your quotation…/);
@@ -224,6 +225,7 @@ test("confirmed enquiry result prioritises reference, quotation and restrained r
   assert.match(success, /Enquiry received/);
   assert.match(success, /Your enquiry reference/);
   assert.match(success, /id="enquiry-reference"/);
+  assert.match(success, /Authoritative estimate:[\s\S]*id="success-estimate-summary"/);
   assert.match(success, /Download Quote/);
   assert.match(success, /button-tertiary[^>]*restart-button/);
   assert.match(success, /availability and booking remain subject to confirmation by DY-PLUS/i);
@@ -308,6 +310,13 @@ test("successful submission hides navigation while failure keeps it available", 
   assert.match(handler, /catch \(error\)[\s\S]*submissionStatus\.textContent = error\.message/);
   assert.doesNotMatch(handler.match(/catch \(error\)[\s\S]*?finally/)?.[0] || "", /formActions\.hidden = true/);
   assert.match(app, /restartButton\.addEventListener[\s\S]*formActions\.hidden = false/);
+});
+
+test("expired journey response preserves entered data and never reports success", () => {
+  const submitter = app.match(/const submitEnquiry = createSubmissionGuard[\s\S]*?\n\}\);/)?.[0] || "";
+  assert.match(submitter, /response\.status === 409[\s\S]*body\?\.error === "journey_expired"/);
+  assert.match(submitter, /Your entered details are still here/);
+  assert.doesNotMatch(submitter, /form\.reset|clearJourneyId|Enquiry received/);
 });
 
 test("directional transitions lock navigation, focus headings and respect reduced motion", () => {

@@ -30,8 +30,9 @@ Create and verify these private, non-public runtime directories before release:
 
 - `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/delivery-state`
 - `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/quotation-pdfs`
+- `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/journey-identifiers`
 
-PHP must be able to read and write both directories. The application does not alter their permissions. State and PDF retention is 30 days; quotation validity is 30 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
+PHP must be able to read and write these private directories. The application does not alter directory permissions. Journey identifiers have a fixed 24-hour lifetime and bounded 90-day expiry tombstones; `ATLAS_RENTALS_JOURNEY_STATE_PATH`, `ATLAS_RENTALS_JOURNEY_TTL` and `ATLAS_RENTALS_JOURNEY_TOMBSTONE_TTL` may override those values. Delivery state and PDF retention is 30 days; quotation validity is 30 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
 
 The pricing snapshot JSON stores the selected rate plan, duration blocks, all laptop rates, per-unit and equipment amounts, technician, delivery, subtotal, VAT and total without a schema change. New enquiries accept only Daily, Weekly and Monthly plans. Historical records, including stored `best` snapshots, are not rewritten or repriced and remain available to legitimate duplicate and delivery retries. The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
 

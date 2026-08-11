@@ -14,6 +14,7 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 - `api/submit-enquiry.php` is the bounded same-origin JSON boundary and loads database configuration from outside the public document root.
 - `api/rentals-pricing.php` owns reusable authoritative server pricing constants and deterministic tier helpers.
 - `api/enquiry-service.php` owns server validation, authoritative pricing, canonical idempotency hashing and transactional persistence.
+- `api/journey-identifier.php` owns private, atomic journey expiry state and bounded tombstones.
 - `api/review-enquiry.php` synchronizes an idempotent CRM review draft using the journey identity.
 - `api/integration-runtime.php` owns private configuration, recovery state, CRM transport, reusable PDF generation and recipient-specific Resend delivery.
 - `tests/pricing.test.mjs` protects the deterministic calculation contract using Node's built-in test runner.
@@ -27,6 +28,8 @@ The yearly counter row is locked with `SELECT ... FOR UPDATE`. Counter increment
 The browser creates one random journey identity per planner journey. Review-stage CRM calls reuse it and update the same private recovery state. Submission persists first, then resumes CRM reference synchronization, PDF generation, client email and administrator email. Each completed operation remains completed across retries. PDFs and state remain outside `public_html` and expire after 30 days.
 
 Historical records are read through their stored pricing snapshots. A historical `best` payload is eligible only for an existing idempotency-hash lookup; if no matching record exists it fails validation before pricing or persistence. Historical snapshots continue through CRM, email, PDF and retry presentation without repricing.
+
+Journey identifiers are registered on first valid server use with a fixed 24-hour lifetime. The server checks the incoming identifier before cleanup, converts expired state to a retained tombstone, and returns a safe conflict without reaching persistence or delivery. Tombstones are retained for 90 days and cleanup never deletes the identifier currently being checked.
 
 ## Design boundaries
 

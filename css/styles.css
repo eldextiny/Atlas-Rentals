@@ -261,6 +261,8 @@ progress::-moz-progress-bar { background: var(--brand-green); }
 .success-message h4 { position: relative; z-index: 1; margin: .85rem 0 1.25rem; color: var(--brand-navy); font-size: clamp(1.55rem, 4vw, 2rem); }
 .success-reference-label { margin: 0; color: var(--muted); font-size: .73rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .success-reference { display: block; margin: .3rem 0 1rem; color: var(--brand-blue); font-size: clamp(1.65rem, 5vw, 2.25rem); line-height: 1.1; letter-spacing: .025em; overflow-wrap: anywhere; }
+.success-estimate { margin: 0 auto .75rem; color: var(--muted); font-size: .88rem; }
+.success-estimate strong { color: var(--brand-navy); font-size: 1rem; }
 .success-confirmation { max-width: 54ch; margin: 0 auto 1.25rem; color: var(--muted); font-size: .87rem; line-height: 1.6; }
 .success-actions { display: grid; gap: .55rem; max-width: 420px; margin: auto; }
 .submission-status { min-height: 1.5rem; margin: .75rem 0 0; color: var(--muted); font-size: .85rem; font-weight: 700; }

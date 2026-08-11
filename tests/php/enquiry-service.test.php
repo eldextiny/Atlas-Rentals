@@ -40,12 +40,13 @@ function valid_payload(): array
     ];
 }
 
-function service(MemoryStore $store): EnquiryService
+function service(MemoryStore $store, ?Closure $journeyIdentifierCheck = null): EnquiryService
 {
     return new EnquiryService(
         $store,
         static fn(): DateTimeImmutable => new DateTimeImmutable('2026-08-05T00:00:00Z'),
         static fn(int $length): string => str_repeat("\x01", $length),
+        $journeyIdentifierCheck,
     );
 }
 
@@ -109,6 +110,17 @@ $tests['identical retry returns original reference'] = function (): void {
     $second = $service->submit(valid_payload());
     expect($first['reference'] === $second['reference'], 'duplicate reference changed');
     expect($store->sequence === 1 && $second['duplicate'] === true, 'duplicate consumed a reference');
+};
+$tests['expired journey identifier fails before persistence'] = function (): void {
+    $store = new MemoryStore();
+    $guard = static function (string $identifier): void { throw new RuntimeException('expired journey'); };
+    try { service($store, $guard)->submit(valid_payload()); }
+    catch (RuntimeException $error) {
+        expect($error->getMessage() === 'expired journey', 'journey error was changed');
+        expect($store->sequence === 0 && $store->records === [], 'expired journey reached persistence');
+        return;
+    }
+    throw new RuntimeException('expired journey was accepted');
 };
 $tests['historical retry without rate plan is lookup-only and never repriced'] = function (): void {
     $store = new MemoryStore(); $service = service($store); $payload = valid_payload();

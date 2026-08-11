@@ -119,6 +119,7 @@ final class EnquiryService
         private readonly EnquiryStore $store,
         private readonly ?Closure $clock = null,
         private readonly ?Closure $randomBytes = null,
+        private readonly ?Closure $journeyIdentifierCheck = null,
     ) {}
 
     public function submit(array $input): array
@@ -241,6 +242,7 @@ final class EnquiryService
             else $errors['dates'] = 'Enter valid inclusive rental dates.';
         }
         if ($errors) throw new EnquiryValidationException($errors);
+        if ($this->journeyIdentifierCheck !== null) ($this->journeyIdentifierCheck)($value['journeyId']);
         return $value;
     }
 
