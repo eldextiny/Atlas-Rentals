@@ -11,6 +11,8 @@ const pdfTemplate = readFileSync(new URL("../api/document-engine/templates/renta
 const pngHelper = readFileSync(new URL("../api/document-engine/pdf-png.php", import.meta.url), "utf8");
 const submitEndpoint = readFileSync(new URL("../api/submit-enquiry.php", import.meta.url), "utf8");
 const downloadEndpoint = readFileSync(new URL("../api/download-quotation.php", import.meta.url), "utf8");
+const journeyIdentifier = readFileSync(new URL("../api/journey-identifier.php", import.meta.url), "utf8");
+const reviewEndpoint = readFileSync(new URL("../api/review-enquiry.php", import.meta.url), "utf8");
 
 test("PDO store uses prepared statements and one locked transaction", () => {
   assert.match(service, /beginTransaction\(\)/);
@@ -130,6 +132,17 @@ test("server pricing retains every protected rate", () => {
   assert.match(serverPricing, /'deliveryFee' => 40000/);
   assert.match(serverPricing, /'technicianDailyRate' => 35000/);
   assert.match(serverPricing, /'vatRate' => 0\.075/);
+});
+
+test("journey identifiers use private check-before-cleanup expiry tombstones", () => {
+  assert.match(journeyIdentifier, /private_html\/atlas-rentals\/journey-identifiers/);
+  assert.match(journeyIdentifier, /ATLAS_RENTALS_JOURNEY_STATE_PATH/);
+  assert.match(journeyIdentifier, /hash\('sha256', \$identifier\)/);
+  assert.match(journeyIdentifier, /if \(is_file\(\$path\)\)[\s\S]*JourneyIdentifierExpiredException[\s\S]*atlasRentalsCleanupJourneyTombstones/);
+  assert.match(journeyIdentifier, /tempnam\([\s\S]*rename\(\$temporary, \$path\)/);
+  assert.doesNotMatch(journeyIdentifier, /public_html/);
+  assert.match(submitEndpoint, /JourneyIdentifierExpiredException[\s\S]*respond\(409, \['ok' => false, 'error' => 'journey_expired'\]\)/);
+  assert.match(reviewEndpoint, /JourneyIdentifierExpiredException[\s\S]*reviewRespond\(409, \['ok' => false, 'error' => 'journey_expired'\]\)/);
 });
 
 test("new enquiries accept exactly three rate plans while historical best is lookup-only", () => {

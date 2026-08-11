@@ -27,4 +27,6 @@ See `docs/` for architecture, business rules, roadmap and deployment guidance.
 
 The same-origin PHP endpoints validate and normalize planner data, independently apply the selected rate plan, persist an auditable pricing snapshot, synchronize review-stage CRM leads, generate private quotation PDFs, and deliver separate client and administrator emails. Identical retries return the original enquiry reference and resume unfinished delivery; materially changed content creates a new enquiry. No payment or booking-confirmation integration is included.
 
+Journey identifiers are checked against private server-side expiry state before submission. Expired identifiers fail closed and remain represented by bounded tombstones, preventing silent reuse during their retention period.
+
 Production database and integration credentials must be loaded from PHP files outside `public_html`. See `docs/DEPLOYMENT.md`; never commit real loaders or values.

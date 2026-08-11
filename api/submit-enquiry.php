@@ -25,8 +25,9 @@ try {
     require_once __DIR__ . '/enquiry-service.php';
     require_once __DIR__ . '/database-runtime.php';
     require_once __DIR__ . '/integration-runtime.php';
+    require_once __DIR__ . '/journey-identifier.php';
     $store = new PdoEnquiryStore(atlasRentalsDatabase());
-    $service = new EnquiryService($store);
+    $service = new EnquiryService($store, journeyIdentifierCheck: atlasRentalsJourneyIdentifierCheck());
     $preview = $service->preview($input);
     $result = $service->submit($input);
     $record = $store->findByReference($result['reference']);
@@ -44,6 +45,8 @@ try {
     respond(200, ['ok' => true, 'enquiry' => $result]);
 } catch (EnquiryValidationException $error) {
     respond(422, ['ok' => false, 'error' => 'validation_failed', 'fields' => $error->errors]);
+} catch (JourneyIdentifierExpiredException) {
+    respond(409, ['ok' => false, 'error' => 'journey_expired']);
 } catch (Throwable) {
     respond(503, ['ok' => false, 'error' => 'submission_unavailable']);
 }

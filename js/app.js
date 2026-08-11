@@ -518,6 +518,9 @@ const submitEnquiry = createSubmissionGuard(async (payload) => {
     body: JSON.stringify(payload),
   });
   const body = await response.json().catch(() => null);
+  if (response.status === 409 && body?.error === "journey_expired") {
+    throw new Error("Your enquiry session has expired. Your entered details are still here; refresh when you are ready to start a new session.");
+  }
   if (!response.ok || !body?.ok || !body.enquiry?.reference) {
     throw new Error("The enquiry could not be saved. Please check your details and try again.");
   }
@@ -566,6 +569,7 @@ finishButton.addEventListener("click", async () => {
     showSubmissionOverlay("success");
     await overlayDelay(600);
     document.querySelector("#enquiry-reference").textContent = enquiry.reference;
+    document.querySelector("#success-estimate-summary").textContent = `${enquiry.currency || "NGN"} ${Number(enquiry.estimatedTotal).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     successMessage.hidden = false;
     finishButton.hidden = true;
     formActions.hidden = true;
@@ -616,6 +620,7 @@ restartButton.addEventListener("click", () => {
   quotationPending.hidden = true;
   formActions.hidden = false;
   submissionStatus.textContent = "";
+  document.querySelector("#success-estimate-summary").textContent = "";
   document.querySelector("#success-message").hidden = true;
   personalFieldNames.forEach((name) => setPersonalFieldError(form.elements[name], ""));
   updateCustomCityState({ clearWhenHidden: true });
