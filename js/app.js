@@ -161,6 +161,7 @@ function updateEstimate() {
   renderCategoryDetails(state.laptopCategory);
   renderRatePlanHelp(state.laptopCategory, state.ratePlan);
   const selectedDetails = LAPTOP_CATALOGUE[state.laptopCategory] || null;
+  const hasLaptopSelection = Boolean(selectedDetails && result.totalQuantity > 0);
   const selectedPricing = state.laptopCategory === "standard" ? result.standardPricing : result.performancePricing;
   const equipmentTotal = state.laptopCategory === "standard" ? result.standardRental : result.performanceRental;
   const rentalPeriod = result.rentalDays && state.startDate && state.endDate
@@ -189,6 +190,9 @@ function updateEstimate() {
   setText("#estimate-subtotal", currency.format(result.subtotalBeforeVat));
   setText("#vat-cost", currency.format(result.vat));
   setText("#total-cost", currency.format(result.total));
+  document.querySelector("#estimate-zero-state").hidden = hasLaptopSelection;
+  document.querySelector("#estimate-services-group").hidden = !hasLaptopSelection;
+  document.querySelector("#estimate-commercial-group").hidden = !hasLaptopSelection;
 
   const minimumStatus = document.querySelector("#minimum-status");
   minimumStatus.textContent = result.meetsMinimum

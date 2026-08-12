@@ -31,6 +31,14 @@ test("support and personal details share step three", () => {
   assert.match(stepThree, /name="email"/);
   assert.match(stepThree, /name="phone"/);
   assert.doesNotMatch(stepThree, /type="checkbox"[^>]*delivery|name="delivery/i);
+  assert.match(stepThree, /class="personal-details-card" aria-labelledby="personal-details-title"/);
+  for (const contract of [
+    /id="full-name" name="fullName"[^>]*aria-describedby="full-name-error"/,
+    /id="organization" name="organization"[^>]*aria-describedby="organization-error"/,
+    /id="email" name="email"[^>]*aria-describedby="email-error"/,
+    /id="phone-country" name="phoneCountry"[^>]*aria-describedby="phone-country-hint phone-error"/,
+    /id="phone" name="phone"[^>]*aria-describedby="phone-hint phone-error"/,
+  ]) assert.match(stepThree, contract);
 });
 
 test("step one uses an accessible native service-city selector with a conditional custom city", () => {
@@ -39,7 +47,7 @@ test("step one uses an accessible native service-city selector with a conditiona
   const choices = [...stepOne.matchAll(/<option value="([^"]+)">([^<]+)<\/option>/g)].map((match) => [match[1], match[2].trim()]);
   assert.deepEqual(choices, [
     ["Abuja", "Abuja — Federal Capital Territory"],
-    ["Lagos", "Lagos — Lagos metropolitan area"],
+    ["Lagos", "Lagos - Mainland &amp; Island"],
     ["Others", "Others — Specify another Nigerian city"],
   ]);
   assert.match(stepOne, /class="category-select-icon location-select-icon"[^>]*aria-hidden="true"/);
@@ -91,8 +99,8 @@ test("step two uses one required category and maps one quantity to the stable co
   const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(stepTwo, /select id="laptop-category"[^>]*aria-describedby="category-hint quantity-error"[^>]*required/);
   assert.match(stepTwo, /Choose a laptop category/);
-  assert.match(stepTwo, /Standard Business Laptop — Training, assessments, office and browser work/);
-  assert.match(stepTwo, /High Performance Laptop — Creative, technical and data-intensive work/);
+  assert.match(stepTwo, /Standard Business Laptops - Core i3, 4GB RAM, Win 11/);
+  assert.match(stepTwo, /High Performance Laptops - Core i5 &amp; i7, 16GB RAM, Win 11 Pro, 512GB SSD/);
   assert.match(stepTwo, /id="category-details"[^>]*aria-live="polite"/);
   assert.match(stepTwo, /id="laptop-quantity"[^>]*min="5"[^>]*required/);
   assert.doesNotMatch(stepTwo, /name="standardQuantity"|name="performanceQuantity"/);
@@ -272,6 +280,29 @@ test("estimate presents rental selection, additional services and ordered costs"
   const positions = orderedRows.map((id) => estimate.indexOf(`id="${id}"`));
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+});
+
+test("estimate starts at zero and withholds charges until a laptop is selected", () => {
+  const estimate = html.match(/<aside class="estimate-card"[\s\S]*?<\/aside>/)?.[0] || "";
+  assert.match(estimate, /id="estimate-equipment-total">₦0\.00/);
+  assert.match(estimate, /id="estimate-zero-state"><strong>₦0\.00<\/strong>/);
+  assert.match(estimate, /id="estimate-services-group"[^>]*hidden/);
+  assert.match(estimate, /id="estimate-commercial-group"[^>]*hidden/);
+  assert.match(app, /const hasLaptopSelection = Boolean\(selectedDetails && result\.totalQuantity > 0\)/);
+  assert.match(app, /estimate-services-group"\)\.hidden = !hasLaptopSelection/);
+  assert.match(app, /estimate-commercial-group"\)\.hidden = !hasLaptopSelection/);
+  assert.match(app, /setText\("#estimate-subtotal", currency\.format\(result\.subtotalBeforeVat\)\)/);
+  assert.match(app, /setText\("#total-cost", currency\.format\(result\.total\)\)/);
+});
+
+test("FAQ uses native accessible disclosure cards and shared review heading treatment", () => {
+  const faq = html.match(/<section class="faq-section"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.equal((faq.match(/<details class="faq-item">/g) || []).length, 7);
+  assert.equal((faq.match(/<summary>/g) || []).length, 7);
+  assert.equal((faq.match(/class="faq-indicator" aria-hidden="true"/g) || []).length, 7);
+  assert.match(faq, /class="section-display-heading" id="faq-title">Frequently Asked Questions/);
+  assert.match(html, /class="section-display-heading" id="step-4-title">Review Your Estimate/);
+  assert.match(css, /\.faq-item summary:focus-visible/);
 });
 
 test("estimate shows one selected category and conditionally hides technician", () => {

@@ -168,7 +168,7 @@
                   <select id="service-city" name="serviceCity" aria-describedby="service-city-hint location-error" required>
                     <option value="">Choose a service city</option>
                     <option value="Abuja">Abuja — Federal Capital Territory</option>
-                    <option value="Lagos">Lagos — Lagos metropolitan area</option>
+                    <option value="Lagos">Lagos - Mainland &amp; Island</option>
                     <option value="Others">Others — Specify another Nigerian city</option>
                   </select>
                   <span class="category-select-chevron" aria-hidden="true"></span>
@@ -193,8 +193,8 @@
                   <span class="category-select-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 6.5h14v9H5zM3 18h18M9 18l.7-2.5h4.6L15 18"/></svg></span>
                   <select id="laptop-category" name="laptopCategory" aria-describedby="category-hint quantity-error" required>
                     <option value="">Choose a laptop category</option>
-                    <option value="standard">Standard Business Laptop — Training, assessments, office and browser work</option>
-                    <option value="performance">High Performance Laptop — Creative, technical and data-intensive work</option>
+                    <option value="standard">Standard Business Laptops - Core i3, 4GB RAM, Win 11</option>
+                    <option value="performance">High Performance Laptops - Core i5 &amp; i7, 16GB RAM, Win 11 Pro, 512GB SSD</option>
                   </select>
                   <span class="category-select-chevron" aria-hidden="true"></span>
                 </div>
@@ -233,9 +233,12 @@
               </div>
               <label class="service-card"><input id="technician-required" name="technicianRequired" type="checkbox"><span><b>On-site technician</b><small>Optional operational assistance during your rental.</small></span><strong>₦35,000/day</strong></label>
               <div class="technician-days" id="technician-days-wrap" hidden><label for="technician-days">Number of technician days</label><input id="technician-days" name="technicianDays" type="number" min="1" step="1" value="1" inputmode="numeric"><p class="field-error" id="technician-error"></p></div>
-              <h4 class="details-heading">Your Personal Details</h4>
-              <p class="section-help">These contact details will appear in your final review only.</p>
-              <div class="field-grid">
+              <section class="personal-details-card" aria-labelledby="personal-details-title">
+              <div class="personal-details-intro">
+                <span class="personal-details-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-4 3.1-6 7-6s6.3 2 7 6"/></svg></span>
+                <div><h4 class="details-heading" id="personal-details-title">Your Personal Details</h4><p class="section-help">These contact details will appear in your final review only.</p></div>
+              </div>
+              <div class="field-grid personal-details-grid">
                 <label for="full-name">Full name<input id="full-name" name="fullName" type="text" autocomplete="name" aria-describedby="full-name-error" required><span class="field-error" id="full-name-error"></span></label>
                 <label for="organization">Organisation<input id="organization" name="organization" type="text" autocomplete="organization" aria-describedby="organization-error" required><span class="field-error" id="organization-error"></span></label>
                 <label for="email">Email address<input id="email" name="email" type="email" autocomplete="email" aria-describedby="email-error" required><span class="field-error" id="email-error"></span></label>
@@ -245,10 +248,11 @@
                 </div>
               </div>
               <p class="field-error details-error-summary" id="details-error" aria-live="polite"></p>
+              </section>
             </section>
 
             <section class="form-step" data-step="4" aria-labelledby="step-4-title" aria-hidden="true" hidden>
-              <p class="step-kicker">Step 4 of 4</p><h3 id="step-4-title">Review Your Estimate</h3>
+              <p class="step-kicker">Step 4 of 4</p><h3 class="section-display-heading" id="step-4-title">Review Your Estimate</h3>
               <p class="section-help">Check every detail before submitting. Pricing is an estimate until DY-PLUS reviews your enquiry.</p>
               <div id="review-content" class="review-content"></div>
               <div class="review-reassurance" role="note" aria-label="Before you submit">
@@ -287,16 +291,17 @@
                 <div><dt>Selected rate plan</dt><dd id="estimate-rate-plan">Plan pending</dd></div>
                 <div><dt>Applied duration</dt><dd id="estimate-billing-blocks">Billing blocks pending</dd></div>
                 <div><dt>Rate per laptop</dt><dd id="estimate-rate-per-laptop">Rate pending</dd></div>
-                <div class="selection-equipment-total"><dt>Equipment rental total</dt><dd id="estimate-equipment-total">₦0</dd></div>
+                <div class="selection-equipment-total"><dt>Equipment rental total</dt><dd id="estimate-equipment-total">₦0.00</dd></div>
               </dl>
             </section>
-            <section class="estimate-group" aria-labelledby="estimate-services-title">
+            <div class="estimate-zero-state" id="estimate-zero-state"><strong>₦0.00</strong><span>Select a laptop category to calculate your estimate.</span></div>
+            <section class="estimate-group" id="estimate-services-group" aria-labelledby="estimate-services-title" hidden>
               <h4 id="estimate-services-title">Additional services</h4><dl>
                 <div id="technician-estimate-row" hidden><dt>On-site technician</dt><dd id="technician-summary">Not selected</dd></div>
                 <div><dt>Delivery &amp; retrieval</dt><dd><span class="included-status">Included</span></dd></div>
               </dl>
             </section>
-            <section class="estimate-group estimate-commercial" aria-labelledby="estimate-commercial-title">
+            <section class="estimate-group estimate-commercial" id="estimate-commercial-group" aria-labelledby="estimate-commercial-title" hidden>
               <h4 id="estimate-commercial-title">Cost summary</h4><dl>
                 <div class="money-row"><dt>Equipment rental</dt><dd id="summary-equipment-cost">₦0</dd></div>
                 <div class="money-row" id="summary-technician-row" hidden><dt>Technician</dt><dd id="technician-cost">₦0</dd></div>
@@ -315,17 +320,17 @@
       <section class="faq-section" id="faq" aria-labelledby="faq-title">
         <div class="faq-intro">
           <p class="eyebrow">Laptop rental questions</p>
-          <h2 id="faq-title">Frequently asked questions</h2>
+          <h2 class="section-display-heading" id="faq-title">Frequently Asked Questions</h2>
           <p>Clear answers about laptop hire, pricing and quotation requests through DY-PLUS and ATLAS Rentals.</p>
         </div>
         <div class="faq-grid">
-          <article><h3>What is the minimum laptop rental quantity?</h3><p>The minimum rental quantity is <strong>5 laptops</strong>.</p></article>
-          <article><h3>How much does laptop rental cost?</h3><p>Standard Business Laptops cost <strong>₦10,000 daily, ₦59,500 weekly or ₦185,000 monthly</strong> per laptop. High Performance Laptops cost <strong>₦15,000 daily, ₦89,500 weekly or ₦225,500 monthly</strong> per laptop. VAT is 7.5%.</p></article>
-          <article><h3>Do you provide laptop delivery and retrieval?</h3><p>Yes. Delivery and retrieval is included as a standard rental service and charged once at <strong>₦40,000</strong>.</p></article>
-          <article><h3>Can laptops be rented for training, conferences and examinations?</h3><p>Yes. Laptops can be requested for training programmes, conferences, examinations and corporate events, subject to availability and DY-PLUS confirmation.</p></article>
-          <article><h3>Are technicians available?</h3><p>Yes. An on-site technician is optional at <strong>₦35,000 per day</strong>.</p></article>
-          <article><h3>Do you serve Lagos and Abuja?</h3><p>Yes. Lagos and Abuja are the primary service cities.</p></article>
-          <article><h3>How do customers request a quotation?</h3><p>Complete the four-step rental planner and submit the enquiry. DY-PLUS provides an enquiry reference and quotation; availability and final booking remain subject to confirmation.</p></article>
+          <details class="faq-item"><summary><span>What is the minimum laptop rental quantity?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>The minimum rental quantity is <strong>5 laptops</strong>.</p></div></details>
+          <details class="faq-item"><summary><span>How much does laptop rental cost?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Standard Business Laptops cost <strong>₦10,000 daily, ₦59,500 weekly or ₦185,000 monthly</strong> per laptop. High Performance Laptops cost <strong>₦15,000 daily, ₦89,500 weekly or ₦225,500 monthly</strong> per laptop. VAT is 7.5%.</p></div></details>
+          <details class="faq-item"><summary><span>Do you provide laptop delivery and retrieval?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. Delivery and retrieval is included as a standard rental service and charged once at <strong>₦40,000</strong>.</p></div></details>
+          <details class="faq-item"><summary><span>Can laptops be rented for training, conferences and examinations?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. Laptops can be requested for training programmes, conferences, examinations and corporate events, subject to availability and DY-PLUS confirmation.</p></div></details>
+          <details class="faq-item"><summary><span>Are technicians available?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. An on-site technician is optional at <strong>₦35,000 per day</strong>.</p></div></details>
+          <details class="faq-item"><summary><span>Do you serve Lagos and Abuja?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. Lagos and Abuja are the primary service cities.</p></div></details>
+          <details class="faq-item"><summary><span>How do customers request a quotation?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Complete the four-step rental planner and submit the enquiry. DY-PLUS provides an enquiry reference and quotation; availability and final booking remain subject to confirmation.</p></div></details>
         </div>
       </section>
     </main>

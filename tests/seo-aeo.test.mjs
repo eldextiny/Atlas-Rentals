@@ -50,11 +50,12 @@ test("FAQ schema exactly mirrors seven visibly rendered questions and approved a
   const source = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1] || "";
   const faq = JSON.parse(source)["@graph"].find((item) => item["@type"] === "FAQPage");
   const section = html.match(/<section class="faq-section"[\s\S]*?<\/section>/)?.[0] || "";
-  const visibleItems = [...section.matchAll(/<article><h3>([^<]+)<\/h3><p>([\s\S]*?)<\/p><\/article>/g)].map((match) => ({
+  const visibleItems = [...section.matchAll(/<details class="faq-item"><summary><span>([^<]+)<\/span><span class="faq-indicator" aria-hidden="true"><\/span><\/summary><div class="faq-answer"><p>([\s\S]*?)<\/p><\/div><\/details>/g)].map((match) => ({
     name: match[1],
     text: match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim(),
   }));
-  assert.equal(section.includes("hidden"), false);
+  assert.doesNotMatch(section, /\shidden(?:\s|>)/);
+  assert.equal((section.match(/<details class="faq-item">/g) || []).length, 7);
   assert.equal(faq.mainEntity.length, 7);
   assert.deepEqual(faq.mainEntity.map((item) => ({ name: item.name, text: item.acceptedAnswer.text })), visibleItems);
   for (const fact of ["5 laptops", "₦35,000 per day", "VAT is 7.5%", "Daily", "weekly", "monthly", "subject to availability", "Lagos and Abuja"]) {
