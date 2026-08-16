@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildEnquiryPayload, createSubmissionGuard, hasStablePayloadShape } from "../js/enquiry.js";
+import { buildEnquiryPayload, clearSubmissionId, createSubmissionGuard, createSubmissionId, hasStablePayloadShape } from "../js/enquiry.js";
 
 const payload = {
+  submissionId: "000003e80123456789abcdef0123456789abcdef",
   location: "Lagos", deliveryAddress: "12 Marina Road", startDate: "2026-08-05",
   endDate: "2026-08-06", standardQuantity: 5, performanceQuantity: 0,
   technicianRequired: false, technicianDays: 0, fullName: "Ada User",
@@ -23,11 +24,24 @@ test("payload creation normalizes a copy without mutating entered values", () =>
     *[Symbol.iterator]() { yield* Object.entries({ ...payload, email: " ADA@Example.COM " }); }
   };
   const form = { elements: { technicianRequired: { checked: false } } };
-  const result = buildEnquiryPayload(form);
+  const result = buildEnquiryPayload(form, payload.submissionId);
   globalThis.FormData = originalFormData;
   assert.equal(result.email, "ada@example.com");
   assert.equal(result.technicianDays, 0);
   assert.equal(payload.email, "ada@example.com");
+});
+
+test("submission identifier is collision-resistant, stable and explicitly reset", () => {
+  const values = new Map();
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
+  let calls = 0;
+  const crypto = { getRandomValues(bytes) { calls += 1; bytes.fill(calls); return bytes; } };
+  const first = createSubmissionId(storage, crypto, () => 1_000_000);
+  assert.equal(first, "000003e8" + "01".repeat(16));
+  assert.equal(createSubmissionId(storage, crypto, () => 2_000_000), first);
+  assert.equal(calls, 1);
+  clearSubmissionId(storage);
+  assert.equal(createSubmissionId(storage, crypto, () => 2_000_000), "000007d0" + "02".repeat(16));
 });
 
 test("in-flight double submission returns one request promise", async () => {

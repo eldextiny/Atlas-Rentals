@@ -1,5 +1,5 @@
 import { calculateEstimate, calculateRentalDays, validateBooking } from "./pricing.js";
-import { buildEnquiryPayload, createSubmissionGuard } from "./enquiry.js";
+import { buildEnquiryPayload, clearSubmissionId, createSubmissionGuard, createSubmissionId } from "./enquiry.js";
 
 const form = document.querySelector("#rental-form");
 const steps = [...document.querySelectorAll(".form-step")];
@@ -13,6 +13,7 @@ const rateCards = [...document.querySelectorAll("[data-rate-target]")];
 const restartButton = document.querySelector("#restart-button");
 const finishButton = document.querySelector("#finish-button");
 const submissionStatus = document.querySelector("#submission-status");
+let submissionId = createSubmissionId();
 const totalSteps = 4;
 const currency = new Intl.NumberFormat("en-NG", {
   style: "currency",
@@ -269,6 +270,11 @@ const submitEnquiry = createSubmissionGuard(async (payload) => {
     body: JSON.stringify(payload),
   });
   const body = await response.json().catch(() => null);
+  if (response.status === 409 && body?.error === "submission_expired") {
+    clearSubmissionId();
+    submissionId = createSubmissionId();
+    throw new Error("This enquiry session expired. Please review your details and submit again.");
+  }
   if (!response.ok || !body?.ok || !body.enquiry?.reference) {
     throw new Error("The enquiry could not be saved. Please check your details and try again.");
   }
@@ -281,7 +287,7 @@ finishButton.addEventListener("click", async () => {
   form.setAttribute("aria-busy", "true");
   submissionStatus.textContent = "Submitting your enquiry securely…";
   try {
-    const enquiry = await submitEnquiry(buildEnquiryPayload(form));
+    const enquiry = await submitEnquiry(buildEnquiryPayload(form, submissionId));
     document.querySelector("#enquiry-reference").textContent = enquiry.reference;
     document.querySelector("#success-message").hidden = false;
     submissionStatus.textContent = "Enquiry received.";
@@ -295,6 +301,8 @@ finishButton.addEventListener("click", async () => {
 });
 restartButton.addEventListener("click", () => {
   form.reset();
+  clearSubmissionId();
+  submissionId = createSubmissionId();
   currentStep = 1;
   highestStep = 1;
   scheduleValidated = false;

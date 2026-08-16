@@ -37,3 +37,4 @@
 - Identical normalized content is one logical enquiry and returns the same reference on retry.
 - A material content change creates a new enquiry and reference.
 - References use `ARQ-YYYY-NNNNNN`; submission acknowledges an enquiry only.
+- Submission identifiers are transport controls, not enquiry references. They expire without extension, fail closed on reuse, and are retained as bounded private tombstones.

@@ -27,6 +27,7 @@ final class MemoryStore implements EnquiryStore
 function valid_payload(): array
 {
     return [
+        'submissionId' => '000003e80123456789abcdef0123456789abcdef',
         'location' => 'Lagos', 'deliveryAddress' => '12 Marina Road, Lagos',
         'startDate' => '2026-08-05', 'endDate' => '2026-08-07',
         'standardQuantity' => 3, 'performanceQuantity' => 2,
@@ -73,6 +74,16 @@ $tests['identical retry returns original reference'] = function (): void {
     expect($first['reference'] === $second['reference'], 'duplicate reference changed');
     expect($store->sequence === 1 && $second['duplicate'] === true, 'duplicate consumed a reference');
 };
+$tests['submission identifier is checked before duplicate lookup and excluded from material hash'] = function (): void {
+    $checked = [];
+    $store = new MemoryStore();
+    $service = new EnquiryService($store, randomBytes: static fn(int $length): string => str_repeat("\x01", $length), submissionIdentifierCheck: static function (string $identifier) use (&$checked): void { $checked[] = $identifier; });
+    $first = $service->submit(valid_payload());
+    $retry = valid_payload(); $retry['submissionId'] = '000003e8fedcba9876543210fedcba9876543210';
+    $second = $service->submit($retry);
+    expect(count($checked) === 2, 'identifier check was bypassed on retry');
+    expect($first['reference'] === $second['reference'] && $store->sequence === 1, 'identifier changed material idempotency');
+};
 $tests['material change creates a different reference'] = function (): void {
     $service = service($store = new MemoryStore());
     $first = $service->submit(valid_payload());
@@ -90,6 +101,7 @@ $tests['validation rejects address quantity dates contact and unexpected fields'
         ['deliveryAddress', 'x', 'deliveryAddress'], ['standardQuantity', -1, 'standardQuantity'],
         ['endDate', '2026-08-01', 'dates'], ['email', 'invalid', 'email'],
         ['phone', 'abc', 'phone'], ['extra', 'bad', 'payload'],
+        ['submissionId', 'invalid', 'submissionId'],
     ] as [$key, $value, $field]) { $payload = valid_payload(); $payload[$key] = $value; expect_validation($payload, $field); }
     $payload = valid_payload(); $payload['standardQuantity'] = 2; $payload['performanceQuantity'] = 2; expect_validation($payload, 'quantity');
     $payload = valid_payload(); unset($payload['organization']); expect_validation($payload, 'organization');

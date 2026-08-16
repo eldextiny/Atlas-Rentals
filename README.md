@@ -27,4 +27,6 @@ See `docs/` for architecture, business rules, roadmap and deployment guidance.
 
 The same-origin PHP endpoint validates and normalizes the enquiry, recalculates pricing, and stores the normalized payload, pricing snapshot, contact and rental details. Identical normalized retries return the original enquiry reference; materially changed content creates a new enquiry. No PDF, email, CRM, payment or booking-confirmation integration is included in AR-H1.
 
+Each browser enquiry session uses a timestamped, cryptographically random submission identifier. The endpoint checks intrinsic expiry and private state before database lookup; expired identifiers fail closed and remain represented by bounded tombstones. Because expiry is encoded in the identifier, an old value remains expired even after its tombstone is eventually cleaned. Basic per-address rate limiting is also stored privately outside the public webroot.
+
 Production database credentials must be loaded from a PHP file outside `public_html`. See `docs/DEPLOYMENT.md`; never commit the real loader or its values.

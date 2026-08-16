@@ -4,6 +4,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 require_once __DIR__ . '/http-request.php';
+require_once __DIR__ . '/submission-identifier.php';
+require_once __DIR__ . '/rate-limit.php';
 
 function respond(int $status, array $body): never
 {
@@ -22,6 +24,16 @@ try {
 }
 
 try {
+    $retryAfter = atlasRentalsEnforceRateLimit((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($retryAfter > 0) {
+        header('Retry-After: ' . $retryAfter);
+        respond(429, ['ok' => false, 'error' => 'rate_limited']);
+    }
+} catch (Throwable) {
+    respond(503, ['ok' => false, 'error' => 'submission_unavailable']);
+}
+
+try {
     require_once __DIR__ . '/enquiry-service.php';
     $loaderPath = getenv('ATLAS_RENTALS_DB_CONFIG') ?: '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-db.php';
     if (!is_file($loaderPath) || !is_readable($loaderPath)) throw new RuntimeException('Configuration unavailable.');
@@ -34,10 +46,15 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
-    $result = (new EnquiryService(new PdoEnquiryStore($pdo)))->submit($input);
+    $result = (new EnquiryService(
+        new PdoEnquiryStore($pdo),
+        submissionIdentifierCheck: atlasRentalsSubmissionIdentifierCheck(),
+    ))->submit($input);
     respond(200, ['ok' => true, 'enquiry' => $result]);
 } catch (EnquiryValidationException $error) {
     respond(422, ['ok' => false, 'error' => 'validation_failed', 'fields' => $error->errors]);
+} catch (SubmissionIdentifierExpiredException) {
+    respond(409, ['ok' => false, 'error' => 'submission_expired']);
 } catch (Throwable) {
     respond(503, ['ok' => false, 'error' => 'submission_unavailable']);
 }

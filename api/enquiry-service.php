@@ -99,12 +99,12 @@ final class EnquiryService
     private const TECHNICIAN_RATE = 35000;
     private const VAT_RATE = 0.075;
     private const ALLOWED_FIELDS = [
-        'location', 'deliveryAddress', 'startDate', 'endDate', 'standardQuantity',
+        'submissionId', 'location', 'deliveryAddress', 'startDate', 'endDate', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
         'organization', 'email', 'phone', 'description',
     ];
     private const REQUIRED_FIELDS = [
-        'location', 'deliveryAddress', 'startDate', 'endDate', 'standardQuantity',
+        'submissionId', 'location', 'deliveryAddress', 'startDate', 'endDate', 'standardQuantity',
         'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
         'organization', 'email', 'phone',
     ];
@@ -113,12 +113,16 @@ final class EnquiryService
         private readonly EnquiryStore $store,
         private readonly ?Closure $clock = null,
         private readonly ?Closure $randomBytes = null,
+        private readonly ?Closure $submissionIdentifierCheck = null,
     ) {}
 
     public function submit(array $input): array
     {
         $normalized = $this->normalizeAndValidate($input);
-        $canonical = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        if ($this->submissionIdentifierCheck) ($this->submissionIdentifierCheck)($normalized['submissionId']);
+        $material = $normalized;
+        unset($material['submissionId']);
+        $canonical = json_encode($material, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $hash = hash('sha256', $canonical);
         $existing = $this->store->findByHash($hash);
         if ($existing !== null) {
@@ -175,6 +179,7 @@ final class EnquiryService
         $text = static fn(mixed $value): string => is_string($value)
             ? preg_replace('/\s+/u', ' ', trim($value)) : '';
         $value = [
+            'submissionId' => $text($input['submissionId']),
             'location' => $text($input['location']), 'deliveryAddress' => $text($input['deliveryAddress']),
             'startDate' => $text($input['startDate']), 'endDate' => $text($input['endDate']),
             'standardQuantity' => $input['standardQuantity'], 'performanceQuantity' => $input['performanceQuantity'],
@@ -183,6 +188,7 @@ final class EnquiryService
             'email' => strtolower($text($input['email'])), 'phone' => $text($input['phone']),
             'description' => $text($input['description'] ?? ''),
         ];
+        if (preg_match('/^[a-f0-9]{40}$/', $value['submissionId']) !== 1) $errors['submissionId'] = 'Submission identifier is invalid.';
         if (!in_array($value['location'], ['Lagos', 'Abuja'], true)) $errors['location'] = 'Choose Lagos or Abuja.';
         $this->length($value['deliveryAddress'], 5, 500, 'deliveryAddress', $errors);
         $this->length($value['fullName'], 2, 160, 'fullName', $errors);

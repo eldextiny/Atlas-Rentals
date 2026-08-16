@@ -48,8 +48,10 @@ test("final review and local reset contracts are retained", () => {
 test("confirmation is persisted-enquiry wording rather than booking confirmation", () => {
   assert.match(html, /Submit enquiry/);
   assert.match(html, /enquiry only; availability and booking remain subject to DY-PLUS confirmation/);
-  assert.match(app, /await submitEnquiry\(buildEnquiryPayload\(form\)\)/);
+  assert.match(app, /await submitEnquiry\(buildEnquiryPayload\(form, submissionId\)\)/);
   assert.match(app, /finishButton\.disabled = true/);
+  assert.match(app, /buildEnquiryPayload\(form, submissionId\)/);
+  assert.match(app, /submission_expired/);
   assert.match(app, /const enquiry = await submitEnquiry[\s\S]*success-message[\s\S]*catch \(error\)/);
 });
 
