@@ -62,7 +62,7 @@ $tests['client and administrator emails are branded, distinct, escaped, and reta
         check(str_contains($message['html'], 'DY-PLUS') && str_contains($message['html'], 'ATLAS Rentals'), 'email branding missing');
         check(str_contains($message['html'], 'https://laptops.dyplus.com.ng/assets/dyplus-logo.png') && str_contains($message['html'], 'alt="DY-PLUS company logo"'), 'approved email logo missing');
         check(str_contains($message['html'], 'ARQ-2026-000001') && str_contains($message['html'], '₦311,750.00'), 'required email fields missing');
-        check(str_contains($message['html'], 'Rental days') && str_contains($message['text'], 'Rental days:'), 'rental-days label missing from email');
+        check(str_contains($message['html'], 'Billable working days') && str_contains($message['text'], 'Billable working days:'), 'working-days label missing from email');
         check(!str_contains($message['html'], 'Inclusive duration') && !str_contains($message['text'], 'inclusive day(s)'), 'obsolete inclusive-days label remains in email');
         check(str_contains($message['html'], 'valid for 30 days') && str_contains($message['text'], 'valid for 30 days'), '30-day validity missing from email');
         check(!str_contains($message['html'], '<script>') && str_contains($message['html'], '&lt;script&gt;'), 'user HTML was not escaped');
@@ -130,8 +130,8 @@ $tests['historical best snapshot remains authoritative for email PDF CRM and ret
     $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
     check($crm['serviceMode'] === 'Best Available Rate' && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], 'CRM authoritative pricing mismatch');
 };
-$tests['all active rate plans propagate through snapshot CRM email and PDF'] = function () use ($record, $config): void {
-    foreach ([['daily', 6, 'Daily Rate'], ['weekly', 14, 'Weekly Rate - 7 days'], ['monthly', 60, 'Monthly Rate - 30 days']] as [$plan, $days, $label]) {
+$tests['daily rate propagates through snapshot CRM email and PDF'] = function () use ($record, $config): void {
+    foreach ([['daily', 6, 'Daily Rate']] as [$plan, $days, $label]) {
         $item = $record; $normalized = json_decode($item['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
         $normalized['ratePlan'] = $plan; $normalized['standardQuantity'] = 5; $normalized['performanceQuantity'] = 0; $normalized['startDate'] = '2026-01-01'; $normalized['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
         $pricing = atlasRentalsCalculatePricing($normalized, $days); $item['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR); $item['rental_days'] = $days;
@@ -183,7 +183,7 @@ $tests['PDF contains required quotation content'] = function () use ($record, $p
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath); $bytes = file_get_contents($pdf['path']);
     check(str_starts_with($bytes, '%PDF-1.4') && str_ends_with($bytes, '%%EOF'), 'PDF structure invalid');
     check(str_contains($bytes, '/Subtype /Image') && str_contains($bytes, '/Width 200 /Height 129') && str_contains($bytes, '/SMask'), 'approved logo was not embedded with transparency');
-    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Rental days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
+    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Billable working days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
     check(!str_contains($bytes, 'Compulsory service'), 'PDF retained obsolete service wording');
     check(str_contains($bytes, 'VAT \\(7.5%\\)'), 'PDF missing VAT (7.5%)');
     $long = $record; $long['enquiry_reference'] = 'ARQ-2026-000099';

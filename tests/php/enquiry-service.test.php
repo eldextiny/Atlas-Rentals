@@ -66,7 +66,7 @@ function expect_validation(array $payload, string $field): void
 }
 
 $tests = [];
-$tests['server pricing, inclusive dates and technician rate'] = function (): void {
+$tests['server pricing, working dates and technician rate'] = function (): void {
     $result = service($store = new MemoryStore())->submit(valid_payload());
     expect($result['reference'] === 'ARQ-2026-000001', 'reference format mismatch');
     expect($result['estimatedTotal'] === 311750.0, 'server total mismatch');
@@ -77,25 +77,24 @@ $tests['specified service city uses the existing location contract'] = function 
     expect($preview['normalized']['location'] === 'Port Harcourt', 'custom location was not preserved');
     $payload['location'] = 'X'; expect_validation($payload, 'location');
 };
-$tests['server calculates every explicit plan for both categories'] = function (): void {
+$tests['server calculates daily pricing for working-day durations'] = function (): void {
     $cases = [
-        ['daily', 1, 10000, 15000], ['daily', 6, 60000, 90000],
-        ['weekly', 7, 59500, 89500], ['weekly', 14, 119000, 179000], ['weekly', 28, 238000, 358000],
-        ['monthly', 30, 185000, 225500], ['monthly', 60, 370000, 451000],
+        ['2026-08-03', '2026-08-03', 1, 10000, 15000],
+        ['2026-08-03', '2026-08-07', 5, 50000, 75000],
+        ['2026-08-07', '2026-08-10', 2, 20000, 30000],
+        ['2026-08-07', '2026-08-14', 6, 60000, 90000],
     ];
-    foreach ($cases as [$plan, $days, $standard, $performance]) {
-        $payload = valid_payload(); $payload['ratePlan'] = $plan; $payload['startDate'] = '2026-01-01';
-        $payload['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
+    foreach ($cases as [$start, $end, $days, $standard, $performance]) {
+        $payload = valid_payload(); $payload['startDate'] = $start; $payload['endDate'] = $end;
         $payload['standardQuantity'] = 5; $payload['performanceQuantity'] = 0;
-        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['standard']['perUnitRental'] === $standard, "standard {$plan}/{$days} mismatch");
+        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['rentalDays'] === $days && $pricing['standard']['perUnitRental'] === $standard, "standard {$days}-day mismatch");
         $payload['standardQuantity'] = 0; $payload['performanceQuantity'] = 6;
-        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['performance']['perUnitRental'] === $performance, "performance {$plan}/{$days} mismatch");
+        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['performance']['perUnitRental'] === $performance, "performance {$days}-day mismatch");
     }
 };
-$tests['server rejects unsupported and incompatible rate plans'] = function (): void {
-    foreach ([['weekly', 8], ['weekly', 29], ['weekly', 30], ['weekly', 31], ['monthly', 7], ['monthly', 29], ['monthly', 31], ['monthly', 37], ['best', 30], ['unsupported', 30]] as [$plan, $days]) {
-        $payload = valid_payload(); $payload['ratePlan'] = $plan; $payload['startDate'] = '2026-01-01';
-        $payload['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
+$tests['server rejects every unsupported rate plan'] = function (): void {
+    foreach (['weekly', 'monthly', 'best', 'unsupported'] as $plan) {
+        $payload = valid_payload(); $payload['ratePlan'] = $plan;
         expect_validation($payload, 'ratePlan');
     }
 };
@@ -162,6 +161,8 @@ $tests['validation rejects identity quantity dates contact and unexpected fields
     $payload = valid_payload(); $payload['standardQuantity'] = 2; $payload['performanceQuantity'] = 2; expect_validation($payload, 'quantity');
     $payload = valid_payload(); unset($payload['organization']); expect_validation($payload, 'organization');
     $payload = valid_payload(); $payload['technicianDays'] = 0; expect_validation($payload, 'technicianDays');
+    $payload = valid_payload(); $payload['startDate'] = '2026-08-08'; expect_validation($payload, 'dates');
+    $payload = valid_payload(); $payload['endDate'] = '2026-08-09'; expect_validation($payload, 'dates');
 };
 $tests['global phone fixtures normalize to E.164 and reject invalid numbers'] = function (): void {
     $fixtures = json_decode(file_get_contents(__DIR__ . '/../fixtures/phone-numbers.json'), true, flags: JSON_THROW_ON_ERROR);

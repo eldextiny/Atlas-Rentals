@@ -108,18 +108,12 @@ test("step two uses one required category and maps one quantity to the stable co
   assert.match(app, /performanceQuantity: category === "performance" \? quantity : 0/);
 });
 
-test("step two requires an accessible native rental rate-plan selector", () => {
+test("step two fixes new enquiries to daily pricing without exposing plan choices", () => {
   const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
-  assert.match(stepTwo, /select id="rate-plan" name="ratePlan"[^>]*aria-describedby="rate-plan-help rate-plan-error"[^>]*required/);
-  const ratePlanSelect = stepTwo.match(/<select id="rate-plan"[\s\S]*?<\/select>/)?.[0] || "";
-  const plans = [...ratePlanSelect.matchAll(/<option value="([^"]+)">([^<]+)<\/option>/g)].map((match) => [match[1], match[2].trim()]);
-  assert.deepEqual(plans, [["daily", "Daily Rate — Flexible billing for each inclusive rental day"], ["weekly", "Weekly Rate — Fixed blocks of 7 rental days"], ["monthly", "Monthly Rate — Fixed blocks of 30 rental days"]]);
-  assert.doesNotMatch(stepTwo, /Best Available|value="best"/i);
-  assert.match(stepTwo, /class="category-select-icon rate-plan-select-icon"[^>]*aria-hidden="true"/);
+  assert.match(stepTwo, /input id="rate-plan" name="ratePlan" type="hidden" value="daily"/);
+  assert.doesNotMatch(stepTwo, /<select id="rate-plan"|value="weekly"|value="monthly"|value="best"/i);
+  assert.match(stepTwo, /Daily pricing applies to each Monday-to-Friday rental day/);
   assert.match(app, /ratePlan: ratePlan\.value/);
-  assert.match(app, /ratePlan\.focus\(\)/);
-  assert.match(app, /ratePlan\.setAttribute\("aria-invalid", "true"\)/);
-  assert.match(app, /ratePlan\.removeAttribute\("aria-invalid"\)/);
   const goToStepBody = app.match(/function goToStep[\s\S]*?\n\}/)?.[0] || "";
   assert.doesNotMatch(goToStepBody, /ratePlan\.value\s*=/);
 });
@@ -141,9 +135,8 @@ test("native category selector exposes polished accessible state hooks", () => {
   assert.match(app, /Minimum quantity:/);
   assert.match(app, /LAPTOP_CATALOGUE\[category\]/);
   assert.match(app, /Daily:/);
-  assert.match(app, /Weekly —/);
-  assert.match(app, /Monthly —/);
-  assert.match(app, /Applied duration/);
+  assert.doesNotMatch(app, /Weekly —|Monthly —/);
+  assert.match(app, /Billable working days/);
   assert.match(app, /Per-unit rental/);
   assert.match(app, /Equipment amount/);
 });
@@ -262,17 +255,17 @@ test("estimate presents rental selection, additional services and ordered costs"
   }
   assert.match(estimate, /Your estimate updates as you change the rental details\./);
   assert.match(estimate, /class="estimate-badge">Estimate only/);
-  for (const detail of ["Laptop category", "Quantity", "Rental period", "Rental days", "Selected rate plan", "Applied duration", "Rate per laptop", "Equipment rental total"]) {
+  for (const detail of ["Laptop category", "Quantity", "Rental period", "Billable working days", "Rate plan", "Applied duration", "Rate per laptop", "Equipment rental total"]) {
     assert.match(estimate, new RegExp(detail));
   }
   assert.match(estimate, /id="estimate-rental-days"/);
   assert.match(app, /setText\("#estimate-rental-days", result\.rentalDays/);
-  assert.match(app, /<span>Rental days<\/span>/);
+  assert.match(app, /<span>Billable working days<\/span>/);
   assert.match(estimate, /id="estimate-duration-detail"/);
   assert.match(estimate, /id="estimate-rate-plan"/);
   assert.match(estimate, /id="estimate-subtotal"/);
   assert.match(estimate, /not a confirmed booking/);
-  assert.match(app, /setText\("#estimate-rate-plan", state\.ratePlan \? result\.ratePlanLabel : "Plan pending"\)/);
+  assert.match(app, /setText\("#estimate-rate-plan", "Daily Rate"\)/);
   assert.match(app, /setText\("#estimate-subtotal", currency\.format\(result\.subtotalBeforeVat\)\)/);
   assert.match(css, /\.total-row strong \{[^}]*font-size: clamp/);
   assert.doesNotMatch(estimate, /Compulsory/i);
@@ -326,7 +319,7 @@ test("review includes compact customer reassurance before submission", () => {
 });
 
 test("presentation polish preserves native selectors and responsive focus contracts", () => {
-  assert.equal((html.match(/<select id="(?:service-city|laptop-category|rate-plan)"/g) || []).length, 3);
+  assert.equal((html.match(/<select id="(?:service-city|laptop-category)"/g) || []).length, 2);
   assert.doesNotMatch(app, /role=["']combobox|createElement\(["']select/);
   assert.match(css, /category-select-wrap:has\(select:focus-visible\)/);
   assert.match(css, /category-select-wrap:has\(select\[aria-invalid="true"\]\)/);
@@ -337,7 +330,7 @@ test("presentation polish preserves native selectors and responsive focus contra
 });
 
 test("every native workflow select uses readable Atlas-blue typography", () => {
-  assert.equal((html.match(/<select\b/g) || []).length, 4);
+  assert.equal((html.match(/<select\b/g) || []).length, 3);
   assert.match(css, /\.category-select-wrap select \{[^}]*color: var\(--brand-blue\)[^}]*font-size: 1\.025rem[^}]*line-height: 1\.55/);
   assert.match(css, /\.category-select-wrap select:required:invalid \{[^}]*color: var\(--muted\)/);
   assert.match(css, /\.category-select-wrap select:disabled \{[^}]*color: var\(--muted\)/);

@@ -12,7 +12,7 @@ AR-H1 combines the static planner with a same-origin PHP JSON endpoint and MySQL
 4. Run `npm run build` and verify `js/vendor/libphonenumber.js` exists.
 5. Run `npm test` and `npm run check`.
 6. Run `php tests/php/dependency-foundation.test.php`, `php tests/php/enquiry-service.test.php` and PHP syntax checks in an isolated environment.
-7. Serve the site locally over HTTP and walk through all city choices, both laptop types, all three rate plans and incompatible 7/30-day boundaries, optional services, submission failure and confirmed enquiry receipt.
+7. Serve the site locally over HTTP and walk through all city choices, both laptop types, weekday and rejected weekend endpoints, periods spanning weekends, optional services, submission failure and confirmed enquiry receipt.
 8. Verify keyboard navigation and responsive layouts at narrow and wide widths.
 9. Confirm the canonical URL and social metadata remain unchanged.
 
@@ -51,7 +51,7 @@ Create and verify these private, non-public runtime directories before release:
 
 PHP must be able to read and write these private directories. The application does not alter directory permissions. Journey identifiers have a fixed 24-hour lifetime and bounded 90-day expiry tombstones; `ATLAS_RENTALS_JOURNEY_STATE_PATH`, `ATLAS_RENTALS_JOURNEY_TTL` and `ATLAS_RENTALS_JOURNEY_TOMBSTONE_TTL` may override those values. Delivery state and PDF retention is 30 days; quotation validity is 30 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
 
-The pricing snapshot JSON stores the selected rate plan, duration blocks, all laptop rates, per-unit and equipment amounts, technician, delivery, subtotal, VAT and total without a schema change. New enquiries accept only Daily, Weekly and Monthly plans. Historical records, including stored `best` snapshots, are not rewritten or repriced and remain available to legitimate duplicate and delivery retries. The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
+The pricing snapshot JSON stores the fixed Daily rate plan, billable working-day duration, laptop daily rates, per-unit and equipment amounts, technician, delivery, subtotal, VAT and total without a schema change. New enquiries accept only Daily. Historical records, including stored legacy rate-plan snapshots, are not rewritten or repriced and remain available to legitimate duplicate and delivery retries. The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
 
 ## Release unit
 

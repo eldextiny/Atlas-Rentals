@@ -5,7 +5,7 @@ const PAYLOAD_FIELDS = Object.freeze([
   "standardQuantity", "performanceQuantity", "technicianRequired",
   "technicianDays", "fullName", "organization", "email", "phoneCountry", "phone",
 ]);
-const NEW_ENQUIRY_RATE_PLANS = Object.freeze(["daily", "weekly", "monthly"]);
+const NEW_ENQUIRY_RATE_PLANS = Object.freeze(["daily"]);
 export const PHONE_VALIDATION_MESSAGE = "Enter a valid phone number for the selected country, or include the full international number beginning with +.";
 
 function text(value) {

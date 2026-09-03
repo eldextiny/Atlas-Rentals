@@ -2,10 +2,10 @@
 
 ## Rates
 
-| Laptop category | Daily | Weekly (7 days) | Monthly (30 days) |
-| --- | ---: | ---: | ---: |
-| Standard Business Laptop | ₦10,000 | ₦59,500 | ₦185,000 |
-| High Performance Laptop | ₦15,000 | ₦89,500 | ₦225,500 |
+| Laptop category | Daily rate per billable working day |
+| --- | ---: |
+| Standard Business Laptop | ₦10,000 |
+| High Performance Laptop | ₦15,000 |
 
 | Other item | Rate |
 | --- | ---: |
@@ -15,10 +15,10 @@
 
 ## Calculation order
 
-1. Rental days are inclusive of both start and end dates. A same-day rental is one day.
-2. Every new enquiry selects exactly one rate plan: Daily, Weekly or Monthly.
-3. Daily is `inclusive days × daily rate`; Weekly requires a whole multiple of 7 days; Monthly requires a whole multiple of 30 days.
-4. Partial weeks and months are rejected and are never rounded or automatically decomposed.
+1. Start and end dates must each be Monday through Friday. Weekend endpoints are rejected.
+2. Billable working days include both valid endpoints and exclude intervening Saturdays and Sundays. A same-weekday rental is one day.
+3. Nigerian public holidays remain billable when they fall Monday through Friday.
+4. Daily is the only rate plan: `billable working days × daily rate`.
 5. Equipment amount is `per-unit charge × quantity`.
 6. The selected category maps to its existing server quantity field and the unselected category maps to zero.
 7. At least five laptops are required.
@@ -33,6 +33,7 @@ Historical stored pricing snapshots, including snapshots whose `ratePlan` is `be
 
 - Service location may be Abuja, Lagos, or another specified Nigerian city.
 - End date must be the same as or later than the start date.
+- Start and end dates must be weekdays; dates are parsed as UTC calendar dates to avoid timezone shifts.
 - Laptop and technician quantities must be whole, non-negative numbers.
 - Technician support requires at least one technician day.
 - An estimate is non-binding and does not confirm availability or create a booking.

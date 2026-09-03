@@ -131,22 +131,22 @@ final class EnquiryService
     {
         if (!array_key_exists('ratePlan', $input)) {
             $legacyInput = $input; $legacyInput['ratePlan'] = 'daily';
-            $legacyPreview = $this->preview($legacyInput); $legacyNormalized = $legacyPreview['normalized'];
+            $legacyPreview = $this->preview($legacyInput, true); $legacyNormalized = $legacyPreview['normalized'];
             unset($legacyNormalized['ratePlan']);
             $legacyCanonical = json_encode($legacyNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $historical = $this->store->findByHash(hash('sha256', $legacyCanonical));
             if ($historical !== null) return $this->result($historical, true);
-            throw new EnquiryValidationException(['ratePlan' => 'Select a rental rate plan.']);
+            throw new EnquiryValidationException(['ratePlan' => 'Daily Rate is the only supported rental rate plan.']);
         }
         if ($input['ratePlan'] === 'best') {
             $historicalInput = $input; $historicalInput['ratePlan'] = 'daily';
-            $historicalPreview = $this->preview($historicalInput);
+            $historicalPreview = $this->preview($historicalInput, true);
             $historicalNormalized = $historicalPreview['normalized'];
             $historicalNormalized['ratePlan'] = 'best';
             $historicalCanonical = json_encode($historicalNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $historical = $this->store->findByHash(hash('sha256', $historicalCanonical));
             if ($historical !== null) return $this->result($historical, true);
-            throw new EnquiryValidationException(['ratePlan' => 'Select a rental rate plan.']);
+            throw new EnquiryValidationException(['ratePlan' => 'Daily Rate is the only supported rental rate plan.']);
         }
         $preview = $this->preview($input);
         $normalized = $preview['normalized'];
@@ -184,13 +184,13 @@ final class EnquiryService
         return $this->result($this->store->save($record, (int) $now->format('Y')), false);
     }
 
-    public function preview(array $input): array
+    public function preview(array $input, bool $historicalCalendar = false): array
     {
-        $normalized = $this->normalizeAndValidate($input);
+        $normalized = $this->normalizeAndValidate($input, $historicalCalendar);
         $journeyId = $normalized['journeyId'];
         unset($normalized['journeyId']);
         $canonical = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        $days = $this->rentalDays($normalized['startDate'], $normalized['endDate']);
+        $days = $this->rentalDays($normalized['startDate'], $normalized['endDate'], $historicalCalendar);
         $pricing = atlasRentalsCalculatePricing($normalized, $days);
         return [
             'journeyId' => $journeyId, 'normalized' => $normalized, 'canonical' => $canonical,
@@ -199,14 +199,14 @@ final class EnquiryService
         ];
     }
 
-    private function normalizeAndValidate(array $input): array
+    private function normalizeAndValidate(array $input, bool $historicalCalendar = false): array
     {
         $errors = [];
         $unexpected = array_diff(array_keys($input), self::ALLOWED_FIELDS);
         if ($unexpected) $errors['payload'] = 'Unexpected fields are not allowed.';
         foreach (self::REQUIRED_FIELDS as $field) {
             if (!array_key_exists($field, $input)) {
-                if ($field === 'ratePlan') $errors[$field] = 'Select a rental rate plan.';
+                if ($field === 'ratePlan') $errors[$field] = 'Daily Rate is required.';
                 elseif ($field === 'phone' || $field === 'phoneCountry') $errors['phone'] = 'Enter a valid phone number for the selected country, or include the full international number beginning with +.';
                 else $errors[$field] = 'This field is required.';
             }
@@ -244,19 +244,19 @@ final class EnquiryService
         if ($value['technicianRequired'] === true && (!is_int($value['technicianDays']) || $value['technicianDays'] < 1)) $errors['technicianDays'] = 'Enter at least 1 technician day.';
         if ($value['technicianRequired'] === false && $value['technicianDays'] !== 0) $errors['technicianDays'] = 'Technician days must be zero when support is not selected.';
         try {
-            $rentalDays = $this->rentalDays($value['startDate'], $value['endDate']);
+            $rentalDays = $this->rentalDays($value['startDate'], $value['endDate'], $historicalCalendar);
             atlasRentalsRatePlanUnitPrice($rentalDays, ATLAS_RENTALS_PRICING['standard'], $value['ratePlan']);
         }
         catch (InvalidArgumentException $error) {
             if (str_contains($error->getMessage(), 'Rate') || str_contains($error->getMessage(), 'rate plan')) $errors['ratePlan'] = $error->getMessage();
-            else $errors['dates'] = 'Enter valid inclusive rental dates.';
+            else $errors['dates'] = $error->getMessage();
         }
         if ($errors) throw new EnquiryValidationException($errors);
         if ($this->journeyIdentifierCheck !== null) ($this->journeyIdentifierCheck)($value['journeyId']);
         return $value;
     }
 
-    private function rentalDays(string $start, string $end): int
+    private function rentalDays(string $start, string $end, bool $historicalCalendar = false): int
     {
         foreach ([$start, $end] as $date) {
             $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone('UTC'));
@@ -264,8 +264,15 @@ final class EnquiryService
         }
         $from = new DateTimeImmutable($start, new DateTimeZone('UTC'));
         $to = new DateTimeImmutable($end, new DateTimeZone('UTC'));
-        if ($to < $from) throw new InvalidArgumentException('Invalid range.');
-        return (int) $from->diff($to)->days + 1;
+        if ($to < $from) throw new InvalidArgumentException('End date must be on or after start date.');
+        if ($historicalCalendar) return (int)$from->diff($to)->days + 1;
+        if (in_array((int)$from->format('N'), [6, 7], true)) throw new InvalidArgumentException('Rental start date must be a weekday (Monday to Friday).');
+        if (in_array((int)$to->format('N'), [6, 7], true)) throw new InvalidArgumentException('Rental end date must be a weekday (Monday to Friday).');
+        $workingDays = 0;
+        for ($cursor = $from; $cursor <= $to; $cursor = $cursor->modify('+1 day')) {
+            if ((int)$cursor->format('N') <= 5) $workingDays++;
+        }
+        return $workingDays;
     }
 
     private function normalizePhone(string $phone, string $phoneCountry): ?string

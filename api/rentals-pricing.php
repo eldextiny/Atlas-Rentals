@@ -2,24 +2,21 @@
 declare(strict_types=1);
 
 const ATLAS_RENTALS_PRICING = [
-    'standard' => ['name' => 'Standard Business Laptop', 'dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000],
-    'performance' => ['name' => 'High Performance Laptop', 'dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500],
-    'daysPerWeek' => 7, 'daysPerMonth' => 30, 'deliveryFee' => 40000,
+    'standard' => ['name' => 'Standard Business Laptop', 'dailyRate' => 10000],
+    'performance' => ['name' => 'High Performance Laptop', 'dailyRate' => 15000],
+    'deliveryFee' => 40000,
     'technicianDailyRate' => 35000, 'vatRate' => 0.075, 'minimumQuantity' => 5,
 ];
-const ATLAS_RENTALS_RATE_PLANS = [
-    'daily' => 'Daily Rate', 'weekly' => 'Weekly Rate - 7 days',
-    'monthly' => 'Monthly Rate - 30 days',
-];
+const ATLAS_RENTALS_RATE_PLANS = ['daily' => 'Daily Rate'];
 
 // Retained exclusively to interpret historical stored pricing material. New enquiries never call this path.
 function atlasRentalsHistoricalDecomposeDuration(int $totalDays): array
 {
     if ($totalDays < 0) throw new InvalidArgumentException('Rental days must be non-negative.');
-    $months = intdiv($totalDays, ATLAS_RENTALS_PRICING['daysPerMonth']);
-    $remaining = $totalDays % ATLAS_RENTALS_PRICING['daysPerMonth'];
-    $weeks = intdiv($remaining, ATLAS_RENTALS_PRICING['daysPerWeek']);
-    return ['totalDays' => $totalDays, 'months' => $months, 'weeks' => $weeks, 'days' => $remaining % ATLAS_RENTALS_PRICING['daysPerWeek']];
+    $months = intdiv($totalDays, 30);
+    $remaining = $totalDays % 30;
+    $weeks = intdiv($remaining, 7);
+    return ['totalDays' => $totalDays, 'months' => $months, 'weeks' => $weeks, 'days' => $remaining % 7];
 }
 
 function atlasRentalsDurationLabel(array $duration): string
@@ -52,14 +49,10 @@ function atlasRentalsHistoricalTieredUnitPrice(int $totalDays, array $rates): ar
 
 function atlasRentalsRatePlanUnitPrice(int $totalDays, array $rates, string $ratePlan): array
 {
-    if (!isset(ATLAS_RENTALS_RATE_PLANS[$ratePlan])) throw new InvalidArgumentException('Select a rental rate plan.');
-    if ($ratePlan === 'weekly' && $totalDays % ATLAS_RENTALS_PRICING['daysPerWeek'] !== 0) throw new InvalidArgumentException('Weekly Rate requires the rental duration to be a whole multiple of 7 days.');
-    if ($ratePlan === 'monthly' && $totalDays % ATLAS_RENTALS_PRICING['daysPerMonth'] !== 0) throw new InvalidArgumentException('Monthly Rate requires the rental duration to be a whole multiple of 30 days.');
-    if ($ratePlan === 'daily') $duration = ['totalDays' => $totalDays, 'months' => 0, 'weeks' => 0, 'days' => $totalDays];
-    elseif ($ratePlan === 'weekly') $duration = ['totalDays' => $totalDays, 'months' => 0, 'weeks' => intdiv($totalDays, 7), 'days' => 0];
-    else $duration = ['totalDays' => $totalDays, 'months' => intdiv($totalDays, 30), 'weeks' => 0, 'days' => 0];
-    $amount = $duration['months'] * (int)$rates['monthlyRate'] + $duration['weeks'] * (int)$rates['weeklyRate'] + $duration['days'] * (int)$rates['dailyRate'];
-    return $duration + ['ratePlan' => $ratePlan, 'ratePlanLabel' => ATLAS_RENTALS_RATE_PLANS[$ratePlan], 'dailyRate' => (int)$rates['dailyRate'], 'weeklyRate' => (int)$rates['weeklyRate'], 'monthlyRate' => (int)$rates['monthlyRate'], 'perUnitRental' => $amount];
+    if ($ratePlan !== 'daily') throw new InvalidArgumentException('Daily Rate is the only supported rental rate plan.');
+    $duration = ['totalDays' => $totalDays, 'months' => 0, 'weeks' => 0, 'days' => $totalDays];
+    $amount = $duration['days'] * (int)$rates['dailyRate'];
+    return $duration + ['ratePlan' => $ratePlan, 'ratePlanLabel' => ATLAS_RENTALS_RATE_PLANS[$ratePlan], 'dailyRate' => (int)$rates['dailyRate'], 'perUnitRental' => $amount];
 }
 
 function atlasRentalsCalculatePricing(array $normalized, int $rentalDays): array
@@ -79,10 +72,7 @@ function atlasRentalsCalculatePricing(array $normalized, int $rentalDays): array
     return [
         'currency' => 'NGN', 'ratePlan' => $ratePlan, 'ratePlanLabel' => ATLAS_RENTALS_RATE_PLANS[$ratePlan], 'rentalDays' => $rentalDays, 'duration' => $duration,
         'durationLabel' => atlasRentalsDurationLabel($duration), 'standard' => $standard, 'performance' => $performance,
-        'standardDailyRate' => ATLAS_RENTALS_PRICING['standard']['dailyRate'], 'standardWeeklyRate' => ATLAS_RENTALS_PRICING['standard']['weeklyRate'],
-        'standardMonthlyRate' => ATLAS_RENTALS_PRICING['standard']['monthlyRate'], 'performanceDailyRate' => ATLAS_RENTALS_PRICING['performance']['dailyRate'],
-        'performanceWeeklyRate' => ATLAS_RENTALS_PRICING['performance']['weeklyRate'], 'performanceMonthlyRate' => ATLAS_RENTALS_PRICING['performance']['monthlyRate'],
-        'daysPerWeek' => ATLAS_RENTALS_PRICING['daysPerWeek'], 'daysPerMonth' => ATLAS_RENTALS_PRICING['daysPerMonth'],
+        'standardDailyRate' => ATLAS_RENTALS_PRICING['standard']['dailyRate'], 'performanceDailyRate' => ATLAS_RENTALS_PRICING['performance']['dailyRate'],
         'equipmentAmount' => $equipmentAmount, 'deliveryFee' => ATLAS_RENTALS_PRICING['deliveryFee'],
         'technicianDailyRate' => ATLAS_RENTALS_PRICING['technicianDailyRate'], 'technicianAmount' => $technicianAmount,
         'vatRate' => ATLAS_RENTALS_PRICING['vatRate'], 'subtotal' => $subtotal, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat,

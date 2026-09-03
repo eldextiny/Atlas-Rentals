@@ -92,8 +92,8 @@ test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(emailTemplate, /Delivery & retrieval/);
   assert.match(emailTemplate, /Standard rental service/);
   assert.match(pdfTemplate, /Standard rental service/);
-  assert.match(emailTemplate, /Rental days/);
-  assert.match(pdfTemplate, /Rental days/);
+  assert.match(emailTemplate, /Billable working days/);
+  assert.match(pdfTemplate, /Billable working days/);
   assert.doesNotMatch(emailTemplate + pdfTemplate, /Inclusive duration|inclusive day\(s\)/i);
   assert.doesNotMatch(emailTemplate + pdfTemplate, /Compulsory service/);
   assert.match(emailTemplate, /Chat with us on WhatsApp/);
@@ -138,8 +138,8 @@ test("phone validation uses Composer metadata and preserves the existing downstr
 });
 
 test("server pricing retains every protected rate", () => {
-  assert.match(serverPricing, /'dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000/);
-  assert.match(serverPricing, /'dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500/);
+  assert.match(serverPricing, /'dailyRate' => 10000/);
+  assert.match(serverPricing, /'dailyRate' => 15000/);
   assert.match(serverPricing, /'deliveryFee' => 40000/);
   assert.match(serverPricing, /'technicianDailyRate' => 35000/);
   assert.match(serverPricing, /'vatRate' => 0\.075/);
@@ -156,11 +156,10 @@ test("journey identifiers use private check-before-cleanup expiry tombstones", (
   assert.match(reviewEndpoint, /JourneyIdentifierExpiredException[\s\S]*reviewRespond\(409, \['ok' => false, 'error' => 'journey_expired'\]\)/);
 });
 
-test("new enquiries accept exactly three rate plans while historical best is lookup-only", () => {
+test("new enquiries accept daily only while historical best is lookup-only", () => {
   const plans = serverPricing.match(/const ATLAS_RENTALS_RATE_PLANS = \[[\s\S]*?\];/)?.[0] || "";
   assert.match(plans, /'daily'/);
-  assert.match(plans, /'weekly'/);
-  assert.match(plans, /'monthly'/);
+  assert.doesNotMatch(plans, /'weekly'|'monthly'/);
   assert.doesNotMatch(plans, /'best'|Best Available/i);
   const activeCalculator = serverPricing.match(/function atlasRentalsRatePlanUnitPrice[\s\S]*?\n\}/)?.[0] || "";
   assert.doesNotMatch(activeCalculator, /atlasRentalsHistoricalDecomposeDuration|best/i);

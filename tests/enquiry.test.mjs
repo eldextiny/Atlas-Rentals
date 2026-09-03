@@ -14,6 +14,8 @@ test("valid enquiry payload has the stable server contract", () => {
   assert.equal(hasStablePayloadShape({ ...payload, total: 1 }), false);
   assert.equal(hasStablePayloadShape((({ phone, ...rest }) => rest)(payload)), false);
   assert.equal(hasStablePayloadShape({ ...payload, ratePlan: "best" }), false);
+  assert.equal(hasStablePayloadShape({ ...payload, ratePlan: "weekly" }), false);
+  assert.equal(hasStablePayloadShape({ ...payload, ratePlan: "monthly" }), false);
 });
 
 test("payload creation normalizes a copy without mutating entered values", () => {
