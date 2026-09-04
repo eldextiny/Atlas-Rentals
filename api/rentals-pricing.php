@@ -40,6 +40,11 @@ function atlasRentalsAppliedRatesLabel(array $tier, callable $money): string
 
 function atlasRentalsHistoricalTieredUnitPrice(int $totalDays, array $rates): array
 {
+    foreach (['dailyRate', 'weeklyRate', 'monthlyRate'] as $key) {
+        if (!array_key_exists($key, $rates) || !is_int($rates[$key]) || $rates[$key] < 0) {
+            throw new InvalidArgumentException('Historical tier pricing requires complete persisted rate values.');
+        }
+    }
     $duration = atlasRentalsHistoricalDecomposeDuration($totalDays);
     $amount = $duration['months'] * (int)$rates['monthlyRate']
         + $duration['weeks'] * (int)$rates['weeklyRate']

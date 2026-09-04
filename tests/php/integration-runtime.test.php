@@ -110,8 +110,8 @@ $tests['standard rental service wording replaces compulsory service'] = function
 $tests['historical best snapshot remains authoritative for email PDF CRM and retries'] = function () use ($record, $config): void {
     $tiered = $record; $payload = json_decode($tiered['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
     $payload['ratePlan'] = 'best'; $payload['standardQuantity'] = 6; $payload['performanceQuantity'] = 0; $payload['startDate'] = '2026-08-01'; $payload['endDate'] = '2026-09-09'; $payload['technicianDays'] = 40;
-    $standard = atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['standard']) + ['quantity' => 6];
-    $performance = atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['performance']) + ['quantity' => 0];
+    $standard = atlasRentalsHistoricalTieredUnitPrice(40, ['dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000]) + ['quantity' => 6];
+    $performance = atlasRentalsHistoricalTieredUnitPrice(40, ['dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500]) + ['quantity' => 0];
     $standard['equipmentAmount'] = 6 * $standard['perUnitRental']; $performance['equipmentAmount'] = 0;
     $subtotal = $standard['equipmentAmount'] + 40000 + (40 * 35000); $vat = (int)round($subtotal * .075);
     $pricing = ['currency' => 'NGN', 'ratePlan' => 'best', 'ratePlanLabel' => 'Best Available Rate', 'rentalDays' => 40,
@@ -129,6 +129,48 @@ $tests['historical best snapshot remains authoritative for email PDF CRM and ret
     $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $payload, 'pricing' => $pricing];
     $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
     check($crm['serviceMode'] === 'Best Available Rate' && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], 'CRM authoritative pricing mismatch');
+};
+$tests['historical tier helper fails cleanly when persisted rate keys are missing'] = function (): void {
+    set_error_handler(static function (int $severity, string $message): never { throw new ErrorException($message, 0, $severity); });
+    try {
+        atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['standard']);
+    } catch (InvalidArgumentException $error) {
+        check($error->getMessage() === 'Historical tier pricing requires complete persisted rate values.', 'missing historical rates returned the wrong failure');
+        restore_error_handler();
+        return;
+    } catch (Throwable $error) {
+        restore_error_handler();
+        throw $error;
+    }
+    restore_error_handler();
+    throw new RuntimeException('incomplete historical rates were accepted');
+};
+$tests['historical weekly and monthly snapshots retain saved labels rates totals and CRM context'] = function () use ($record, $config): void {
+    foreach ([
+        ['weekly', 'Weekly Rate - 7 days', 14, ['totalDays' => 14, 'months' => 0, 'weeks' => 2, 'days' => 0]],
+        ['monthly', 'Monthly Rate - 30 days', 60, ['totalDays' => 60, 'months' => 2, 'weeks' => 0, 'days' => 0]],
+    ] as [$plan, $label, $days, $duration]) {
+        $item = $record;
+        $payload = json_decode($item['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+        $payload['ratePlan'] = $plan; $payload['standardQuantity'] = 5; $payload['performanceQuantity'] = 0;
+        $standard = atlasRentalsHistoricalTieredUnitPrice($days, ['dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000]) + ['quantity' => 5];
+        $performance = atlasRentalsHistoricalTieredUnitPrice($days, ['dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500]) + ['quantity' => 0];
+        $standard['equipmentAmount'] = 5 * $standard['perUnitRental']; $performance['equipmentAmount'] = 0;
+        $subtotal = $standard['equipmentAmount'] + 40000 + 70000; $vat = (int)round($subtotal * .075);
+        $pricing = ['currency' => 'NGN', 'ratePlan' => $plan, 'ratePlanLabel' => $label, 'rentalDays' => $days,
+            'duration' => $duration, 'durationLabel' => atlasRentalsDurationLabel($duration), 'standard' => $standard, 'performance' => $performance,
+            'equipmentAmount' => $standard['equipmentAmount'], 'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'technicianAmount' => 70000,
+            'vatRate' => .075, 'subtotal' => $subtotal, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat];
+        $item['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR);
+        $item['rental_days'] = $days; $item['standard_quantity'] = 5; $item['performance_quantity'] = 0;
+        $item['subtotal'] = $subtotal; $item['vat_amount'] = $vat; $item['estimated_total'] = $subtotal + $vat;
+        $email = atlasRentalsBuildEmail($item, 'client'); $pdf = atlasRentalsRenderQuotationPdf($item);
+        check(str_contains($email['html'], $label) && str_contains($email['text'], number_format($standard['perUnitRental'], 2)), "historical {$plan} email changed");
+        check(str_contains($pdf, $label) && str_contains($pdf, 'unit NGN ' . number_format($standard['perUnitRental'], 2)), "historical {$plan} PDF changed");
+        $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $payload, 'pricing' => $pricing];
+        $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
+        check($crm['documentContext']['ratePlan'] === $plan && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], "historical {$plan} CRM changed");
+    }
 };
 $tests['daily rate propagates through snapshot CRM email and PDF'] = function () use ($record, $config): void {
     foreach ([['daily', 6, 'Daily Rate']] as [$plan, $days, $label]) {

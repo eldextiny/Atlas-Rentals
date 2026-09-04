@@ -166,3 +166,13 @@ test("new enquiries accept daily only while historical best is lookup-only", () 
   assert.match(serverPricing, /function atlasRentalsHistoricalDecomposeDuration/);
   assert.match(service, /if \(\$input\['ratePlan'\] === 'best'\)[\s\S]*findByHash[\s\S]*throw new EnquiryValidationException/);
 });
+
+test("historical tier pricing requires persisted rates without restoring active plan rates", () => {
+  const activePricing = serverPricing.match(/const ATLAS_RENTALS_PRICING = \[[\s\S]*?\n\];/)?.[0] || "";
+  assert.doesNotMatch(activePricing, /weeklyRate|monthlyRate/);
+  const historicalCalculator = serverPricing.match(/function atlasRentalsHistoricalTieredUnitPrice[\s\S]*?\n\}/)?.[0] || "";
+  assert.match(historicalCalculator, /array_key_exists\(\$key, \$rates\)/);
+  assert.match(historicalCalculator, /Historical tier pricing requires complete persisted rate values/);
+  assert.match(historicalCalculator, /\$rates\['weeklyRate'\]/);
+  assert.match(historicalCalculator, /\$rates\['monthlyRate'\]/);
+});
