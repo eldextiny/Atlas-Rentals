@@ -17,7 +17,6 @@ const ratePlanHelp = document.querySelector("#rate-plan-help");
 const ratePlanDetails = document.querySelector("#rate-plan-details");
 const categoryDetails = document.querySelector("#category-details");
 const technicianRequired = document.querySelector("#technician-required");
-const technicianDaysWrap = document.querySelector("#technician-days-wrap");
 const technicianDaysInput = document.querySelector("#technician-days");
 const phoneCountry = document.querySelector("#phone-country");
 const phoneInput = document.querySelector("#phone");
@@ -98,6 +97,8 @@ function plannerState() {
   const techSelected = form.elements.technicianRequired.checked;
   const category = form.elements.laptopCategory.value;
   const quantity = numberValue("laptopQuantity");
+  const billableWorkingDays = rentalDays();
+  technicianDaysInput.value = String(techSelected ? billableWorkingDays : 0);
   return {
     location: selectedLocation(),
     startDate: form.elements.startDate.value,
@@ -106,10 +107,10 @@ function plannerState() {
     laptopQuantity: quantity,
     standardQuantity: category === "standard" ? quantity : 0,
     performanceQuantity: category === "performance" ? quantity : 0,
-    rentalDays: rentalDays(),
+    rentalDays: billableWorkingDays,
     ratePlan: ratePlan.value,
     technicianRequired: techSelected,
-    technicianDays: techSelected ? numberValue("technicianDays") : 0,
+    technicianDays: techSelected ? billableWorkingDays : 0,
   };
 }
 
@@ -358,7 +359,7 @@ function validateCurrentStep() {
   if (currentStep === 3) {
     showError("technician-error", booking.errors.technician);
     if (booking.errors.technician) {
-      technicianDaysInput.focus();
+      technicianRequired.focus();
       return false;
     }
     if (!validatePersonalDetails()) return false;
@@ -502,9 +503,6 @@ rateCards.forEach((card) => {
 });
 
 technicianRequired.addEventListener("change", () => {
-  technicianDaysWrap.hidden = !technicianRequired.checked;
-  technicianDaysInput.disabled = !technicianRequired.checked;
-  if (technicianRequired.checked && numberValue("technicianDays") === 0) technicianDaysInput.value = "1";
   updateEstimate();
 });
 
@@ -661,8 +659,6 @@ restartButton.addEventListener("click", () => {
   workflowComplete = false;
   scheduleValidated = false;
   personalValidationActive = false;
-  technicianDaysWrap.hidden = true;
-  technicianDaysInput.disabled = true;
   finishButton.hidden = false;
   finishButton.disabled = false;
   restartButton.hidden = true;
@@ -689,7 +685,6 @@ restartButton.addEventListener("click", () => {
 document.querySelectorAll(".form-step h3").forEach((heading) => heading.setAttribute("tabindex", "-1"));
 document.querySelector("#year").textContent = new Date().getFullYear();
 populatePhoneCountries();
-technicianDaysInput.disabled = true;
 updateCustomCityState();
 updateEstimate();
 planner.dataset.currentStep = "1";

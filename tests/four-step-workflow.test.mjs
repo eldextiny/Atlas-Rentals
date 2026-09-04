@@ -26,6 +26,10 @@ test("support and personal details share step three", () => {
 
   assert.match(stepThree, /Included automatically/);
   assert.match(stepThree, /id="technician-required"/);
+  assert.match(stepThree, /Optional technician support/);
+  assert.match(stepThree, /₦35,000 per billable working day/);
+  assert.match(stepThree, /type="checkbox"[^>]*aria-describedby="technician-support-rate technician-error"/);
+  assert.match(stepThree, /id="technician-days" name="technicianDays" type="hidden" value="0"/);
   assert.match(stepThree, /name="fullName"/);
   assert.match(stepThree, /name="organization"/);
   assert.match(stepThree, /name="email"/);
@@ -76,7 +80,7 @@ test("final review and local reset contracts are retained", () => {
   assert.match(stepFour, /id="restart-button"/);
   assert.match(app, /restartButton\.addEventListener\("click"/);
   assert.match(app, /form\.reset\(\)/);
-  assert.match(app, /technicianDaysInput\.disabled = true/);
+  assert.match(app, /technicianDaysInput\.value = String\(techSelected \? billableWorkingDays : 0\)/);
   assert.match(app, /technician-estimate-row"\)\.hidden = result\.technicianDays === 0/);
 });
 
@@ -307,6 +311,8 @@ test("estimate shows one selected category and conditionally hides technician", 
   assert.match(app, /document\.querySelector\("#technician-estimate-row"\)\.hidden = result\.technicianDays === 0/);
   assert.match(app, /document\.querySelector\("#summary-technician-row"\)\.hidden = result\.technicianDays === 0/);
   assert.match(html, /class="included-status">Included/);
+  assert.match(app, /technicianDays: techSelected \? billableWorkingDays : 0/);
+  assert.doesNotMatch(app, /numberValue\("technicianDays"\)/);
 });
 
 test("review includes compact customer reassurance before submission", () => {

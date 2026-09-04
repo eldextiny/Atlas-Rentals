@@ -246,6 +246,7 @@ final class EnquiryService
         try {
             $rentalDays = $this->rentalDays($value['startDate'], $value['endDate'], $historicalCalendar);
             atlasRentalsRatePlanUnitPrice($rentalDays, ATLAS_RENTALS_PRICING['standard'], $value['ratePlan']);
+            if (!$historicalCalendar) $value['technicianDays'] = $value['technicianRequired'] ? $rentalDays : 0;
         }
         catch (InvalidArgumentException $error) {
             if (str_contains($error->getMessage(), 'Rate') || str_contains($error->getMessage(), 'rate plan')) $errors['ratePlan'] = $error->getMessage();

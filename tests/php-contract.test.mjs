@@ -145,6 +145,16 @@ test("server pricing retains every protected rate", () => {
   assert.match(serverPricing, /'vatRate' => 0\.075/);
 });
 
+test("technician selection derives authoritative working days and reaches every downstream surface", () => {
+  assert.match(service, /\$value\['technicianDays'\] = \$value\['technicianRequired'\] \? \$rentalDays : 0/);
+  assert.match(service, /'technician_required' => \$normalized\['technicianRequired'\] \? 1 : 0/);
+  assert.match(service, /'technician_days' => \$normalized\['technicianDays'\]/);
+  assert.match(serverPricing, /\$technicianAmount = \(int\)\$normalized\['technicianDays'\] \* ATLAS_RENTALS_PRICING\['technicianDailyRate'\]/);
+  assert.match(runtime, /'technicianRequired' => \$technicianRequired, 'technicianDays' => \$requiredInteger\(\$data, 'technicianDays'\)/);
+  assert.match(emailTemplate, /if \(\$m\['technicianRequired'\]\) \$itemRows\[\] = \['Technician'/);
+  assert.match(pdfTemplate, /if \(\(int\)\$record\['technician_required'\] === 1\) \$item\('Technician'/);
+});
+
 test("journey identifiers use private check-before-cleanup expiry tombstones", () => {
   assert.match(journeyIdentifier, /private_html\/atlas-rentals\/journey-identifiers/);
   assert.match(journeyIdentifier, /ATLAS_RENTALS_JOURNEY_STATE_PATH/);

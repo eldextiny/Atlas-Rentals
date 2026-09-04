@@ -74,13 +74,13 @@ test("Delivery & Retrieval cannot be disabled by a caller", () => {
   assert.equal(result.deliveryRetrieval, 40_000);
 });
 
-test("technician support costs ₦35,000 per selected day", () => {
+test("technician support costs ₦35,000 for every billable working day", () => {
   const result = calculateEstimate({
     standardQuantity: 5,
     rentalDays: 3,
-    technicianDays: 2,
+    technicianDays: 3,
   });
-  assert.equal(result.technician, 70_000);
+  assert.equal(result.technician, 105_000);
 });
 
 test("VAT applies after rental, Delivery & Retrieval and technician charges", () => {

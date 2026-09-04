@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../api/http-request.php';
 final class MemoryStore implements EnquiryStore
 {
     public array $records = [];
+    public ?array $lastSaved = null;
     public int $sequence = 0;
     public bool $fail = false;
     public function findByHash(string $hash): ?array { return $this->records[$hash] ?? null; }
@@ -17,6 +18,7 @@ final class MemoryStore implements EnquiryStore
     public function save(array $enquiry, int $year): array
     {
         if ($this->fail) throw new RuntimeException('simulated failure');
+        $this->lastSaved = $enquiry;
         $this->sequence++;
         $row = [
             'internal_id' => $enquiry['internal_id'],
@@ -67,9 +69,21 @@ function expect_validation(array $payload, string $field): void
 
 $tests = [];
 $tests['server pricing, working dates and technician rate'] = function (): void {
-    $result = service($store = new MemoryStore())->submit(valid_payload());
+    $payload = valid_payload(); $payload['technicianDays'] = 1;
+    $result = service($store = new MemoryStore())->submit($payload);
     expect($result['reference'] === 'ARQ-2026-000001', 'reference format mismatch');
-    expect($result['estimatedTotal'] === 311750.0, 'server total mismatch');
+    expect($result['estimatedTotal'] === 349375.0, 'server total mismatch');
+    $snapshot = json_decode($store->lastSaved['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR);
+    $normalized = json_decode($store->lastSaved['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+    expect($normalized['technicianDays'] === 3 && $store->lastSaved['technician_days'] === 3, 'authoritative working days were not persisted');
+    expect($snapshot['technicianDailyRate'] === 35000 && $snapshot['technicianAmount'] === 105000, 'authoritative technician price was not persisted');
+};
+$tests['unselected technician is normalized and persisted as zero'] = function (): void {
+    $payload = valid_payload(); $payload['technicianRequired'] = false; $payload['technicianDays'] = 0;
+    $preview = service($store = new MemoryStore())->preview($payload);
+    expect($preview['normalized']['technicianDays'] === 0 && $preview['pricing']['technicianAmount'] === 0, 'unselected preview included technician support');
+    service($store)->submit($payload);
+    expect($store->lastSaved['technician_required'] === 0 && $store->lastSaved['technician_days'] === 0, 'unselected technician was not persisted as zero');
 };
 $tests['specified service city uses the existing location contract'] = function (): void {
     $payload = valid_payload(); $payload['location'] = 'Port Harcourt';
@@ -123,7 +137,7 @@ $tests['expired journey identifier fails before persistence'] = function (): voi
 };
 $tests['historical retry without rate plan is lookup-only and never repriced'] = function (): void {
     $store = new MemoryStore(); $service = service($store); $payload = valid_payload();
-    $preview = $service->preview($payload); $normalized = $preview['normalized']; unset($normalized['ratePlan']);
+    $preview = $service->preview($payload); $normalized = $preview['normalized']; $normalized['technicianDays'] = $payload['technicianDays']; unset($normalized['ratePlan']);
     $legacyHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     $store->records[$legacyHash] = ['enquiry_reference' => 'ARQ-2025-000123', 'status' => 'received', 'estimated_total' => '999.00', 'currency' => 'NGN'];
     unset($payload['ratePlan']); $result = $service->submit($payload);
@@ -132,7 +146,7 @@ $tests['historical retry without rate plan is lookup-only and never repriced'] =
 };
 $tests['historical best retry is lookup-only and can never create a new enquiry'] = function (): void {
     $store = new MemoryStore(); $service = service($store); $payload = valid_payload();
-    $preview = $service->preview($payload); $normalized = $preview['normalized']; $normalized['ratePlan'] = 'best';
+    $preview = $service->preview($payload); $normalized = $preview['normalized']; $normalized['technicianDays'] = $payload['technicianDays']; $normalized['ratePlan'] = 'best';
     $historicalHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     $store->records[$historicalHash] = ['enquiry_reference' => 'ARQ-2025-000456', 'status' => 'received', 'estimated_total' => '123456.00', 'currency' => 'NGN'];
     $payload['ratePlan'] = 'best'; $result = $service->submit($payload);

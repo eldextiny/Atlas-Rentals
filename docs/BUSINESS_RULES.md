@@ -23,7 +23,7 @@
 6. The selected category maps to its existing server quantity field and the unselected category maps to zero.
 7. At least five laptops are required.
 8. Delivery & Retrieval is an included rental service and is added once regardless of quantity or duration.
-9. Technician support is `technician days × ₦35,000`.
+9. Optional technician support is `billable working days × ₦35,000`; its persisted `technicianDays` value is derived from the authoritative rental duration when selected and is zero when unselected.
 10. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
 11. The estimate total is the pre-VAT subtotal plus VAT.
 
@@ -35,7 +35,7 @@ Historical stored pricing snapshots, including snapshots whose `ratePlan` is `be
 - End date must be the same as or later than the start date.
 - Start and end dates must be weekdays; dates are parsed as UTC calendar dates to avoid timezone shifts.
 - Laptop and technician quantities must be whole, non-negative numbers.
-- Technician support requires at least one technician day.
+- Technician support, when selected, covers every billable working day.
 - An estimate is non-binding and does not confirm availability or create a booking.
 - A quotation estimate is valid for 30 days.
 
