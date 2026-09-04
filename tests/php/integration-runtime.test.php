@@ -94,11 +94,11 @@ $tests['WhatsApp environment configuration takes precedence over private configu
     $privateDigits = implode('', array_fill(0, 12, '8')); $environmentDigits = implode('', array_fill(0, 12, '9'));
     $privatePath = $root . DIRECTORY_SEPARATOR . 'integrations.php';
     file_put_contents($privatePath, '<?php return ' . var_export(['whatsapp_number' => $privateDigits], true) . ';');
-    putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG=' . $privatePath); putenv('ATLAS_RENTALS_WHATSAPP_NUMBER');
+    putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG=' . $privatePath); putenv('ATLAS_RENTALS_DELIVERY_STATE_PATH=' . $root); putenv('ATLAS_RENTALS_PDF_PATH=' . $root); putenv('ATLAS_RENTALS_WHATSAPP_NUMBER');
     check(atlasRentalsIntegrationConfig()['whatsapp_number'] === $privateDigits, 'private WhatsApp fallback was not loaded');
     putenv('ATLAS_RENTALS_WHATSAPP_NUMBER=' . $environmentDigits);
     check(atlasRentalsIntegrationConfig()['whatsapp_number'] === $environmentDigits, 'WhatsApp environment variable did not take precedence');
-    putenv('ATLAS_RENTALS_WHATSAPP_NUMBER'); putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG'); unlink($privatePath);
+    putenv('ATLAS_RENTALS_WHATSAPP_NUMBER'); putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG'); putenv('ATLAS_RENTALS_DELIVERY_STATE_PATH'); putenv('ATLAS_RENTALS_PDF_PATH'); unlink($privatePath);
 };
 $tests['standard rental service wording replaces compulsory service'] = function () use ($record): void {
     $client = atlasRentalsBuildEmail($record, 'client'); $admin = atlasRentalsBuildEmail($record, 'admin'); $pdf = atlasRentalsRenderQuotationPdf($record);

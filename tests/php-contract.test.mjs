@@ -14,6 +14,7 @@ const downloadEndpoint = readFileSync(new URL("../api/download-quotation.php", i
 const journeyIdentifier = readFileSync(new URL("../api/journey-identifier.php", import.meta.url), "utf8");
 const reviewEndpoint = readFileSync(new URL("../api/review-enquiry.php", import.meta.url), "utf8");
 const rateLimit = readFileSync(new URL("../api/rate-limit.php", import.meta.url), "utf8");
+const privatePath = readFileSync(new URL("../api/private-path.php", import.meta.url), "utf8");
 
 test("PDO store uses prepared statements and one locked transaction", () => {
   assert.match(service, /beginTransaction\(\)/);
@@ -30,10 +31,21 @@ test("backend never creates, alters, truncates or drops schema", () => {
 
 test("endpoint uses only the private configurable loader contract", () => {
   const database = readFileSync(new URL("../api/database-runtime.php", import.meta.url), "utf8");
-  assert.match(database, /getenv\('ATLAS_RENTALS_DB_CONFIG'\)/);
-  assert.match(database, /private_html\/atlas-rentals-db\.php/);
+  assert.match(database, /atlasRentalsPrivatePath\('ATLAS_RENTALS_DB_CONFIG', 'atlas-rentals-db\.php', 'file'\)/);
   assert.match(database, /PDO::ATTR_EMULATE_PREPARES => false/);
   assert.doesNotMatch(endpoint, /(?:DB_PASSWORD|password)\s*=\s*['"][^'"]+['"]/i);
+});
+
+test("private defaults are application-relative isolated and fail closed", () => {
+  const runtimeSources = [privatePath, readFileSync(new URL("../api/database-runtime.php", import.meta.url), "utf8"), runtime, journeyIdentifier, rateLimit, readFileSync(new URL("../tools/configure-whatsapp.php", import.meta.url), "utf8")].join("\n");
+  assert.doesNotMatch(runtimeSources, /ezgshksprf|vfajfrnkst/);
+  assert.match(privatePath, /strtolower\(basename\(\$public\)\) !== 'public_html'/);
+  assert.match(privatePath, /dirname\(\$public\) \. DIRECTORY_SEPARATOR \. 'private_html'/);
+  assert.match(privatePath, /\$override !== false && \$override !== ''/);
+  assert.match(privatePath, /atlasRentalsPathIsWithin\(\$resolved, \$public\)/);
+  assert.match(privatePath, /realpath\(\$candidate\)/);
+  assert.doesNotMatch(privatePath, /glob\(|cloudwaysapps/);
+  for (const environment of ['ATLAS_RENTALS_DB_CONFIG', 'ATLAS_RENTALS_INTEGRATIONS_CONFIG', 'ATLAS_RENTALS_DELIVERY_STATE_PATH', 'ATLAS_RENTALS_PDF_PATH', 'ATLAS_RENTALS_JOURNEY_STATE_PATH', 'ATLAS_RENTALS_RATE_LIMIT_STATE_PATH']) assert.match(runtimeSources, new RegExp(environment));
 });
 
 test("delivery runtime has ordered resumable PDF and recipient operations", () => {
@@ -157,12 +169,11 @@ test("technician selection derives authoritative working days and reaches every 
 });
 
 test("journey identifiers use private check-before-cleanup expiry tombstones", () => {
-  assert.match(journeyIdentifier, /private_html\/atlas-rentals\/journey-identifiers/);
+  assert.match(journeyIdentifier, /atlasRentalsPrivatePath\('ATLAS_RENTALS_JOURNEY_STATE_PATH', 'atlas-rentals\/journey-identifiers', 'directory'\)/);
   assert.match(journeyIdentifier, /ATLAS_RENTALS_JOURNEY_STATE_PATH/);
   assert.match(journeyIdentifier, /hash\('sha256', \$identifier\)/);
   assert.match(journeyIdentifier, /if \(is_file\(\$path\)\)[\s\S]*JourneyIdentifierExpiredException[\s\S]*atlasRentalsCleanupJourneyTombstones/);
   assert.match(journeyIdentifier, /tempnam\([\s\S]*rename\(\$temporary, \$path\)/);
-  assert.doesNotMatch(journeyIdentifier, /public_html/);
   assert.match(submitEndpoint, /JourneyIdentifierExpiredException[\s\S]*respond\(409, \['ok' => false, 'error' => 'journey_expired'\]\)/);
   assert.match(reviewEndpoint, /JourneyIdentifierExpiredException[\s\S]*reviewRespond\(409, \['ok' => false, 'error' => 'journey_expired'\]\)/);
   assert.match(journeyIdentifier, /\^j1\\\.\(\[a-f0-9\]\{8\}\)\\\.\(\[a-f0-9\]\{32\}\)\$/);
@@ -173,13 +184,12 @@ test("journey identifiers use private check-before-cleanup expiry tombstones", (
 });
 
 test("private endpoint rate limits are independent authoritative and precede side effects", () => {
-  assert.match(rateLimit, /private_html\/atlas-rentals\/rate-limits/);
+  assert.match(rateLimit, /atlasRentalsPrivatePath\('ATLAS_RENTALS_RATE_LIMIT_STATE_PATH', 'atlas-rentals\/rate-limits', 'directory'\)/);
   assert.match(rateLimit, /\['submission', 'review'\]/);
   assert.match(rateLimit, /filter_var\(\$clientAddress, FILTER_VALIDATE_IP\)/);
   assert.match(rateLimit, /hash\('sha256', \$clientAddress\)/);
   assert.match(rateLimit, /fopen\(\$path \. '\.lock', 'c\+'\)/);
   assert.match(rateLimit, /tempnam\(\$directory, 'limit\.tmp\.'\)[\s\S]*rename\(\$temporary, \$path\)/);
-  assert.doesNotMatch(rateLimit, /public_html/);
   assert.doesNotMatch(submitEndpoint + reviewEndpoint, /HTTP_X_FORWARDED_FOR|HTTP_FORWARDED|X-Forwarded-For|Forwarded/);
   assert.match(rateLimit, /function atlasRentalsEnforceRateLimit\([\s\S]*string \$clientAddress,[\s\S]*\?string \$directory = null,[\s\S]*int \$limit = 10,[\s\S]*int \$windowSeconds = 600,[\s\S]*\?Closure \$clock = null,[\s\S]*string \$namespace = 'submission'/);
   assert.match(submitEndpoint, /atlasRentalsEnforceRateLimit\([\s\S]*clientAddress: \(string\)\(\$_SERVER\['REMOTE_ADDR'\] \?\? ''\),[\s\S]*limit: 10,[\s\S]*windowSeconds: 600,[\s\S]*namespace: 'submission'/);

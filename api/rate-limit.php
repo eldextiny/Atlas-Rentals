@@ -1,13 +1,12 @@
 <?php
 declare(strict_types=1);
 
-const ATLAS_RENTALS_RATE_LIMIT_STATE = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/rate-limits';
+require_once __DIR__ . '/private-path.php';
 
 function atlasRentalsRateLimitDirectory(string $namespace): string
 {
     if (!in_array($namespace, ['submission', 'review'], true)) throw new InvalidArgumentException('Rate limit namespace invalid.');
-    $configured = getenv('ATLAS_RENTALS_RATE_LIMIT_STATE_PATH');
-    $base = $configured === false || $configured === '' ? ATLAS_RENTALS_RATE_LIMIT_STATE : $configured;
+    $base = atlasRentalsPrivatePath('ATLAS_RENTALS_RATE_LIMIT_STATE_PATH', 'atlas-rentals/rate-limits', 'directory');
     return rtrim($base, '/\\') . DIRECTORY_SEPARATOR . $namespace;
 }
 

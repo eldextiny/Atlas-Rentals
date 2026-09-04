@@ -3,17 +3,16 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/rentals-email-template.php';
 require_once __DIR__ . '/document-engine/templates/rentals-quotation.php';
+require_once __DIR__ . '/private-path.php';
 
-const ATLAS_RENTALS_INTEGRATIONS_CONFIG = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-integrations.php';
-const ATLAS_RENTALS_DELIVERY_STATE = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/delivery-state';
-const ATLAS_RENTALS_PDF_STORAGE = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/quotation-pdfs';
 const ATLAS_RENTALS_MAX_ATTACHMENT = 8388608;
 
 function atlasRentalsIntegrationConfig(): array
 {
-    $path = getenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG') ?: ATLAS_RENTALS_INTEGRATIONS_CONFIG;
-    $private = is_readable($path) ? require $path : [];
-    if (!is_array($private)) $private = [];
+    $path = atlasRentalsPrivatePath('ATLAS_RENTALS_INTEGRATIONS_CONFIG', 'atlas-rentals-integrations.php', 'file');
+    if (!is_readable($path)) throw new RuntimeException('Integration configuration unavailable.');
+    $private = require $path;
+    if (!is_array($private)) throw new RuntimeException('Integration configuration invalid.');
     $map = [
         'resend_api_key' => 'ATLAS_RENTALS_RESEND_API_KEY', 'from_email' => 'ATLAS_RENTALS_FROM_EMAIL',
         'from_name' => 'ATLAS_RENTALS_FROM_NAME', 'reply_to' => 'ATLAS_RENTALS_REPLY_TO',
@@ -26,8 +25,8 @@ function atlasRentalsIntegrationConfig(): array
         $value = getenv($environment);
         $result[$key] = trim((string)($value !== false ? $value : ($private[$key] ?? '')));
     }
-    $result['state_path'] = getenv('ATLAS_RENTALS_DELIVERY_STATE_PATH') ?: ATLAS_RENTALS_DELIVERY_STATE;
-    $result['pdf_path'] = getenv('ATLAS_RENTALS_PDF_PATH') ?: ATLAS_RENTALS_PDF_STORAGE;
+    $result['state_path'] = atlasRentalsPrivatePath('ATLAS_RENTALS_DELIVERY_STATE_PATH', 'atlas-rentals/delivery-state', 'directory');
+    $result['pdf_path'] = atlasRentalsPrivatePath('ATLAS_RENTALS_PDF_PATH', 'atlas-rentals/quotation-pdfs', 'directory');
     return $result;
 }
 

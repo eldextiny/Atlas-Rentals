@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-const ATLAS_RENTALS_JOURNEY_STATE = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/journey-identifiers';
+require_once __DIR__ . '/private-path.php';
+
 const ATLAS_RENTALS_JOURNEY_TTL = 86400;
 const ATLAS_RENTALS_JOURNEY_TOMBSTONE_TTL = 7776000;
 const ATLAS_RENTALS_JOURNEY_FUTURE_TOLERANCE = 300;
@@ -10,7 +11,7 @@ final class JourneyIdentifierExpiredException extends RuntimeException {}
 
 function atlasRentalsJourneyStateDirectory(): string
 {
-    return getenv('ATLAS_RENTALS_JOURNEY_STATE_PATH') ?: ATLAS_RENTALS_JOURNEY_STATE;
+    return atlasRentalsPrivatePath('ATLAS_RENTALS_JOURNEY_STATE_PATH', 'atlas-rentals/journey-identifiers', 'directory');
 }
 
 function atlasRentalsJourneyTtl(string $environment, int $fallback): int

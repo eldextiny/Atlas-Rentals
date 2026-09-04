@@ -24,7 +24,7 @@ $tests = [];
 $tests['utility is CLI-only and uses the approved atomic private target contract'] = function (): void {
     $source = (string)file_get_contents(__DIR__ . '/../../tools/configure-whatsapp.php');
     checkConfigure(str_contains($source, "PHP_SAPI !== 'cli'"), 'CLI-only guard missing');
-    checkConfigure(str_contains($source, '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-integrations.php'), 'default private target changed');
+    checkConfigure(str_contains($source, "atlasRentalsPrivatePath('ATLAS_RENTALS_INTEGRATIONS_CONFIG', 'atlas-rentals-integrations.php', 'file')"), 'application-relative private target missing');
     foreach (['is_readable($target)', 'is_writable($target)', 'tempnam($directory', 'rename($temporary, $target)', 'chmod($temporary, 0640)', 'WHATSAPP_CONFIG_OK'] as $contract) {
         checkConfigure(str_contains($source, $contract), "utility contract missing {$contract}");
     }

@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-// Contract only. Keep the real loader outside public_html and out of Git.
+// Contract only. The default real loader is ../private_html/atlas-rentals-db.php
+// relative to this application's public_html. Keep it outside public_html and Git.
 return [
     'host' => 'database-host',
     'port' => 3306,
