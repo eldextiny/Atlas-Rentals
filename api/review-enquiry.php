@@ -18,7 +18,12 @@ try {
     reviewRespond($error->status, ['ok' => false, 'error' => $error->error]);
 }
 try {
-    $retryAfter = atlasRentalsEnforceRateLimit('review', (string)($_SERVER['REMOTE_ADDR'] ?? ''), limit: 30, windowSeconds: 600);
+    $retryAfter = atlasRentalsEnforceRateLimit(
+        clientAddress: (string)($_SERVER['REMOTE_ADDR'] ?? ''),
+        limit: 30,
+        windowSeconds: 600,
+        namespace: 'review',
+    );
     if ($retryAfter > 0) {
         header('Retry-After: ' . $retryAfter);
         reviewRespond(429, ['ok' => false, 'error' => 'rate_limited']);

@@ -23,7 +23,12 @@ try {
 }
 
 try {
-    $retryAfter = atlasRentalsEnforceRateLimit('submission', (string)($_SERVER['REMOTE_ADDR'] ?? ''), limit: 10, windowSeconds: 600);
+    $retryAfter = atlasRentalsEnforceRateLimit(
+        clientAddress: (string)($_SERVER['REMOTE_ADDR'] ?? ''),
+        limit: 10,
+        windowSeconds: 600,
+        namespace: 'submission',
+    );
     if ($retryAfter > 0) {
         header('Retry-After: ' . $retryAfter);
         respond(429, ['ok' => false, 'error' => 'rate_limited']);

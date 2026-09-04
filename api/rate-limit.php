@@ -26,13 +26,18 @@ function atlasRentalsWriteRateLimitState(string $directory, string $path, array 
     }
 }
 
+/**
+ * Preserve the established five positional arguments for submission callers.
+ * New callers must name every optional argument, including the final namespace,
+ * so a directory path and numeric limit/window values cannot exchange positions.
+ */
 function atlasRentalsEnforceRateLimit(
-    string $namespace,
     string $clientAddress,
     ?string $directory = null,
     int $limit = 10,
     int $windowSeconds = 600,
     ?Closure $clock = null,
+    string $namespace = 'submission',
 ): int {
     if (!in_array($namespace, ['submission', 'review'], true) || $limit < 1 || $windowSeconds < 1) throw new InvalidArgumentException('Rate limit configuration invalid.');
     if (filter_var($clientAddress, FILTER_VALIDATE_IP) === false) $clientAddress = 'unknown';

@@ -181,17 +181,18 @@ test("private endpoint rate limits are independent authoritative and precede sid
   assert.match(rateLimit, /tempnam\(\$directory, 'limit\.tmp\.'\)[\s\S]*rename\(\$temporary, \$path\)/);
   assert.doesNotMatch(rateLimit, /public_html/);
   assert.doesNotMatch(submitEndpoint + reviewEndpoint, /HTTP_X_FORWARDED_FOR|HTTP_FORWARDED|X-Forwarded-For|Forwarded/);
-  assert.match(submitEndpoint, /atlasRentalsEnforceRateLimit\('submission', \(string\)\(\$_SERVER\['REMOTE_ADDR'\] \?\? ''\), limit: 10, windowSeconds: 600\)/);
-  assert.match(reviewEndpoint, /atlasRentalsEnforceRateLimit\('review', \(string\)\(\$_SERVER\['REMOTE_ADDR'\] \?\? ''\), limit: 30, windowSeconds: 600\)/);
+  assert.match(rateLimit, /function atlasRentalsEnforceRateLimit\([\s\S]*string \$clientAddress,[\s\S]*\?string \$directory = null,[\s\S]*int \$limit = 10,[\s\S]*int \$windowSeconds = 600,[\s\S]*\?Closure \$clock = null,[\s\S]*string \$namespace = 'submission'/);
+  assert.match(submitEndpoint, /atlasRentalsEnforceRateLimit\([\s\S]*clientAddress: \(string\)\(\$_SERVER\['REMOTE_ADDR'\] \?\? ''\),[\s\S]*limit: 10,[\s\S]*windowSeconds: 600,[\s\S]*namespace: 'submission'/);
+  assert.match(reviewEndpoint, /atlasRentalsEnforceRateLimit\([\s\S]*clientAddress: \(string\)\(\$_SERVER\['REMOTE_ADDR'\] \?\? ''\),[\s\S]*limit: 30,[\s\S]*windowSeconds: 600,[\s\S]*namespace: 'review'/);
   for (const endpointSource of [submitEndpoint, reviewEndpoint]) {
     assert.match(endpointSource, /header\('Retry-After: ' \. \$retryAfter\)/);
     assert.match(endpointSource, /429, \['ok' => false, 'error' => 'rate_limited'\]/);
     assert.match(endpointSource, /503, \['ok' => false, 'error' => 'submission_unavailable'\]/);
   }
-  assert.ok(submitEndpoint.indexOf("atlasRentalsEnforceRateLimit('submission'") < submitEndpoint.indexOf('atlasRentalsDatabase()'));
-  assert.ok(reviewEndpoint.indexOf("atlasRentalsEnforceRateLimit('review'") < reviewEndpoint.indexOf('atlasRentalsDatabase()'));
-  assert.ok(reviewEndpoint.indexOf("atlasRentalsEnforceRateLimit('review'") < reviewEndpoint.indexOf('atlasRentalsSyncCrm('));
-  assert.ok(submitEndpoint.indexOf("atlasRentalsEnforceRateLimit('submission'") < submitEndpoint.indexOf('atlasRentalsDeliver('));
+  assert.ok(submitEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < submitEndpoint.indexOf('atlasRentalsDatabase()'));
+  assert.ok(reviewEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < reviewEndpoint.indexOf('atlasRentalsDatabase()'));
+  assert.ok(reviewEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < reviewEndpoint.indexOf('atlasRentalsSyncCrm('));
+  assert.ok(submitEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < submitEndpoint.indexOf('atlasRentalsDeliver('));
 });
 
 test("new enquiries accept daily only while historical best is lookup-only", () => {
