@@ -74,13 +74,18 @@ export function buildEnquiryPayload(form, journeyId) {
   };
 }
 
-export function createJourneyId(storage = globalThis.sessionStorage, crypto = globalThis.crypto) {
+export function createJourneyId(storage = globalThis.sessionStorage, crypto = globalThis.crypto, now = Date.now) {
   const key = "atlas-rentals-journey-id";
   const existing = storage?.getItem(key);
-  if (/^[a-f0-9]{32}$/.test(existing || "")) return existing;
+  if (/^(?:[a-f0-9]{32}|j1\.[a-f0-9]{8}\.[a-f0-9]{32})$/.test(existing || "")) return existing;
+  if (!crypto?.getRandomValues) throw new Error("Secure enquiry session is unavailable.");
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  const id = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  const random = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  if (/^0{32}$/.test(random)) throw new Error("Secure enquiry session is unavailable.");
+  const issuedAt = Math.floor(now() / 1000);
+  if (!Number.isSafeInteger(issuedAt) || issuedAt < 1 || issuedAt > 0xffffffff) throw new Error("Secure enquiry session is unavailable.");
+  const id = `j1.${issuedAt.toString(16).padStart(8, "0")}.${random}`;
   storage?.setItem(key, id);
   return id;
 }

@@ -13,6 +13,7 @@ const submitEndpoint = readFileSync(new URL("../api/submit-enquiry.php", import.
 const downloadEndpoint = readFileSync(new URL("../api/download-quotation.php", import.meta.url), "utf8");
 const journeyIdentifier = readFileSync(new URL("../api/journey-identifier.php", import.meta.url), "utf8");
 const reviewEndpoint = readFileSync(new URL("../api/review-enquiry.php", import.meta.url), "utf8");
+const rateLimit = readFileSync(new URL("../api/rate-limit.php", import.meta.url), "utf8");
 
 test("PDO store uses prepared statements and one locked transaction", () => {
   assert.match(service, /beginTransaction\(\)/);
@@ -164,6 +165,33 @@ test("journey identifiers use private check-before-cleanup expiry tombstones", (
   assert.doesNotMatch(journeyIdentifier, /public_html/);
   assert.match(submitEndpoint, /JourneyIdentifierExpiredException[\s\S]*respond\(409, \['ok' => false, 'error' => 'journey_expired'\]\)/);
   assert.match(reviewEndpoint, /JourneyIdentifierExpiredException[\s\S]*reviewRespond\(409, \['ok' => false, 'error' => 'journey_expired'\]\)/);
+  assert.match(journeyIdentifier, /\^j1\\\.\(\[a-f0-9\]\{8\}\)\\\.\(\[a-f0-9\]\{32\}\)\$/);
+  assert.match(journeyIdentifier, /ATLAS_RENTALS_JOURNEY_FUTURE_TOLERANCE = 300/);
+  assert.match(journeyIdentifier, /\$intrinsicExpiry = \$versioned \? \$issuedAt \+ \$ttl : null/);
+  assert.match(journeyIdentifier, /elseif \(\$legacy\)[\s\S]*JourneyIdentifierExpiredException/);
+  assert.match(journeyIdentifier, /elseif \(\$now >= \$intrinsicExpiry\)[\s\S]*'status' => 'expired'/);
+});
+
+test("private endpoint rate limits are independent authoritative and precede side effects", () => {
+  assert.match(rateLimit, /private_html\/atlas-rentals\/rate-limits/);
+  assert.match(rateLimit, /\['submission', 'review'\]/);
+  assert.match(rateLimit, /filter_var\(\$clientAddress, FILTER_VALIDATE_IP\)/);
+  assert.match(rateLimit, /hash\('sha256', \$clientAddress\)/);
+  assert.match(rateLimit, /fopen\(\$path \. '\.lock', 'c\+'\)/);
+  assert.match(rateLimit, /tempnam\(\$directory, 'limit\.tmp\.'\)[\s\S]*rename\(\$temporary, \$path\)/);
+  assert.doesNotMatch(rateLimit, /public_html/);
+  assert.doesNotMatch(submitEndpoint + reviewEndpoint, /HTTP_X_FORWARDED_FOR|HTTP_FORWARDED|X-Forwarded-For|Forwarded/);
+  assert.match(submitEndpoint, /atlasRentalsEnforceRateLimit\('submission', \(string\)\(\$_SERVER\['REMOTE_ADDR'\] \?\? ''\), limit: 10, windowSeconds: 600\)/);
+  assert.match(reviewEndpoint, /atlasRentalsEnforceRateLimit\('review', \(string\)\(\$_SERVER\['REMOTE_ADDR'\] \?\? ''\), limit: 30, windowSeconds: 600\)/);
+  for (const endpointSource of [submitEndpoint, reviewEndpoint]) {
+    assert.match(endpointSource, /header\('Retry-After: ' \. \$retryAfter\)/);
+    assert.match(endpointSource, /429, \['ok' => false, 'error' => 'rate_limited'\]/);
+    assert.match(endpointSource, /503, \['ok' => false, 'error' => 'submission_unavailable'\]/);
+  }
+  assert.ok(submitEndpoint.indexOf("atlasRentalsEnforceRateLimit('submission'") < submitEndpoint.indexOf('atlasRentalsDatabase()'));
+  assert.ok(reviewEndpoint.indexOf("atlasRentalsEnforceRateLimit('review'") < reviewEndpoint.indexOf('atlasRentalsDatabase()'));
+  assert.ok(reviewEndpoint.indexOf("atlasRentalsEnforceRateLimit('review'") < reviewEndpoint.indexOf('atlasRentalsSyncCrm('));
+  assert.ok(submitEndpoint.indexOf("atlasRentalsEnforceRateLimit('submission'") < submitEndpoint.indexOf('atlasRentalsDeliver('));
 });
 
 test("new enquiries accept daily only while historical best is lookup-only", () => {

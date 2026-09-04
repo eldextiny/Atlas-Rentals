@@ -4,6 +4,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 require_once __DIR__ . '/http-request.php';
+require_once __DIR__ . '/rate-limit.php';
 
 function respond(int $status, array $body): never
 {
@@ -19,6 +20,16 @@ try {
 } catch (EnquiryHttpException $error) {
     if ($error->status === 405) header('Allow: POST');
     respond($error->status, ['ok' => false, 'error' => $error->error]);
+}
+
+try {
+    $retryAfter = atlasRentalsEnforceRateLimit('submission', (string)($_SERVER['REMOTE_ADDR'] ?? ''), limit: 10, windowSeconds: 600);
+    if ($retryAfter > 0) {
+        header('Retry-After: ' . $retryAfter);
+        respond(429, ['ok' => false, 'error' => 'rate_limited']);
+    }
+} catch (Throwable) {
+    respond(503, ['ok' => false, 'error' => 'submission_unavailable']);
 }
 
 try {

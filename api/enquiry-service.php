@@ -223,7 +223,7 @@ final class EnquiryService
             'fullName' => $text($input['fullName']), 'organization' => $text($input['organization']),
             'email' => strtolower($text($input['email'])), 'phone' => $text($input['phone']),
         ];
-        if (!preg_match('/^[a-f0-9]{32}$/', $value['journeyId'])) $errors['journeyId'] = 'The journey identity is invalid.';
+        if (preg_match('/^(?:[a-f0-9]{32}|j1\.[a-f0-9]{8}\.[a-f0-9]{32})$/D', $value['journeyId']) !== 1) $errors['journeyId'] = 'The journey identity is invalid.';
         $this->length($value['location'], 2, 120, 'location', $errors);
         $this->length($value['fullName'], 2, 160, 'fullName', $errors);
         $this->length($value['organization'], 2, 200, 'organization', $errors);

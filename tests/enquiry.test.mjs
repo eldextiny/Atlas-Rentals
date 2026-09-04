@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildEnquiryPayload, createSubmissionGuard, hasStablePayloadShape, personalDetailsError } from "../js/enquiry.js";
+import { buildEnquiryPayload, createJourneyId, createSubmissionGuard, hasStablePayloadShape, personalDetailsError } from "../js/enquiry.js";
 
 const payload = {
   journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05", ratePlan: "daily",
@@ -16,6 +16,22 @@ test("valid enquiry payload has the stable server contract", () => {
   assert.equal(hasStablePayloadShape({ ...payload, ratePlan: "best" }), false);
   assert.equal(hasStablePayloadShape({ ...payload, ratePlan: "weekly" }), false);
   assert.equal(hasStablePayloadShape({ ...payload, ratePlan: "monthly" }), false);
+});
+
+test("new journey identifiers are versioned timestamp-bound and use 128 random bits", () => {
+  const values = new Map();
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  const crypto = { getRandomValues: (bytes) => { bytes.forEach((_, index) => { bytes[index] = index + 1; }); } };
+  const identifier = createJourneyId(storage, crypto, () => 1_700_000_000_000);
+  assert.equal(identifier, "j1.6553f100.0102030405060708090a0b0c0d0e0f10");
+  assert.equal(values.get("atlas-rentals-journey-id"), identifier);
+});
+
+test("existing legacy journey remains unchanged while all new generation requires Web Crypto", () => {
+  const legacy = "0123456789abcdef0123456789abcdef";
+  assert.equal(createJourneyId({ getItem: () => legacy }, null), legacy);
+  assert.throws(() => createJourneyId({ getItem: () => null }, null), /Secure enquiry session is unavailable/);
+  assert.throws(() => createJourneyId({ getItem: () => null }, { getRandomValues: (bytes) => bytes.fill(0) }, () => 1_700_000_000_000), /Secure enquiry session is unavailable/);
 });
 
 test("payload creation normalizes a copy without mutating entered values", () => {

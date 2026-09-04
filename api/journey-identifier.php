@@ -4,6 +4,7 @@ declare(strict_types=1);
 const ATLAS_RENTALS_JOURNEY_STATE = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/journey-identifiers';
 const ATLAS_RENTALS_JOURNEY_TTL = 86400;
 const ATLAS_RENTALS_JOURNEY_TOMBSTONE_TTL = 7776000;
+const ATLAS_RENTALS_JOURNEY_FUTURE_TOLERANCE = 300;
 
 final class JourneyIdentifierExpiredException extends RuntimeException {}
 
@@ -66,7 +67,10 @@ function atlasRentalsAssertJourneyIdentifier(
     ?int $ttl = null,
     ?int $tombstoneRetention = null,
 ): void {
-    if (preg_match('/^[a-f0-9]{32}$/', $identifier) !== 1) throw new InvalidArgumentException('Journey identity invalid.');
+    $legacy = preg_match('/^[a-f0-9]{32}$/D', $identifier) === 1;
+    $versioned = preg_match('/^j1\.([a-f0-9]{8})\.([a-f0-9]{32})$/D', $identifier, $parts) === 1;
+    if (!$legacy && !$versioned) throw new InvalidArgumentException('Journey identity invalid.');
+    if ($versioned && preg_match('/^0{32}$/D', $parts[2]) === 1) throw new InvalidArgumentException('Journey identity invalid.');
     $directory ??= atlasRentalsJourneyStateDirectory();
     if (!is_dir($directory) || !is_readable($directory) || !is_writable($directory)) throw new RuntimeException('Journey state unavailable.');
     $ttl ??= atlasRentalsJourneyTtl('ATLAS_RENTALS_JOURNEY_TTL', ATLAS_RENTALS_JOURNEY_TTL);
@@ -74,14 +78,21 @@ function atlasRentalsAssertJourneyIdentifier(
     $nowValue = $clock ? $clock() : new DateTimeImmutable('now', new DateTimeZone('UTC'));
     if (!$nowValue instanceof DateTimeInterface) throw new RuntimeException('Journey clock invalid.');
     $now = $nowValue->getTimestamp();
+    $issuedAt = $versioned ? (int)hexdec($parts[1]) : null;
+    if ($versioned && ($issuedAt < 1 || $issuedAt > $now + ATLAS_RENTALS_JOURNEY_FUTURE_TOLERANCE)) throw new InvalidArgumentException('Journey identity invalid.');
+    $intrinsicExpiry = $versioned ? $issuedAt + $ttl : null;
     $hash = hash('sha256', $identifier);
     $path = rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . $hash . '.json';
+    if ($legacy && !is_file($path)) throw new JourneyIdentifierExpiredException('Journey identity expired.');
     $lock = fopen($path . '.lock', 'c+');
     if ($lock === false || !flock($lock, LOCK_EX)) throw new RuntimeException('Journey state unavailable.');
     try {
         if (is_file($path)) {
             $state = json_decode((string)file_get_contents($path), true);
             if (!is_array($state) || ($state['identifierHash'] ?? '') !== $hash || !is_int($state['expiresAt'] ?? null)) {
+                throw new RuntimeException('Journey state invalid.');
+            }
+            if ($versioned && (($state['version'] ?? null) !== 2 || ($state['issuedAt'] ?? null) !== $issuedAt || $state['expiresAt'] !== $intrinsicExpiry)) {
                 throw new RuntimeException('Journey state invalid.');
             }
             if (($state['status'] ?? '') === 'expired' || $now >= $state['expiresAt']) {
@@ -93,13 +104,18 @@ function atlasRentalsAssertJourneyIdentifier(
                 throw new JourneyIdentifierExpiredException('Journey identity expired.');
             }
             if (($state['status'] ?? '') !== 'active') throw new RuntimeException('Journey state invalid.');
+        } elseif ($legacy) {
+            throw new JourneyIdentifierExpiredException('Journey identity expired.');
+        } elseif ($now >= $intrinsicExpiry) {
+            atlasRentalsWriteJourneyState($directory, $path, [
+                'version' => 2, 'identifierHash' => $hash, 'status' => 'expired',
+                'issuedAt' => $issuedAt, 'expiresAt' => $intrinsicExpiry, 'expiredAt' => $now,
+            ]);
+            throw new JourneyIdentifierExpiredException('Journey identity expired.');
         } else {
             atlasRentalsWriteJourneyState($directory, $path, [
-                'version' => 1,
-                'identifierHash' => $hash,
-                'status' => 'active',
-                'firstSeenAt' => $now,
-                'expiresAt' => $now + $ttl,
+                'version' => 2, 'identifierHash' => $hash, 'status' => 'active',
+                'issuedAt' => $issuedAt, 'firstSeenAt' => $now, 'expiresAt' => $intrinsicExpiry,
             ]);
         }
         atlasRentalsCleanupJourneyTombstones($directory, $path, $now, $tombstoneRetention);
