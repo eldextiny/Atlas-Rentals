@@ -1,5 +1,7 @@
 # Changelog
 
+- Changed new laptop-rental enquiries to Daily Rate only, with UTC-safe inclusive Monday-to-Friday billing, clear weekend-endpoint rejection, and matching browser, server, quotation, email, CRM, documentation and regression coverage.
+
 ## Unreleased
 
 - Refined the initial estimate state, service and laptop copy, accessible FAQ accordion, and personal-details presentation without changing workflow contracts or calculations.

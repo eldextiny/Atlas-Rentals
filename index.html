@@ -22,13 +22,13 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
     <title>Laptop Rental in Lagos, Abuja &amp; Nigeria | DY-PLUS</title>
-    <meta name="description" content="Rent laptops in Lagos and Abuja for training, conferences, examinations and corporate events. Daily, weekly and monthly plans; 5-laptop minimum.">
+    <meta name="description" content="Rent laptops in Lagos and Abuja for training, conferences, examinations and corporate events. Daily weekday billing; 5-laptop minimum.">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <link rel="canonical" href="https://laptops.dyplus.com.ng/">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://laptops.dyplus.com.ng/">
     <meta property="og:title" content="Laptop Rental in Lagos, Abuja &amp; Nigeria | DY-PLUS">
-    <meta property="og:description" content="Laptop rental for training, conferences, examinations and corporate events in Lagos and Abuja, with daily, weekly and monthly plans.">
+    <meta property="og:description" content="Laptop rental for training, conferences, examinations and corporate events in Lagos and Abuja, with daily weekday billing.">
     <meta property="og:site_name" content="ATLAS Rentals by DY-PLUS">
     <meta property="og:locale" content="en_NG">
     <meta property="og:image" content="https://laptops.dyplus.com.ng/assets/dyplus-logo.png">
@@ -88,7 +88,7 @@
             "@id": "https://laptops.dyplus.com.ng/#faq",
             "mainEntity": [
               { "@type": "Question", "name": "What is the minimum laptop rental quantity?", "acceptedAnswer": { "@type": "Answer", "text": "The minimum rental quantity is 5 laptops." } },
-              { "@type": "Question", "name": "How much does laptop rental cost?", "acceptedAnswer": { "@type": "Answer", "text": "Standard Business Laptops cost ₦10,000 daily, ₦59,500 weekly or ₦185,000 monthly per laptop. High Performance Laptops cost ₦15,000 daily, ₦89,500 weekly or ₦225,500 monthly per laptop. VAT is 7.5%." } },
+              { "@type": "Question", "name": "How much does laptop rental cost?", "acceptedAnswer": { "@type": "Answer", "text": "Standard Business Laptops cost ₦10,000 per laptop per billable working day. High Performance Laptops cost ₦15,000 per laptop per billable working day. VAT is 7.5%." } },
               { "@type": "Question", "name": "Do you provide laptop delivery and retrieval?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Delivery and retrieval is included as a standard rental service and charged once at ₦40,000." } },
               { "@type": "Question", "name": "Can laptops be rented for training, conferences and examinations?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Laptops can be requested for training programmes, conferences, examinations and corporate events, subject to availability and DY-PLUS confirmation." } },
               { "@type": "Question", "name": "Are technicians available?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. An on-site technician is optional at ₦35,000 per day." } },
@@ -161,7 +161,7 @@
           <form id="rental-form" novalidate>
             <section class="form-step is-active" data-step="1" aria-labelledby="step-1-title">
               <p class="step-kicker">Step 1 of 4</p><h3 id="step-1-title">Rental Details</h3>
-              <p class="section-help">Choose the service city and inclusive rental dates.</p>
+              <p class="section-help">Choose weekday start and end dates. Saturdays and Sundays between them are not billed.</p>
               <fieldset><legend>Service city</legend>
                 <div class="category-select-wrap city-select-wrap">
                   <span class="category-select-icon location-select-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z"/><circle cx="12" cy="10" r="2"/></svg></span>
@@ -200,18 +200,8 @@
                 </div>
                 <small class="category-hint" id="category-hint">Choose the performance level that best suits your event.</small>
                 <article class="product category-details" id="category-details" aria-live="polite" hidden></article>
-                <label for="rate-plan">Rental rate plan</label>
-                <div class="category-select-wrap rate-plan-select-wrap">
-                  <span class="category-select-icon rate-plan-select-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h14v16H5zM8 2v4M16 2v4M5 9h14M8 13h3M13 13h3M8 17h3"/></svg></span>
-                  <select id="rate-plan" name="ratePlan" aria-describedby="rate-plan-help rate-plan-error" required>
-                    <option value="">Choose a rental rate plan</option>
-                    <option value="daily">Daily Rate — Flexible billing for each inclusive rental day</option>
-                    <option value="weekly">Weekly Rate — Fixed blocks of 7 rental days</option>
-                    <option value="monthly">Monthly Rate — Fixed blocks of 30 rental days</option>
-                  </select>
-                  <span class="category-select-chevron" aria-hidden="true"></span>
-                </div>
-                <small class="category-hint rate-plan-help" id="rate-plan-help">Choose how the inclusive rental duration should be priced.</small>
+                <input id="rate-plan" name="ratePlan" type="hidden" value="daily">
+                <small class="category-hint rate-plan-help" id="rate-plan-help">Daily pricing applies to each Monday-to-Friday rental day.</small>
                 <article class="rate-plan-details" id="rate-plan-details" aria-live="polite" hidden></article>
                 <p class="field-error" id="rate-plan-error"></p>
                 <label for="laptop-quantity">Laptop quantity</label>
@@ -231,8 +221,9 @@
                 <span class="included-service-copy"><span class="included-badge">Included automatically</span><b>Delivery &amp; Retrieval</b><small>Required service · charged once</small></span>
                 <strong>₦40,000</strong>
               </div>
-              <label class="service-card"><input id="technician-required" name="technicianRequired" type="checkbox"><span><b>On-site technician</b><small>Optional operational assistance during your rental.</small></span><strong>₦35,000/day</strong></label>
-              <div class="technician-days" id="technician-days-wrap" hidden><label for="technician-days">Number of technician days</label><input id="technician-days" name="technicianDays" type="number" min="1" step="1" value="1" inputmode="numeric"><p class="field-error" id="technician-error"></p></div>
+              <label class="service-card" for="technician-required"><input id="technician-required" name="technicianRequired" type="checkbox" aria-describedby="technician-support-rate technician-error"><span><b>Optional technician support</b><small id="technician-support-rate">₦35,000 per billable working day</small></span></label>
+              <input id="technician-days" name="technicianDays" type="hidden" value="0">
+              <p class="field-error" id="technician-error"></p>
               <section class="personal-details-card" aria-labelledby="personal-details-title">
               <div class="personal-details-intro">
                 <span class="personal-details-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-4 3.1-6 7-6s6.3 2 7 6"/></svg></span>
@@ -287,9 +278,9 @@
                 <div><dt>Laptop category</dt><dd id="estimate-category">Select a laptop category</dd></div>
                 <div><dt>Quantity</dt><dd id="estimate-quantity">Quantity pending</dd></div>
                 <div><dt>Rental period</dt><dd id="estimate-duration-detail">Dates pending</dd></div>
-                <div><dt>Rental days</dt><dd id="estimate-rental-days">Days pending</dd></div>
-                <div><dt>Selected rate plan</dt><dd id="estimate-rate-plan">Plan pending</dd></div>
-                <div><dt>Applied duration</dt><dd id="estimate-billing-blocks">Billing blocks pending</dd></div>
+                <div><dt>Billable working days</dt><dd id="estimate-rental-days">Days pending</dd></div>
+                <div><dt>Rate plan</dt><dd id="estimate-rate-plan">Daily Rate</dd></div>
+                <div><dt>Applied duration</dt><dd id="estimate-billing-blocks">Working days pending</dd></div>
                 <div><dt>Rate per laptop</dt><dd id="estimate-rate-per-laptop">Rate pending</dd></div>
                 <div class="selection-equipment-total"><dt>Equipment rental total</dt><dd id="estimate-equipment-total">₦0.00</dd></div>
               </dl>
@@ -325,7 +316,7 @@
         </div>
         <div class="faq-grid">
           <details class="faq-item"><summary><span>What is the minimum laptop rental quantity?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>The minimum rental quantity is <strong>5 laptops</strong>.</p></div></details>
-          <details class="faq-item"><summary><span>How much does laptop rental cost?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Standard Business Laptops cost <strong>₦10,000 daily, ₦59,500 weekly or ₦185,000 monthly</strong> per laptop. High Performance Laptops cost <strong>₦15,000 daily, ₦89,500 weekly or ₦225,500 monthly</strong> per laptop. VAT is 7.5%.</p></div></details>
+          <details class="faq-item"><summary><span>How much does laptop rental cost?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Standard Business Laptops cost <strong>₦10,000 per laptop per billable working day</strong>. High Performance Laptops cost <strong>₦15,000 per laptop per billable working day</strong>. VAT is 7.5%.</p></div></details>
           <details class="faq-item"><summary><span>Do you provide laptop delivery and retrieval?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. Delivery and retrieval is included as a standard rental service and charged once at <strong>₦40,000</strong>.</p></div></details>
           <details class="faq-item"><summary><span>Can laptops be rented for training, conferences and examinations?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. Laptops can be requested for training programmes, conferences, examinations and corporate events, subject to availability and DY-PLUS confirmation.</p></div></details>
           <details class="faq-item"><summary><span>Are technicians available?</span><span class="faq-indicator" aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. An on-site technician is optional at <strong>₦35,000 per day</strong>.</p></div></details>

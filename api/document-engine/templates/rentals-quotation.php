@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../pdf-png.php';
 require_once __DIR__ . '/../../rentals-pricing.php';
 
-const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v7-standard-rental-service';
+const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v8-working-days';
 const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
 
 function atlasRentalsPdfText(mixed $value): string
@@ -111,7 +111,7 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $row('Email', $data['email']); $row('Phone', $data['phone']);
     $section('Rental Details');
     $row('Rental period', $data['startDate'] . ' to ' . $data['endDate']);
-    $row('Rental days', $days . ' day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
+    $row('Billable working days', $days . ' day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
     $row('Rental rate plan', $pricing['ratePlanLabel']);
     $section('Itemised Quotation');
     if ((int)$record['standard_quantity'] > 0) $item('Standard Business Laptop - ' . $record['standard_quantity'] . ' units', atlasRentalsAppliedRatesLabel($standard, 'atlasRentalsPdfMoney') . ' | per unit ' . atlasRentalsPdfMoney($standard['perUnitRental']), atlasRentalsPdfMoney($standard['equipmentAmount']));

@@ -12,7 +12,7 @@ AR-H1 combines the static planner with a same-origin PHP JSON endpoint and MySQL
 4. Run `npm run build` and verify `js/vendor/libphonenumber.js` exists.
 5. Run `npm test` and `npm run check`.
 6. Run `php tests/php/dependency-foundation.test.php`, `php tests/php/enquiry-service.test.php` and PHP syntax checks in an isolated environment.
-7. Serve the site locally over HTTP and walk through all city choices, both laptop types, all three rate plans and incompatible 7/30-day boundaries, optional services, submission failure and confirmed enquiry receipt.
+7. Serve the site locally over HTTP and walk through all city choices, both laptop types, weekday and rejected weekend endpoints, periods spanning weekends, optional services, submission failure and confirmed enquiry receipt.
 8. Verify keyboard navigation and responsive layouts at narrow and wide widths.
 9. Confirm the canonical URL and social metadata remain unchanged.
 
@@ -39,19 +39,21 @@ Composer creates the production `vendor/` tree. npm creates the temporary build-
 - Do not cache `index.html` longer than versioned assets unless a coordinated cache strategy exists.
 - Add security headers at the hosting layer during a separately approved deployment milestone.
 
-The endpoint reads the loader path from `ATLAS_RENTALS_DB_CONFIG`, falling back to the approved Cloudways private path. The loader must remain outside `public_html`, be readable by PHP, and return `host`, `port`, `database`, `username`, `password`, and `charset`. `api/database-config.example.php` documents this shape with placeholders only. Never copy production values into the repository.
+The endpoint reads the loader path from `ATLAS_RENTALS_DB_CONFIG`. Without an override it derives `<current-application>/private_html/atlas-rentals-db.php` from the executing `<current-application>/public_html`; it never searches another application. The loader must remain outside `public_html`, be readable by PHP, and return `host`, `port`, `database`, `username`, `password`, and `charset`. `api/database-config.example.php` documents this shape with placeholders only. Never copy production values into the repository.
 
-Integration configuration is loaded from `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-integrations.php`, with the documented `ATLAS_RENTALS_*` environment variables taking precedence. It supplies Resend sender/administrator settings and the bearer-authenticated CRM adapter. `api/integrations-config.example.php` contains placeholders only.
+Integration configuration defaults to `<current-application>/private_html/atlas-rentals-integrations.php`, derived only from the executing application's sibling `public_html` and `private_html` directories. `ATLAS_RENTALS_INTEGRATIONS_CONFIG` overrides that loader path, and the documented per-value `ATLAS_RENTALS_*` environment variables retain precedence over loader values. It supplies Resend sender/administrator settings and the token-authenticated CRM adapter. `api/integrations-config.example.php` contains placeholders only.
 
 Create and verify these private, non-public runtime directories before release:
 
-- `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/delivery-state`
-- `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/quotation-pdfs`
-- `/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals/journey-identifiers`
+- `<current-application>/private_html/atlas-rentals/delivery-state`
+- `<current-application>/private_html/atlas-rentals/quotation-pdfs`
+- `<current-application>/private_html/atlas-rentals/journey-identifiers`
+- `<current-application>/private_html/atlas-rentals/rate-limits/submission`
+- `<current-application>/private_html/atlas-rentals/rate-limits/review`
 
-PHP must be able to read and write these private directories. The application does not alter directory permissions. Journey identifiers have a fixed 24-hour lifetime and bounded 90-day expiry tombstones; `ATLAS_RENTALS_JOURNEY_STATE_PATH`, `ATLAS_RENTALS_JOURNEY_TTL` and `ATLAS_RENTALS_JOURNEY_TOMBSTONE_TTL` may override those values. Delivery state and PDF retention is 30 days; quotation validity is 30 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
+PHP must be able to read and write these private directories. The application does not create them or alter permissions. Every default is derived from the current application's sibling `private_html`; every explicit path is resolved canonically and rejected if it is inside the current `public_html`. Resolution fails closed if `public_html`, its sibling `private_html`, a required loader, or a required state directory is missing. Journey identifiers have an intrinsic 24-hour lifetime and bounded 90-day expiry tombstones; `ATLAS_RENTALS_JOURNEY_STATE_PATH`, `ATLAS_RENTALS_JOURNEY_TTL` and `ATLAS_RENTALS_JOURNEY_TOMBSTONE_TTL` may override those values. `ATLAS_RENTALS_RATE_LIMIT_STATE_PATH` may override the rate-limit base directory, beneath which the separate `submission` and `review` directories must exist. Delivery state and PDF retention is 30 days; quotation validity is 30 days and attachments are limited to 8 MB. PHP cURL and outbound HTTPS are required for CRM and Resend.
 
-The pricing snapshot JSON stores the selected rate plan, duration blocks, all laptop rates, per-unit and equipment amounts, technician, delivery, subtotal, VAT and total without a schema change. New enquiries accept only Daily, Weekly and Monthly plans. Historical records, including stored `best` snapshots, are not rewritten or repriced and remain available to legitimate duplicate and delivery retries. The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
+The pricing snapshot JSON stores the fixed Daily rate plan, billable working-day duration, laptop daily rates, per-unit and equipment amounts, technician, delivery, subtotal, VAT and total without a schema change. New enquiries accept only Daily. Historical records, including stored legacy rate-plan snapshots, are not rewritten or repriced and remain available to legitimate duplicate and delivery retries. The existing InnoDB tables `atlas_rental_enquiries` and `atlas_rental_reference_counters` are required. The nullable `delivery_address` and existing `description` columns receive SQL `NULL`; no schema creation or migration runs. Tests must use private temporary directories, the in-memory store, or a dedicated non-production database and must never write test enquiries to production.
 
 ## Release unit
 

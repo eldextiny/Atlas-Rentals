@@ -62,7 +62,7 @@ $tests['client and administrator emails are branded, distinct, escaped, and reta
         check(str_contains($message['html'], 'DY-PLUS') && str_contains($message['html'], 'ATLAS Rentals'), 'email branding missing');
         check(str_contains($message['html'], 'https://laptops.dyplus.com.ng/assets/dyplus-logo.png') && str_contains($message['html'], 'alt="DY-PLUS company logo"'), 'approved email logo missing');
         check(str_contains($message['html'], 'ARQ-2026-000001') && str_contains($message['html'], '₦311,750.00'), 'required email fields missing');
-        check(str_contains($message['html'], 'Rental days') && str_contains($message['text'], 'Rental days:'), 'rental-days label missing from email');
+        check(str_contains($message['html'], 'Billable working days') && str_contains($message['text'], 'Billable working days:'), 'working-days label missing from email');
         check(!str_contains($message['html'], 'Inclusive duration') && !str_contains($message['text'], 'inclusive day(s)'), 'obsolete inclusive-days label remains in email');
         check(str_contains($message['html'], 'valid for 30 days') && str_contains($message['text'], 'valid for 30 days'), '30-day validity missing from email');
         check(!str_contains($message['html'], '<script>') && str_contains($message['html'], '&lt;script&gt;'), 'user HTML was not escaped');
@@ -94,11 +94,11 @@ $tests['WhatsApp environment configuration takes precedence over private configu
     $privateDigits = implode('', array_fill(0, 12, '8')); $environmentDigits = implode('', array_fill(0, 12, '9'));
     $privatePath = $root . DIRECTORY_SEPARATOR . 'integrations.php';
     file_put_contents($privatePath, '<?php return ' . var_export(['whatsapp_number' => $privateDigits], true) . ';');
-    putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG=' . $privatePath); putenv('ATLAS_RENTALS_WHATSAPP_NUMBER');
+    putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG=' . $privatePath); putenv('ATLAS_RENTALS_DELIVERY_STATE_PATH=' . $root); putenv('ATLAS_RENTALS_PDF_PATH=' . $root); putenv('ATLAS_RENTALS_WHATSAPP_NUMBER');
     check(atlasRentalsIntegrationConfig()['whatsapp_number'] === $privateDigits, 'private WhatsApp fallback was not loaded');
     putenv('ATLAS_RENTALS_WHATSAPP_NUMBER=' . $environmentDigits);
     check(atlasRentalsIntegrationConfig()['whatsapp_number'] === $environmentDigits, 'WhatsApp environment variable did not take precedence');
-    putenv('ATLAS_RENTALS_WHATSAPP_NUMBER'); putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG'); unlink($privatePath);
+    putenv('ATLAS_RENTALS_WHATSAPP_NUMBER'); putenv('ATLAS_RENTALS_INTEGRATIONS_CONFIG'); putenv('ATLAS_RENTALS_DELIVERY_STATE_PATH'); putenv('ATLAS_RENTALS_PDF_PATH'); unlink($privatePath);
 };
 $tests['standard rental service wording replaces compulsory service'] = function () use ($record): void {
     $client = atlasRentalsBuildEmail($record, 'client'); $admin = atlasRentalsBuildEmail($record, 'admin'); $pdf = atlasRentalsRenderQuotationPdf($record);
@@ -110,8 +110,8 @@ $tests['standard rental service wording replaces compulsory service'] = function
 $tests['historical best snapshot remains authoritative for email PDF CRM and retries'] = function () use ($record, $config): void {
     $tiered = $record; $payload = json_decode($tiered['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
     $payload['ratePlan'] = 'best'; $payload['standardQuantity'] = 6; $payload['performanceQuantity'] = 0; $payload['startDate'] = '2026-08-01'; $payload['endDate'] = '2026-09-09'; $payload['technicianDays'] = 40;
-    $standard = atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['standard']) + ['quantity' => 6];
-    $performance = atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['performance']) + ['quantity' => 0];
+    $standard = atlasRentalsHistoricalTieredUnitPrice(40, ['dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000]) + ['quantity' => 6];
+    $performance = atlasRentalsHistoricalTieredUnitPrice(40, ['dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500]) + ['quantity' => 0];
     $standard['equipmentAmount'] = 6 * $standard['perUnitRental']; $performance['equipmentAmount'] = 0;
     $subtotal = $standard['equipmentAmount'] + 40000 + (40 * 35000); $vat = (int)round($subtotal * .075);
     $pricing = ['currency' => 'NGN', 'ratePlan' => 'best', 'ratePlanLabel' => 'Best Available Rate', 'rentalDays' => 40,
@@ -130,8 +130,50 @@ $tests['historical best snapshot remains authoritative for email PDF CRM and ret
     $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
     check($crm['serviceMode'] === 'Best Available Rate' && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], 'CRM authoritative pricing mismatch');
 };
-$tests['all active rate plans propagate through snapshot CRM email and PDF'] = function () use ($record, $config): void {
-    foreach ([['daily', 6, 'Daily Rate'], ['weekly', 14, 'Weekly Rate - 7 days'], ['monthly', 60, 'Monthly Rate - 30 days']] as [$plan, $days, $label]) {
+$tests['historical tier helper fails cleanly when persisted rate keys are missing'] = function (): void {
+    set_error_handler(static function (int $severity, string $message): never { throw new ErrorException($message, 0, $severity); });
+    try {
+        atlasRentalsHistoricalTieredUnitPrice(40, ATLAS_RENTALS_PRICING['standard']);
+    } catch (InvalidArgumentException $error) {
+        check($error->getMessage() === 'Historical tier pricing requires complete persisted rate values.', 'missing historical rates returned the wrong failure');
+        restore_error_handler();
+        return;
+    } catch (Throwable $error) {
+        restore_error_handler();
+        throw $error;
+    }
+    restore_error_handler();
+    throw new RuntimeException('incomplete historical rates were accepted');
+};
+$tests['historical weekly and monthly snapshots retain saved labels rates totals and CRM context'] = function () use ($record, $config): void {
+    foreach ([
+        ['weekly', 'Weekly Rate - 7 days', 14, ['totalDays' => 14, 'months' => 0, 'weeks' => 2, 'days' => 0]],
+        ['monthly', 'Monthly Rate - 30 days', 60, ['totalDays' => 60, 'months' => 2, 'weeks' => 0, 'days' => 0]],
+    ] as [$plan, $label, $days, $duration]) {
+        $item = $record;
+        $payload = json_decode($item['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+        $payload['ratePlan'] = $plan; $payload['standardQuantity'] = 5; $payload['performanceQuantity'] = 0;
+        $standard = atlasRentalsHistoricalTieredUnitPrice($days, ['dailyRate' => 10000, 'weeklyRate' => 59500, 'monthlyRate' => 185000]) + ['quantity' => 5];
+        $performance = atlasRentalsHistoricalTieredUnitPrice($days, ['dailyRate' => 15000, 'weeklyRate' => 89500, 'monthlyRate' => 225500]) + ['quantity' => 0];
+        $standard['equipmentAmount'] = 5 * $standard['perUnitRental']; $performance['equipmentAmount'] = 0;
+        $subtotal = $standard['equipmentAmount'] + 40000 + 70000; $vat = (int)round($subtotal * .075);
+        $pricing = ['currency' => 'NGN', 'ratePlan' => $plan, 'ratePlanLabel' => $label, 'rentalDays' => $days,
+            'duration' => $duration, 'durationLabel' => atlasRentalsDurationLabel($duration), 'standard' => $standard, 'performance' => $performance,
+            'equipmentAmount' => $standard['equipmentAmount'], 'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'technicianAmount' => 70000,
+            'vatRate' => .075, 'subtotal' => $subtotal, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat];
+        $item['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR);
+        $item['rental_days'] = $days; $item['standard_quantity'] = 5; $item['performance_quantity'] = 0;
+        $item['subtotal'] = $subtotal; $item['vat_amount'] = $vat; $item['estimated_total'] = $subtotal + $vat;
+        $email = atlasRentalsBuildEmail($item, 'client'); $pdf = atlasRentalsRenderQuotationPdf($item);
+        check(str_contains($email['html'], $label) && str_contains($email['text'], number_format($standard['perUnitRental'], 2)), "historical {$plan} email changed");
+        check(str_contains($pdf, $label) && str_contains($pdf, 'unit NGN ' . number_format($standard['perUnitRental'], 2)), "historical {$plan} PDF changed");
+        $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $payload, 'pricing' => $pricing];
+        $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
+        check($crm['documentContext']['ratePlan'] === $plan && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], "historical {$plan} CRM changed");
+    }
+};
+$tests['daily rate propagates through snapshot CRM email and PDF'] = function () use ($record, $config): void {
+    foreach ([['daily', 6, 'Daily Rate']] as [$plan, $days, $label]) {
         $item = $record; $normalized = json_decode($item['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
         $normalized['ratePlan'] = $plan; $normalized['standardQuantity'] = 5; $normalized['performanceQuantity'] = 0; $normalized['startDate'] = '2026-01-01'; $normalized['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
         $pricing = atlasRentalsCalculatePricing($normalized, $days); $item['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR); $item['rental_days'] = $days;
@@ -183,7 +225,7 @@ $tests['PDF contains required quotation content'] = function () use ($record, $p
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath); $bytes = file_get_contents($pdf['path']);
     check(str_starts_with($bytes, '%PDF-1.4') && str_ends_with($bytes, '%%EOF'), 'PDF structure invalid');
     check(str_contains($bytes, '/Subtype /Image') && str_contains($bytes, '/Width 200 /Height 129') && str_contains($bytes, '/SMask'), 'approved logo was not embedded with transparency');
-    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Rental days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
+    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Billable working days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
     check(!str_contains($bytes, 'Compulsory service'), 'PDF retained obsolete service wording');
     check(str_contains($bytes, 'VAT \\(7.5%\\)'), 'PDF missing VAT (7.5%)');
     $long = $record; $long['enquiry_reference'] = 'ARQ-2026-000099';

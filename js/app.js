@@ -1,4 +1,4 @@
-import { calculateEstimate, calculateRentalDays, LAPTOP_CATALOGUE, PRICING, RATE_PLANS, validateBooking } from "./pricing.js";
+import { calculateEstimate, calculateRentalDays, LAPTOP_CATALOGUE, PRICING, validateBooking } from "./pricing.js";
 import { PHONE_VALIDATION_MESSAGE, buildEnquiryPayload, clearJourneyId, createJourneyId, createSubmissionGuard, normalizePhoneNumber, personalDetailsError, phoneCountryOptions } from "./enquiry.js";
 
 const form = document.querySelector("#rental-form");
@@ -17,7 +17,6 @@ const ratePlanHelp = document.querySelector("#rate-plan-help");
 const ratePlanDetails = document.querySelector("#rate-plan-details");
 const categoryDetails = document.querySelector("#category-details");
 const technicianRequired = document.querySelector("#technician-required");
-const technicianDaysWrap = document.querySelector("#technician-days-wrap");
 const technicianDaysInput = document.querySelector("#technician-days");
 const phoneCountry = document.querySelector("#phone-country");
 const phoneInput = document.querySelector("#phone");
@@ -98,6 +97,8 @@ function plannerState() {
   const techSelected = form.elements.technicianRequired.checked;
   const category = form.elements.laptopCategory.value;
   const quantity = numberValue("laptopQuantity");
+  const billableWorkingDays = rentalDays();
+  technicianDaysInput.value = String(techSelected ? billableWorkingDays : 0);
   return {
     location: selectedLocation(),
     startDate: form.elements.startDate.value,
@@ -106,10 +107,10 @@ function plannerState() {
     laptopQuantity: quantity,
     standardQuantity: category === "standard" ? quantity : 0,
     performanceQuantity: category === "performance" ? quantity : 0,
-    rentalDays: rentalDays(),
+    rentalDays: billableWorkingDays,
     ratePlan: ratePlan.value,
     technicianRequired: techSelected,
-    technicianDays: techSelected ? numberValue("technicianDays") : 0,
+    technicianDays: techSelected ? billableWorkingDays : 0,
   };
 }
 
@@ -124,25 +125,16 @@ function setText(selector, text) {
 
 function renderRatePlanHelp(category, plan) {
   const details = LAPTOP_CATALOGUE[category];
-  const selectedPlan = RATE_PLANS[plan];
-  if (!details || !selectedPlan) {
-    ratePlanHelp.textContent = "Choose how the inclusive rental duration should be priced.";
+  if (!details || plan !== "daily") {
+    ratePlanHelp.textContent = "Daily pricing applies to each Monday-to-Friday rental day.";
     ratePlanDetails.hidden = true;
     ratePlanDetails.replaceChildren();
     return;
   }
-  const applicable = plan === "daily" ? `Daily rate: ${currency.format(details.dailyRate)}.`
-    : plan === "weekly" ? `Weekly rate: ${currency.format(details.weeklyRate)} per 7 days.`
-      : `Monthly rate: ${currency.format(details.monthlyRate)} per 30 days.`;
-  ratePlanHelp.textContent = `${selectedPlan.help} ${applicable}`;
-  const requirement = plan === "weekly" ? "Requires a whole multiple of 7 inclusive rental days."
-    : plan === "monthly" ? "Requires a whole multiple of 30 inclusive rental days."
-      : "No divisibility requirement; every inclusive rental day is charged.";
-  const recommendation = plan === "daily" ? "Best for short or irregular rental periods."
-    : plan === "weekly" ? "Best for exact full-week rentals."
-      : "Best for exact 30-day rental blocks.";
+  const applicable = `Daily rate: ${currency.format(details.dailyRate)} per billable working day.`;
+  ratePlanHelp.textContent = applicable;
   ratePlanDetails.hidden = false;
-  ratePlanDetails.innerHTML = `<span class="selected-category-state">Selected plan</span><h4>${selectedPlan.label}</h4><p>${selectedPlan.help}</p><dl><div><dt>Applicable rate</dt><dd>${applicable.replace(/\.$/, "")}</dd></div><div><dt>Duration rule</dt><dd>${requirement}</dd></div><div><dt>Recommendation</dt><dd>${recommendation}</dd></div></dl>`;
+  ratePlanDetails.innerHTML = `<span class="selected-category-state">Pricing</span><h4>Daily Rate</h4><p>Only Monday-to-Friday rental days are billed. Public holidays on weekdays remain billable.</p><dl><div><dt>Applicable rate</dt><dd>${applicable.replace(/\.$/, "")}</dd></div><div><dt>Weekend rule</dt><dd>Saturday and Sunday endpoints are not accepted, and intervening weekends are excluded.</dd></div></dl>`;
 }
 
 function renderCategoryDetails(category) {
@@ -152,7 +144,7 @@ function renderCategoryDetails(category) {
     categoryDetails.replaceChildren();
     return;
   }
-  categoryDetails.innerHTML = `<span class="selected-category-state">Selected category</span><h4>${details.title}</h4><div class="category-rates"><span>Daily: <strong>${currency.format(details.dailyRate)}</strong></span><span>Weekly — ${PRICING.daysPerWeek} days: <strong>${currency.format(details.weeklyRate)}</strong></span><span>Monthly — ${PRICING.daysPerMonth} days: <strong>${currency.format(details.monthlyRate)}</strong></span></div><p class="category-best-use"><strong>Best suited for:</strong> ${details.bestSuitedFor}</p><div class="category-specs">${details.features.map((detail) => `<span>${detail}</span>`).join("")}</div><p class="category-minimum">Minimum quantity: ${PRICING.minimumLaptopQuantity} laptops</p>`;
+  categoryDetails.innerHTML = `<span class="selected-category-state">Selected category</span><h4>${details.title}</h4><div class="category-rates"><span>Daily: <strong>${currency.format(details.dailyRate)}</strong> per billable working day</span></div><p class="category-best-use"><strong>Best suited for:</strong> ${details.bestSuitedFor}</p><div class="category-specs">${details.features.map((detail) => `<span>${detail}</span>`).join("")}</div><p class="category-minimum">Minimum quantity: ${PRICING.minimumLaptopQuantity} laptops</p>`;
 }
 
 function updateEstimate() {
@@ -167,18 +159,15 @@ function updateEstimate() {
   const rentalPeriod = result.rentalDays && state.startDate && state.endDate
     ? `${state.startDate} to ${state.endDate}`
     : "Dates pending";
-  const ratePerLaptop = !selectedDetails || !state.ratePlan || !result.rentalDays
+  const ratePerLaptop = !selectedDetails || !result.rentalDays
     ? "Rate pending"
-    : state.ratePlan === "daily" ? `${currency.format(selectedDetails.dailyRate)} per day`
-      : state.ratePlan === "weekly" ? `${currency.format(selectedDetails.weeklyRate)} per 7 days`
-        : state.ratePlan === "monthly" ? `${currency.format(selectedDetails.monthlyRate)} per 30 days`
-          : `${currency.format(selectedPricing.perUnitRental)} for the applied duration`;
+    : `${currency.format(selectedDetails.dailyRate)} per working day`;
   setText("#estimate-category", selectedDetails?.title || "Select a laptop category");
   setText("#estimate-quantity", selectedDetails ? `${result.totalQuantity} laptop${result.totalQuantity === 1 ? "" : "s"}` : "Quantity pending");
   setText("#estimate-duration-detail", rentalPeriod);
   setText("#estimate-rental-days", result.rentalDays ? `${result.rentalDays} day${result.rentalDays === 1 ? "" : "s"}` : "Days pending");
-  setText("#estimate-rate-plan", state.ratePlan ? result.ratePlanLabel : "Plan pending");
-  setText("#estimate-billing-blocks", state.ratePlan && result.rentalDays ? result.durationLabel : "Billing blocks pending");
+  setText("#estimate-rate-plan", "Daily Rate");
+  setText("#estimate-billing-blocks", result.rentalDays ? result.durationLabel : "Working days pending");
   setText("#estimate-rate-per-laptop", ratePerLaptop);
   setText("#estimate-equipment-total", currency.format(equipmentTotal));
   setText("#summary-equipment-cost", currency.format(equipmentTotal));
@@ -213,7 +202,7 @@ function estimateMarkup(result) {
   const categoryName = result.standardQuantity ? "Standard Business Laptop" : "High Performance Laptop";
   const quantity = result.standardQuantity || result.performanceQuantity;
   const equipmentAmount = result.standardQuantity ? result.standardRental : result.performanceRental;
-  const categoryLine = `<div class="summary-group tiered-rental-summary"><h5>${categoryName}</h5><div class="summary-line"><span>Rate plan</span><strong>${result.ratePlanLabel}</strong></div><div class="summary-line"><span>Quantity</span><strong>${quantity}</strong></div><div class="summary-line"><span>Applied duration</span><strong>${result.durationLabel}</strong></div><div class="summary-line"><span>Applied rates</span><strong>${selectedPricing.months ? `${selectedPricing.months} × ${currency.format(selectedPricing.monthlyRate)} monthly` : ""}${selectedPricing.months && (selectedPricing.weeks || selectedPricing.days) ? " + " : ""}${selectedPricing.weeks ? `${selectedPricing.weeks} × ${currency.format(selectedPricing.weeklyRate)} weekly` : ""}${selectedPricing.weeks && selectedPricing.days ? " + " : ""}${selectedPricing.days ? `${selectedPricing.days} × ${currency.format(selectedPricing.dailyRate)} daily` : ""}</strong></div><div class="summary-line"><span>Per-unit rental</span><strong>${currency.format(selectedPricing.perUnitRental)}</strong></div><div class="summary-line"><span>Equipment amount</span><strong>${currency.format(equipmentAmount)}</strong></div></div>`;
+  const categoryLine = `<div class="summary-group tiered-rental-summary"><h5>${categoryName}</h5><div class="summary-line"><span>Rate plan</span><strong>Daily Rate</strong></div><div class="summary-line"><span>Quantity</span><strong>${quantity}</strong></div><div class="summary-line"><span>Billable working days</span><strong>${result.durationLabel}</strong></div><div class="summary-line"><span>Applied rate</span><strong>${selectedPricing.days} × ${currency.format(selectedPricing.dailyRate)} daily</strong></div><div class="summary-line"><span>Per-unit rental</span><strong>${currency.format(selectedPricing.perUnitRental)}</strong></div><div class="summary-line"><span>Equipment amount</span><strong>${currency.format(equipmentAmount)}</strong></div></div>`;
   return `
     ${categoryLine}
     <div class="summary-line"><span>Rental subtotal</span><strong>${currency.format(result.rentalSubtotal)}</strong></div>
@@ -236,7 +225,7 @@ function renderReview(state, result) {
     <div class="summary-group"><h4>Schedule</h4>
       <div class="summary-line"><span>Location</span><strong>${escaped(state.location)}</strong></div>
       <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)}</strong></div>
-      <div class="summary-line"><span>Rental days</span><strong>${state.rentalDays}</strong></div>
+      <div class="summary-line"><span>Billable working days</span><strong>${state.rentalDays}</strong></div>
     </div>
     <div class="summary-group"><h4>Equipment &amp; support</h4>
       <div class="summary-line"><span>${state.laptopCategory === "standard" ? "Standard Business Laptop" : "High Performance Laptop"}</span><strong>${state.laptopQuantity}</strong></div>
@@ -329,10 +318,16 @@ function validateCurrentStep() {
     serviceCity.removeAttribute("aria-invalid");
     customCityInput.removeAttribute("aria-invalid");
     if (booking.errors.dates) {
-      const dateTarget = form.elements.startDate.value ? form.elements.endDate : form.elements.startDate;
+      const startError = booking.errors.dates.startsWith("Rental start date");
+      const endError = booking.errors.dates.startsWith("Rental end date");
+      form.elements.startDate.toggleAttribute("aria-invalid", startError);
+      form.elements.endDate.toggleAttribute("aria-invalid", endError || (!startError && Boolean(form.elements.startDate.value)));
+      const dateTarget = startError || !form.elements.startDate.value ? form.elements.startDate : form.elements.endDate;
       dateTarget.focus();
       return false;
     }
+    form.elements.startDate.removeAttribute("aria-invalid");
+    form.elements.endDate.removeAttribute("aria-invalid");
     return true;
   }
   if (currentStep === 2) {
@@ -364,7 +359,7 @@ function validateCurrentStep() {
   if (currentStep === 3) {
     showError("technician-error", booking.errors.technician);
     if (booking.errors.technician) {
-      technicianDaysInput.focus();
+      technicianRequired.focus();
       return false;
     }
     if (!validatePersonalDetails()) return false;
@@ -508,9 +503,6 @@ rateCards.forEach((card) => {
 });
 
 technicianRequired.addEventListener("change", () => {
-  technicianDaysWrap.hidden = !technicianRequired.checked;
-  technicianDaysInput.disabled = !technicianRequired.checked;
-  if (technicianRequired.checked && numberValue("technicianDays") === 0) technicianDaysInput.value = "1";
   updateEstimate();
 });
 
@@ -667,8 +659,6 @@ restartButton.addEventListener("click", () => {
   workflowComplete = false;
   scheduleValidated = false;
   personalValidationActive = false;
-  technicianDaysWrap.hidden = true;
-  technicianDaysInput.disabled = true;
   finishButton.hidden = false;
   finishButton.disabled = false;
   restartButton.hidden = true;
@@ -695,7 +685,6 @@ restartButton.addEventListener("click", () => {
 document.querySelectorAll(".form-step h3").forEach((heading) => heading.setAttribute("tabindex", "-1"));
 document.querySelector("#year").textContent = new Date().getFullYear();
 populatePhoneCountries();
-technicianDaysInput.disabled = true;
 updateCustomCityState();
 updateEstimate();
 planner.dataset.currentStep = "1";

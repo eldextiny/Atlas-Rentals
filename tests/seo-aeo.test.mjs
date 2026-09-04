@@ -58,7 +58,7 @@ test("FAQ schema exactly mirrors seven visibly rendered questions and approved a
   assert.equal((section.match(/<details class="faq-item">/g) || []).length, 7);
   assert.equal(faq.mainEntity.length, 7);
   assert.deepEqual(faq.mainEntity.map((item) => ({ name: item.name, text: item.acceptedAnswer.text })), visibleItems);
-  for (const fact of ["5 laptops", "₦35,000 per day", "VAT is 7.5%", "Daily", "weekly", "monthly", "subject to availability", "Lagos and Abuja"]) {
+  for (const fact of ["5 laptops", "₦35,000 per day", "VAT is 7.5%", "billable working day", "subject to availability", "Lagos and Abuja"]) {
     assert.match(section, new RegExp(fact.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
   }
 });

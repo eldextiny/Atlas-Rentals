@@ -12,41 +12,27 @@ import {
 } from "../js/pricing.js";
 
 test("published rates and minimum remain fixed", () => {
-  assert.deepEqual([PRICING.standardDailyRate, PRICING.standardWeeklyRate, PRICING.standardMonthlyRate], [10_000, 59_500, 185_000]);
-  assert.deepEqual([PRICING.performanceDailyRate, PRICING.performanceWeeklyRate, PRICING.performanceMonthlyRate], [15_000, 89_500, 225_500]);
-  assert.deepEqual([PRICING.daysPerWeek, PRICING.daysPerMonth, PRICING.deliveryRetrievalPerBooking, PRICING.technicianDailyRate, PRICING.vatRate, PRICING.minimumLaptopQuantity], [7, 30, 40_000, 35_000, .075, 5]);
+  assert.deepEqual([PRICING.standardDailyRate, PRICING.performanceDailyRate], [10_000, 15_000]);
+  assert.deepEqual([PRICING.deliveryRetrievalPerBooking, PRICING.technicianDailyRate, PRICING.vatRate, PRICING.minimumLaptopQuantity], [40_000, 35_000, .075, 5]);
 });
 
-test("daily weekly and monthly plans calculate both categories exactly", () => {
-  for (const [category, rates] of Object.entries(LAPTOP_CATALOGUE)) {
-    const multiplier = category === "standard" ? 1 : 1;
-    assert.equal(calculateRatePlanPerUnit(1, rates, "daily").perUnitRental, rates.dailyRate * multiplier);
+test("daily is the only active plan and calculates both categories exactly", () => {
+  for (const rates of Object.values(LAPTOP_CATALOGUE)) {
+    assert.equal(calculateRatePlanPerUnit(1, rates, "daily").perUnitRental, rates.dailyRate);
     assert.equal(calculateRatePlanPerUnit(6, rates, "daily").perUnitRental, rates.dailyRate * 6);
-    for (const days of [7, 14, 28]) assert.equal(calculateRatePlanPerUnit(days, rates, "weekly").perUnitRental, (days / 7) * rates.weeklyRate);
-    for (const days of [30, 60]) assert.equal(calculateRatePlanPerUnit(days, rates, "monthly").perUnitRental, (days / 30) * rates.monthlyRate);
   }
-  assert.deepEqual(Object.keys(RATE_PLANS), ["daily", "weekly", "monthly"]);
+  assert.deepEqual(Object.keys(RATE_PLANS), ["daily"]);
 });
 
-test("weekly and monthly plans reject partial blocks without rounding", () => {
-  for (const days of [8, 29, 30, 31]) assert.match(calculateRatePlanPerUnit(days, LAPTOP_CATALOGUE.standard, "weekly").error, /whole multiple of 7 days/);
-  for (const days of [7, 29, 31, 37]) assert.match(calculateRatePlanPerUnit(days, LAPTOP_CATALOGUE.standard, "monthly").error, /whole multiple of 30 days/);
-});
-
-test("booking validation exposes precise rate-plan errors", () => {
-  const base = { location: "Lagos", startDate: "2026-08-01", standardQuantity: 5 };
-  assert.equal(validateBooking({ ...base, endDate: "2026-08-08", ratePlan: "weekly" }).errors.ratePlan, "Weekly Rate requires the rental duration to be a whole multiple of 7 days.");
-  assert.equal(validateBooking({ ...base, endDate: "2026-08-31", ratePlan: "monthly" }).errors.ratePlan, "Monthly Rate requires the rental duration to be a whole multiple of 30 days.");
-  assert.equal(validateBooking({ ...base, endDate: "2026-08-01", ratePlan: "" }).errors.ratePlan, "Select a rental rate plan.");
-});
-
-test("best is rejected by active browser pricing and validation", () => {
-  const unit = calculateRatePlanPerUnit(37, LAPTOP_CATALOGUE.standard, "best");
-  assert.equal(unit.valid, false);
-  assert.equal(unit.error, "Select a rental rate plan.");
-  const booking = validateBooking({ location: "Lagos", startDate: "2026-08-01", endDate: "2026-09-06", standardQuantity: 5, ratePlan: "best" });
-  assert.equal(booking.valid, false);
-  assert.equal(booking.errors.ratePlan, "Select a rental rate plan.");
+test("unsupported plans fail safely in pricing and booking validation", () => {
+  for (const plan of ["weekly", "monthly", "best", "unsupported"]) {
+    const unit = calculateRatePlanPerUnit(30, LAPTOP_CATALOGUE.standard, plan);
+    assert.equal(unit.valid, false);
+    assert.equal(unit.error, "Daily Rate is the only supported rental rate plan.");
+    const booking = validateBooking({ location: "Lagos", startDate: "2026-08-03", endDate: "2026-08-07", standardQuantity: 5, ratePlan: plan });
+    assert.equal(booking.valid, false);
+    assert.equal(booking.errors.ratePlan, "Daily Rate is the only supported rental rate plan.");
+  }
 });
 
 test("standard rental is quantity multiplied by days and rate", () => {
@@ -88,13 +74,13 @@ test("Delivery & Retrieval cannot be disabled by a caller", () => {
   assert.equal(result.deliveryRetrieval, 40_000);
 });
 
-test("technician support costs ₦35,000 per selected day", () => {
+test("technician support costs ₦35,000 for every billable working day", () => {
   const result = calculateEstimate({
     standardQuantity: 5,
     rentalDays: 3,
-    technicianDays: 2,
+    technicianDays: 3,
   });
-  assert.equal(result.technician, 70_000);
+  assert.equal(result.technician, 105_000);
 });
 
 test("VAT applies after rental, Delivery & Retrieval and technician charges", () => {
@@ -121,16 +107,23 @@ test("technician remains optional while Delivery & Retrieval stays included", ()
   assert.equal(result.total, 96_750);
 });
 
-test("rental duration is inclusive and stable across month boundaries", () => {
+test("working-day duration is inclusive, timezone-safe and excludes weekends", () => {
   assert.equal(calculateRentalDays("2026-08-31", "2026-09-02"), 3);
   assert.equal(calculateRentalDays("2028-02-28", "2028-03-01"), 3);
   assert.equal(calculateRentalDays("2026-08-04", "2026-08-04"), 1);
+  assert.equal(calculateRentalDays("2026-08-03", "2026-08-03"), 1);
+  assert.equal(calculateRentalDays("2026-08-03", "2026-08-07"), 5);
+  assert.equal(calculateRentalDays("2026-08-07", "2026-08-10"), 2);
+  assert.equal(calculateRentalDays("2026-08-07", "2026-08-14"), 6);
+  assert.equal(calculateRentalDays("2026-10-01", "2026-10-01"), 1);
 });
 
 test("invalid and reversed dates are rejected", () => {
   assert.throws(() => calculateRentalDays("2026-02-30", "2026-03-01"));
   assert.throws(() => calculateRentalDays("2026-08-05", "2026-08-04"));
   assert.throws(() => calculateRentalDays("04/08/2026", "05/08/2026"));
+  assert.throws(() => calculateRentalDays("2026-08-08", "2026-08-10"), /start date must be a weekday/);
+  assert.throws(() => calculateRentalDays("2026-08-07", "2026-08-09"), /end date must be a weekday/);
 });
 
 test("negative and fractional quantities fail deterministically", () => {

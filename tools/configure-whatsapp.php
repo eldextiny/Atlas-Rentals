@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const ATLAS_RENTALS_WHATSAPP_CONFIG = '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-integrations.php';
+require_once __DIR__ . '/../api/private-path.php';
 
 function failWhatsAppConfiguration(): never
 {
@@ -23,9 +23,10 @@ if (PHP_SAPI !== 'cli' || count($argv) > 2) failWhatsAppConfiguration();
 
 $temporary = null; $handle = null;
 try {
-    $target = $argv[1] ?? ATLAS_RENTALS_WHATSAPP_CONFIG;
+    $target = $argv[1] ?? atlasRentalsPrivatePath('ATLAS_RENTALS_INTEGRATIONS_CONFIG', 'atlas-rentals-integrations.php', 'file');
     if (!is_string($target) || $target === '' || !is_file($target) || is_link($target)
         || !is_readable($target) || !is_writable($target)) throw new RuntimeException('Unavailable target.');
+    $target = atlasRentalsAssertPrivatePath($target, 'file');
     $directory = dirname($target);
     if (!is_dir($directory) || !is_readable($directory) || !is_writable($directory)) throw new RuntimeException('Unavailable directory.');
     $configuration = loadWhatsAppConfiguration($target);

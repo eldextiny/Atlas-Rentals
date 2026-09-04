@@ -8,13 +8,14 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 
 - `index.html` contains semantic page structure, the four-step planner, SEO metadata and structured data.
 - `css/styles.css` contains responsive presentation, accessible focus states and reduced-motion handling.
-- `js/pricing.js` is the browser business-rule boundary. Its pure functions calculate inclusive duration, validate explicit rate plans, apply plan-specific blocks, and produce itemized estimates.
+- `js/pricing.js` is the browser business-rule boundary. Its pure functions parse UTC calendar dates, reject weekend endpoints, calculate inclusive Monday-to-Friday duration, enforce daily-only pricing, and produce itemized estimates.
 - `js/app.js` coordinates browser state, step navigation, form feedback, estimate rendering and the final local review.
 - `js/enquiry.js` builds the stable normalized browser payload and guards in-flight submissions.
 - `api/submit-enquiry.php` is the bounded same-origin JSON boundary and loads database configuration from outside the public document root.
 - `api/rentals-pricing.php` owns reusable authoritative server pricing constants and deterministic tier helpers.
 - `api/enquiry-service.php` owns server validation, authoritative pricing, canonical idempotency hashing and transactional persistence.
 - `api/journey-identifier.php` owns private, atomic journey expiry state and bounded tombstones.
+- `api/rate-limit.php` owns private, file-locked per-address limits in independent review and submission namespaces.
 - `api/review-enquiry.php` synchronizes an idempotent CRM review draft using the journey identity.
 - `api/integration-runtime.php` owns private configuration, recovery state, CRM transport, reusable PDF generation and recipient-specific Resend delivery.
 - `tests/pricing.test.mjs` protects the deterministic calculation contract using Node's built-in test runner.
@@ -23,15 +24,17 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 
 ## Data flow
 
-Form values remain in their controls while users move through the four steps. Step 2 holds one selected laptop category, one required Daily, Weekly or Monthly rate plan and one quantity; the browser maps the category to the existing standard/high-performance quantity fields and forces the unselected field to zero. The browser renders an estimate, then submits the stable payload. The server independently normalizes and validates it, applies the selected plan without partial-block rounding or decomposition, recalculates pricing, hashes the canonical material content, and stores the full audit snapshot in MySQL. Success is shown only after the transaction commits.
+Form values remain in their controls while users move through the four steps. Step 2 holds one selected laptop category and one quantity; a fixed daily-plan value is submitted without exposing alternative choices. The browser maps the category to the existing standard/high-performance quantity fields and forces the unselected field to zero. The browser renders an estimate, then submits the stable payload. The server independently normalizes dates in UTC, rejects weekend endpoints, counts Monday-to-Friday days inclusively, rejects every non-daily plan, recalculates pricing, hashes the canonical material content, and stores the full audit snapshot in MySQL. Success is shown only after the transaction commits.
 
 The yearly counter row is locked with `SELECT ... FOR UPDATE`. Counter increment and enquiry insertion occur in one InnoDB transaction. An identical retry resolves by the unique idempotency hash and returns its original reference. A failed transaction rolls back the counter increment.
 
-The browser creates one random journey identity per planner journey. Review-stage CRM calls reuse it and update the same private recovery state. Submission persists first, then resumes CRM reference synchronization, PDF generation, client email and administrator email. Each completed operation remains completed across retries. PDFs and state remain outside `public_html` and expire after 30 days.
+The browser creates one `j1` journey identity per planner journey with an issuance timestamp and 128 cryptographically random bits. Review-stage CRM calls reuse it and update the same private recovery state. Submission persists first, then resumes CRM reference synchronization, PDF generation, client email and administrator email. Each completed operation remains completed across retries. PDFs and state remain outside `public_html` and expire after 30 days.
 
 Historical records are read through their stored pricing snapshots. A historical `best` payload is eligible only for an existing idempotency-hash lookup; if no matching record exists it fails validation before pricing or persistence. Historical snapshots continue through CRM, email, PDF and retry presentation without repricing.
 
-Journey identifiers are registered on first valid server use with a fixed 24-hour lifetime. The server checks the incoming identifier before cleanup, converts expired state to a retained tombstone, and returns a safe conflict without reaching persistence or delivery. Tombstones are retained for 90 days and cleanup never deletes the identifier currently being checked.
+Versioned journey identifiers expire intrinsically 24 hours after their encoded issuance time, allow at most five minutes of future clock skew, and cannot become active after tombstone cleanup. Existing legacy identifiers remain usable only while a valid unexpired private state record already exists; unseen legacy values fail closed without creating state. The server checks the incoming identifier before cleanup, converts expired state to a retained tombstone, and returns a safe conflict without reaching persistence or delivery. Tombstones are retained for 90 days and cleanup never deletes the identifier currently being checked.
+
+After bounded request parsing, both public POST endpoints enforce private limits using only the server-observed `REMOTE_ADDR`. Submission permits 10 requests per address per 10 minutes and review permits 30 in a separate namespace. Rejection occurs before database, CRM, PDF or email work.
 
 ## Phone dependency foundation
 

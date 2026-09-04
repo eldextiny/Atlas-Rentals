@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+// Contract only. The default real loader is
+// ../private_html/atlas-rentals-integrations.php relative to public_html.
 return [
     'resend_api_key' => 'provider-api-key',
     'from_email' => 'verified-sender@example.com',

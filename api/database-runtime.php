@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/private-path.php';
+
 function atlasRentalsDatabase(): PDO
 {
-    $loaderPath = getenv('ATLAS_RENTALS_DB_CONFIG') ?: '/home/548005.cloudwaysapps.com/ezgshksprf/private_html/atlas-rentals-db.php';
-    if (!is_file($loaderPath) || !is_readable($loaderPath)) throw new RuntimeException('Configuration unavailable.');
+    $loaderPath = atlasRentalsPrivatePath('ATLAS_RENTALS_DB_CONFIG', 'atlas-rentals-db.php', 'file');
+    if (!is_readable($loaderPath)) throw new RuntimeException('Configuration unavailable.');
     $config = require $loaderPath;
     $required = ['host', 'port', 'database', 'username', 'password', 'charset'];
     if (!is_array($config) || array_diff($required, array_keys($config))) throw new RuntimeException('Configuration invalid.');

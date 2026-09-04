@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../api/http-request.php';
 final class MemoryStore implements EnquiryStore
 {
     public array $records = [];
+    public ?array $lastSaved = null;
     public int $sequence = 0;
     public bool $fail = false;
     public function findByHash(string $hash): ?array { return $this->records[$hash] ?? null; }
@@ -17,6 +18,7 @@ final class MemoryStore implements EnquiryStore
     public function save(array $enquiry, int $year): array
     {
         if ($this->fail) throw new RuntimeException('simulated failure');
+        $this->lastSaved = $enquiry;
         $this->sequence++;
         $row = [
             'internal_id' => $enquiry['internal_id'],
@@ -66,10 +68,22 @@ function expect_validation(array $payload, string $field): void
 }
 
 $tests = [];
-$tests['server pricing, inclusive dates and technician rate'] = function (): void {
-    $result = service($store = new MemoryStore())->submit(valid_payload());
+$tests['server pricing, working dates and technician rate'] = function (): void {
+    $payload = valid_payload(); $payload['technicianDays'] = 1;
+    $result = service($store = new MemoryStore())->submit($payload);
     expect($result['reference'] === 'ARQ-2026-000001', 'reference format mismatch');
-    expect($result['estimatedTotal'] === 311750.0, 'server total mismatch');
+    expect($result['estimatedTotal'] === 349375.0, 'server total mismatch');
+    $snapshot = json_decode($store->lastSaved['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR);
+    $normalized = json_decode($store->lastSaved['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+    expect($normalized['technicianDays'] === 3 && $store->lastSaved['technician_days'] === 3, 'authoritative working days were not persisted');
+    expect($snapshot['technicianDailyRate'] === 35000 && $snapshot['technicianAmount'] === 105000, 'authoritative technician price was not persisted');
+};
+$tests['unselected technician is normalized and persisted as zero'] = function (): void {
+    $payload = valid_payload(); $payload['technicianRequired'] = false; $payload['technicianDays'] = 0;
+    $preview = service($store = new MemoryStore())->preview($payload);
+    expect($preview['normalized']['technicianDays'] === 0 && $preview['pricing']['technicianAmount'] === 0, 'unselected preview included technician support');
+    service($store)->submit($payload);
+    expect($store->lastSaved['technician_required'] === 0 && $store->lastSaved['technician_days'] === 0, 'unselected technician was not persisted as zero');
 };
 $tests['specified service city uses the existing location contract'] = function (): void {
     $payload = valid_payload(); $payload['location'] = 'Port Harcourt';
@@ -77,25 +91,24 @@ $tests['specified service city uses the existing location contract'] = function 
     expect($preview['normalized']['location'] === 'Port Harcourt', 'custom location was not preserved');
     $payload['location'] = 'X'; expect_validation($payload, 'location');
 };
-$tests['server calculates every explicit plan for both categories'] = function (): void {
+$tests['server calculates daily pricing for working-day durations'] = function (): void {
     $cases = [
-        ['daily', 1, 10000, 15000], ['daily', 6, 60000, 90000],
-        ['weekly', 7, 59500, 89500], ['weekly', 14, 119000, 179000], ['weekly', 28, 238000, 358000],
-        ['monthly', 30, 185000, 225500], ['monthly', 60, 370000, 451000],
+        ['2026-08-03', '2026-08-03', 1, 10000, 15000],
+        ['2026-08-03', '2026-08-07', 5, 50000, 75000],
+        ['2026-08-07', '2026-08-10', 2, 20000, 30000],
+        ['2026-08-07', '2026-08-14', 6, 60000, 90000],
     ];
-    foreach ($cases as [$plan, $days, $standard, $performance]) {
-        $payload = valid_payload(); $payload['ratePlan'] = $plan; $payload['startDate'] = '2026-01-01';
-        $payload['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
+    foreach ($cases as [$start, $end, $days, $standard, $performance]) {
+        $payload = valid_payload(); $payload['startDate'] = $start; $payload['endDate'] = $end;
         $payload['standardQuantity'] = 5; $payload['performanceQuantity'] = 0;
-        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['standard']['perUnitRental'] === $standard, "standard {$plan}/{$days} mismatch");
+        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['rentalDays'] === $days && $pricing['standard']['perUnitRental'] === $standard, "standard {$days}-day mismatch");
         $payload['standardQuantity'] = 0; $payload['performanceQuantity'] = 6;
-        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['performance']['perUnitRental'] === $performance, "performance {$plan}/{$days} mismatch");
+        $pricing = service(new MemoryStore())->preview($payload)['pricing']; expect($pricing['performance']['perUnitRental'] === $performance, "performance {$days}-day mismatch");
     }
 };
-$tests['server rejects unsupported and incompatible rate plans'] = function (): void {
-    foreach ([['weekly', 8], ['weekly', 29], ['weekly', 30], ['weekly', 31], ['monthly', 7], ['monthly', 29], ['monthly', 31], ['monthly', 37], ['best', 30], ['unsupported', 30]] as [$plan, $days]) {
-        $payload = valid_payload(); $payload['ratePlan'] = $plan; $payload['startDate'] = '2026-01-01';
-        $payload['endDate'] = (new DateTimeImmutable('2026-01-01'))->modify('+' . ($days - 1) . ' days')->format('Y-m-d');
+$tests['server rejects every unsupported rate plan'] = function (): void {
+    foreach (['weekly', 'monthly', 'best', 'unsupported'] as $plan) {
+        $payload = valid_payload(); $payload['ratePlan'] = $plan;
         expect_validation($payload, 'ratePlan');
     }
 };
@@ -124,7 +137,7 @@ $tests['expired journey identifier fails before persistence'] = function (): voi
 };
 $tests['historical retry without rate plan is lookup-only and never repriced'] = function (): void {
     $store = new MemoryStore(); $service = service($store); $payload = valid_payload();
-    $preview = $service->preview($payload); $normalized = $preview['normalized']; unset($normalized['ratePlan']);
+    $preview = $service->preview($payload); $normalized = $preview['normalized']; $normalized['technicianDays'] = $payload['technicianDays']; unset($normalized['ratePlan']);
     $legacyHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     $store->records[$legacyHash] = ['enquiry_reference' => 'ARQ-2025-000123', 'status' => 'received', 'estimated_total' => '999.00', 'currency' => 'NGN'];
     unset($payload['ratePlan']); $result = $service->submit($payload);
@@ -133,7 +146,7 @@ $tests['historical retry without rate plan is lookup-only and never repriced'] =
 };
 $tests['historical best retry is lookup-only and can never create a new enquiry'] = function (): void {
     $store = new MemoryStore(); $service = service($store); $payload = valid_payload();
-    $preview = $service->preview($payload); $normalized = $preview['normalized']; $normalized['ratePlan'] = 'best';
+    $preview = $service->preview($payload); $normalized = $preview['normalized']; $normalized['technicianDays'] = $payload['technicianDays']; $normalized['ratePlan'] = 'best';
     $historicalHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     $store->records[$historicalHash] = ['enquiry_reference' => 'ARQ-2025-000456', 'status' => 'received', 'estimated_total' => '123456.00', 'currency' => 'NGN'];
     $payload['ratePlan'] = 'best'; $result = $service->submit($payload);
@@ -162,6 +175,8 @@ $tests['validation rejects identity quantity dates contact and unexpected fields
     $payload = valid_payload(); $payload['standardQuantity'] = 2; $payload['performanceQuantity'] = 2; expect_validation($payload, 'quantity');
     $payload = valid_payload(); unset($payload['organization']); expect_validation($payload, 'organization');
     $payload = valid_payload(); $payload['technicianDays'] = 0; expect_validation($payload, 'technicianDays');
+    $payload = valid_payload(); $payload['startDate'] = '2026-08-08'; expect_validation($payload, 'dates');
+    $payload = valid_payload(); $payload['endDate'] = '2026-08-09'; expect_validation($payload, 'dates');
 };
 $tests['global phone fixtures normalize to E.164 and reject invalid numbers'] = function (): void {
     $fixtures = json_decode(file_get_contents(__DIR__ . '/../fixtures/phone-numbers.json'), true, flags: JSON_THROW_ON_ERROR);
