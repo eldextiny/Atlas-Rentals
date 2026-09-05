@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../pdf-png.php';
 require_once __DIR__ . '/../../rentals-pricing.php';
 
-const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v9-technician-quantity';
+const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v10-technician-unit-rate';
 const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
 
 function atlasRentalsPdfText(mixed $value): string
@@ -119,7 +119,11 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     if ((int)$record['performance_quantity'] > 0) $item('High Performance Laptop - ' . $record['performance_quantity'] . ' units', atlasRentalsAppliedRatesLabel($performance, 'atlasRentalsPdfMoney') . ' | per unit ' . atlasRentalsPdfMoney($performance['perUnitRental']), atlasRentalsPdfMoney($performance['equipmentAmount']));
     if ((int)$record['technician_required'] === 1) {
         $technicianLabel = $technicianQuantity . ' technician' . ($technicianQuantity === 1 ? '' : 's');
-        $item('Technician - ' . $technicianLabel, $record['technician_days'] . ' working day' . ((int)$record['technician_days'] === 1 ? '' : 's') . ' x ' . atlasRentalsPdfMoney($record['technician_daily_rate']) . ' per technician per working day', atlasRentalsPdfMoney($technicianAmount));
+        $technicianDays = (int)$record['technician_days'];
+        $technicianDayLabel = $technicianDays . ' working day' . ($technicianDays === 1 ? '' : 's');
+        $technicianCalculation = "Unit rate: " . atlasRentalsPdfMoney($record['technician_daily_rate'])
+            . "\nPer technician\nPer working day\nQuantity: " . $technicianLabel . "\nBillable days: " . $technicianDayLabel;
+        $item('Technician - ' . $technicianLabel, $technicianCalculation, atlasRentalsPdfMoney($technicianAmount));
     }
     $item('Delivery & retrieval', 'Standard rental service', atlasRentalsPdfMoney($record['delivery_fee']));
     $section('Commercial Summary');
