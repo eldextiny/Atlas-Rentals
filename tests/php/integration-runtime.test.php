@@ -207,11 +207,21 @@ $tests['historical tiered snapshots without a rate plan remain authoritative'] =
 $tests['optional technician presentation and approved rate are preserved'] = function () use ($record): void {
     $with = atlasRentalsBuildEmail($record, 'client');
     check(str_contains($with['html'], '1 technician') && str_contains($with['html'], '₦35,000.00'), 'singular technician presentation missing');
+    $singlePdf = atlasRentalsRenderQuotationPdf($record);
+    foreach (['Technician - 1 technician', 'Unit rate: NGN 35,000.00', 'Per technician', 'Per working day', 'Quantity: 1 technician', 'Billable days: 2 working days', 'NGN 70,000.00'] as $text) {
+        check(str_contains($singlePdf, $text), "single-technician PDF missing {$text}");
+    }
     $multiple = $record; $multiple['technician_quantity'] = 3;
     $payload = json_decode($multiple['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); $payload['technicianQuantity'] = 3; $multiple['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR);
-    $snapshot = json_decode($multiple['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR); $snapshot['technicianQuantity'] = 3; $multiple['pricing_snapshot'] = json_encode($snapshot, JSON_THROW_ON_ERROR);
+    $snapshot = json_decode($multiple['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR);
+    $snapshot['technicianQuantity'] = 3; $snapshot['technicianAmount'] = 210000; $snapshot['subtotal'] = 430000; $snapshot['vatAmount'] = 32250; $snapshot['estimatedTotal'] = 462250;
+    $multiple['pricing_snapshot'] = json_encode($snapshot, JSON_THROW_ON_ERROR);
+    $multiple['subtotal'] = 430000; $multiple['vat_amount'] = 32250; $multiple['estimated_total'] = 462250;
     check(str_contains(atlasRentalsBuildEmail($multiple, 'admin')['text'], '3 technicians × 2 working days'), 'plural technician email presentation missing');
-    check(str_contains(atlasRentalsRenderQuotationPdf($multiple), 'Technician - 3 technicians'), 'plural technician PDF presentation missing');
+    $multiplePdf = atlasRentalsRenderQuotationPdf($multiple);
+    foreach (['Technician - 3 technicians', 'Unit rate: NGN 35,000.00', 'Per technician', 'Per working day', 'Quantity: 3 technicians', 'Billable days: 2 working days', 'NGN 210,000.00'] as $text) {
+        check(str_contains($multiplePdf, $text), "multiple-technician PDF missing {$text}");
+    }
     $without = $record; $without['technician_required'] = 0; $without['technician_quantity'] = 0; $without['technician_days'] = 0;
     $payload = json_decode($without['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); $payload['technicianRequired'] = false; $payload['technicianQuantity'] = 0; $payload['technicianDays'] = 0;
     $without['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR);
@@ -269,12 +279,14 @@ $tests['PDF renderer version rotates the cached document fingerprint'] = functio
     $logoPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v3-logo'), 0, 16);
     $tieredPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v5-tiered-rates'), 0, 16);
     $previousRatePlanPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v6-rate-plan'), 0, 16);
+    $previousTechnicianPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v9-technician-quantity'), 0, 16);
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath);
     check($pdf['fingerprint'] !== $old, 'presentation version did not rotate PDF fingerprint');
     check($pdf['fingerprint'] !== $previousPresentation, 'logo renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] !== $logoPresentation, '30-day renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] !== $tieredPresentation, 'rate-plan renderer reused the tiered-only presentation fingerprint');
     check($pdf['fingerprint'] !== $previousRatePlanPresentation, 'standard-service renderer reused the previous presentation fingerprint');
+    check($pdf['fingerprint'] !== $previousTechnicianPresentation, 'technician unit-rate renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] === substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|' . ATLAS_RENTALS_PDF_PRESENTATION_VERSION), 0, 16), 'PDF fingerprint is not presentation-version bound');
 };
 $tests['PDF capability is stable authorized confined and side-effect free'] = function () use ($record, $preview, $config, $statePath, $pdfPath): void {
