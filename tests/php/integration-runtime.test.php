@@ -205,6 +205,8 @@ $tests['historical tiered snapshots without a rate plan remain authoritative'] =
     check($model['ratePlanLabel'] === 'Historical stored pricing' && $model['standardPerUnit'] === '₦123,456.00', 'historical tiered snapshot was repriced');
 };
 $tests['optional technician presentation and approved rate are preserved'] = function () use ($record): void {
+    $wrapped = atlasRentalsPdfWrap("Unit rate: NGN 35,000.00\nPer technician\nPer working day", 29);
+    check($wrapped === ['Unit rate: NGN 35,000.00', 'Per technician', 'Per working day'], 'explicit PDF calculation lines were not preserved');
     $with = atlasRentalsBuildEmail($record, 'client');
     check(str_contains($with['html'], '1 technician') && str_contains($with['html'], '₦35,000.00'), 'singular technician presentation missing');
     $singlePdf = atlasRentalsRenderQuotationPdf($record);
@@ -280,6 +282,7 @@ $tests['PDF renderer version rotates the cached document fingerprint'] = functio
     $tieredPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v5-tiered-rates'), 0, 16);
     $previousRatePlanPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v6-rate-plan'), 0, 16);
     $previousTechnicianPresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v9-technician-quantity'), 0, 16);
+    $previousTechnicianRatePresentation = substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|rentals-quotation-v10-technician-unit-rate'), 0, 16);
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath);
     check($pdf['fingerprint'] !== $old, 'presentation version did not rotate PDF fingerprint');
     check($pdf['fingerprint'] !== $previousPresentation, 'logo renderer reused the previous presentation fingerprint');
@@ -287,6 +290,7 @@ $tests['PDF renderer version rotates the cached document fingerprint'] = functio
     check($pdf['fingerprint'] !== $tieredPresentation, 'rate-plan renderer reused the tiered-only presentation fingerprint');
     check($pdf['fingerprint'] !== $previousRatePlanPresentation, 'standard-service renderer reused the previous presentation fingerprint');
     check($pdf['fingerprint'] !== $previousTechnicianPresentation, 'technician unit-rate renderer reused the previous presentation fingerprint');
+    check($pdf['fingerprint'] !== $previousTechnicianRatePresentation, 'line-break renderer reused the previous technician-rate fingerprint');
     check($pdf['fingerprint'] === substr(hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot'] . '|' . ATLAS_RENTALS_PDF_PRESENTATION_VERSION), 0, 16), 'PDF fingerprint is not presentation-version bound');
 };
 $tests['PDF capability is stable authorized confined and side-effect free'] = function () use ($record, $preview, $config, $statePath, $pdfPath): void {

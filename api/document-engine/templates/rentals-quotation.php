@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../pdf-png.php';
 require_once __DIR__ . '/../../rentals-pricing.php';
 
-const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v10-technician-unit-rate';
+const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v11-preserved-line-breaks';
 const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
 
 function atlasRentalsPdfText(mixed $value): string
@@ -21,9 +21,13 @@ function atlasRentalsPdfLiteral(mixed $value): string
 
 function atlasRentalsPdfWrap(mixed $value, int $characters): array
 {
-    $text = trim(atlasRentalsPdfText($value));
-    if ($text === '') return ['-'];
-    return explode("\n", wordwrap($text, max(12, $characters), "\n", true));
+    $lines = [];
+    foreach (preg_split('/\R/u', (string)$value) ?: [] as $sourceLine) {
+        $text = trim(atlasRentalsPdfText($sourceLine));
+        if ($text === '') continue;
+        array_push($lines, ...explode("\n", wordwrap($text, max(12, $characters), "\n", true)));
+    }
+    return $lines === [] ? ['-'] : $lines;
 }
 
 function atlasRentalsPdfMoney(mixed $value): string
