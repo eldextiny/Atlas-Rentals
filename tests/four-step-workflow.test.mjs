@@ -169,9 +169,12 @@ test("progress markers form one labelled row with three decorative connector seg
   const progress = html.match(/<nav class="steps header-progress"[\s\S]*?<\/nav>/)?.[0] || "";
   assert.deepEqual([...progress.matchAll(/<b>([^<]+)<\/b>/g)].map((match) => match[1]), ["Rental Details", "Laptops", "Support &amp; Details", "Review"]);
   assert.equal((progress.match(/class="step(?: is-active)?"/g) || []).length, 4);
+  assert.doesNotMatch(progress, /progress-completion-status/);
+  assert.match(html, /<\/nav>\s*<span class="sr-only" id="progress-completion-status" aria-live="polite"><\/span>/);
   assert.match(css, /\.steps \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(css, /\.step:not\(:last-child\)::before/);
   assert.match(css, /\.step\.is-complete:not\(:last-child\)::before/);
+  assert.doesNotMatch(css, /\.step::before|\.step:last-child::before/);
   assert.match(css, /\.step\.is-active span::after/);
   assert.match(css, /@media \(max-width: 600px\)[\s\S]*--marker-size: 1\.5rem/);
   assert.match(app, /button\.setAttribute\("aria-current", "step"\)/);
@@ -204,6 +207,15 @@ test("mobile estimate is limited to review step while desktop remains available"
   assert.match(html, /class="estimate-card"/);
   assert.match(app, /planner\.dataset\.currentStep = String\(step\)/);
   assert.match(css, /planner-shell:not\(\[data-current-step="4"\]\) \.estimate-card \{ display: none; \}/);
+});
+
+test("minimal estimate and centered mobile FAQ preserve readable structure", () => {
+  assert.match(css, /\.estimate-card \{[^}]*background: #fff[^}]*border: 1px solid var\(--line\)/);
+  assert.match(css, /\.estimate-group \{[^}]*background: transparent[^}]*box-shadow: none/);
+  assert.match(css, /@media \(max-width: 600px\)[\s\S]*\.faq-section \{[^}]*width: 100%[^}]*margin-inline: auto/);
+  assert.match(css, /\.faq-intro \{[^}]*margin-inline: auto[^}]*text-align: center/);
+  assert.match(css, /\.faq-grid \{[^}]*margin-inline: auto/);
+  assert.match(css, /\.faq-item summary, \.faq-answer \{ text-align: left; \}/);
 });
 
 test("phone is required client-side and review uses reassuring customer copy", () => {
