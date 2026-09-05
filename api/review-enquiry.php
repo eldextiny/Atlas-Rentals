@@ -33,10 +33,8 @@ try {
 }
 try {
     $service = new EnquiryService(new PdoEnquiryStore(atlasRentalsDatabase()), journeyIdentifierCheck: atlasRentalsJourneyIdentifierCheck());
-    $preview = $service->preview($input);
-    $state = atlasRentalsSyncCrm($preview, null, atlasRentalsIntegrationConfig());
-    $completed = ($state['crm']['status'] ?? '') === 'completed';
-    reviewRespond($completed ? 200 : 202, ['ok' => true, 'crm' => $completed ? 'accepted' : 'pending']);
+    $service->preview($input);
+    reviewRespond(202, ['ok' => true, 'crm' => 'pending']);
 } catch (EnquiryValidationException $error) {
     reviewRespond(422, ['ok' => false, 'error' => 'validation_failed', 'fields' => $error->errors]);
 } catch (JourneyIdentifierExpiredException) {

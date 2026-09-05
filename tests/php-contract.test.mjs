@@ -90,6 +90,17 @@ test("CRM transport uses the receiver integration-token header, never Bearer aut
   assert.doesNotMatch(crmTransport, /Authorization:\s*Bearer/);
 });
 
+test("review defers CRM until final persistence allocates the authoritative reference", () => {
+  assert.doesNotMatch(reviewEndpoint, /atlasRentalsSyncCrm|atlasRentalsDeliver|atlasRentalsCrmPayload/);
+  assert.match(reviewEndpoint, /\$service->preview\(\$input\);[\s\S]*reviewRespond\(202, \['ok' => true, 'crm' => 'pending'\]\)/);
+  assert.ok(submitEndpoint.indexOf('$service->submit($input)') < submitEndpoint.indexOf("$store->findByReference($result['reference'])"));
+  assert.ok(submitEndpoint.indexOf("$store->findByReference($result['reference'])") < submitEndpoint.indexOf('atlasRentalsDeliver($record, $preview'));
+  assert.match(runtime, /atlasRentalsSyncCrm[\s\S]*CRM synchronization requires an allocated enquiry reference/);
+  assert.match(runtime, /atlasRentalsWithState\(\$config\['state_path'\], 'CRM-' \. \$reference/);
+  assert.match(runtime, /atlasRentalsSyncCrm'\)\(\$preview, \$record\['enquiry_reference'\], \$config\)/);
+  assert.match(submitEndpoint, /\$complete = \(\$delivery\['crm'\]\['status'\] \?\? ''\) === 'completed'/);
+});
+
 test("CRM payload builder uses only the deployed commercial-document field contract", () => {
   const builder = runtime.match(/function atlasRentalsCrmPayload[\s\S]*?\n\}/)?.[0] || "";
   for (const field of ["sourceModule", "documentType", "documentReference", "client", "organisation", "contactPerson", "title", "category", "serviceMode", "venue", "durationValue", "durationUnit", "commercial", "subtotalNgn", "vatNgn", "grandTotalNgn", "documentContext"]) assert.match(builder, new RegExp(`'${field}'\\s*=>`));
@@ -201,7 +212,7 @@ test("private endpoint rate limits are independent authoritative and precede sid
   }
   assert.ok(submitEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < submitEndpoint.indexOf('atlasRentalsDatabase()'));
   assert.ok(reviewEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < reviewEndpoint.indexOf('atlasRentalsDatabase()'));
-  assert.ok(reviewEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < reviewEndpoint.indexOf('atlasRentalsSyncCrm('));
+  assert.doesNotMatch(reviewEndpoint, /atlasRentalsSyncCrm\(/);
   assert.ok(submitEndpoint.indexOf('atlasRentalsEnforceRateLimit(') < submitEndpoint.indexOf('atlasRentalsDeliver('));
 });
 

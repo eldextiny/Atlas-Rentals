@@ -51,7 +51,8 @@ try {
     $delivery = [];
     try {
         $delivery = atlasRentalsDeliver($record, $preview, atlasRentalsIntegrationConfig());
-        $complete = ($delivery['pdf']['status'] ?? '') === 'completed'
+        $complete = ($delivery['crm']['status'] ?? '') === 'completed'
+            && ($delivery['pdf']['status'] ?? '') === 'completed'
             && ($delivery['clientEmail']['status'] ?? '') === 'completed'
             && ($delivery['adminEmail']['status'] ?? '') === 'completed';
     } catch (Throwable) { $complete = false; }

@@ -153,8 +153,11 @@ function atlasRentalsCleanup(string $directory, array $extensions): void
 
 function atlasRentalsSyncCrm(array $preview, ?string $reference, array $config, ?callable $poster = null): array
 {
-    $fingerprint = hash('sha256', $preview['canonical'] . '|' . ($reference ?? 'review'));
-    return atlasRentalsWithState($config['state_path'], 'CRM-' . $preview['journeyId'], function (array $state) use ($preview, $reference, $config, $fingerprint, $poster): array {
+    if (!is_string($reference) || preg_match('/^ARQ-\d{4}-\d{6}$/D', $reference) !== 1) {
+        throw new UnexpectedValueException('CRM synchronization requires an allocated enquiry reference.');
+    }
+    $fingerprint = hash('sha256', $preview['canonical'] . '|' . $reference);
+    return atlasRentalsWithState($config['state_path'], 'CRM-' . $reference, function (array $state) use ($preview, $reference, $config, $fingerprint, $poster): array {
         if (($state['crm']['fingerprint'] ?? '') === $fingerprint && ($state['crm']['status'] ?? '') === 'completed') return $state;
         $result = $poster ? $poster(atlasRentalsCrmPayload($preview, $reference, $config), $config) : atlasRentalsPostCrm(atlasRentalsCrmPayload($preview, $reference, $config), $config);
         $state['crm'] = ['fingerprint' => $fingerprint, 'status' => $result['ok'] ? 'completed' : 'pending', 'code' => $result['code']];
@@ -263,8 +266,9 @@ function atlasRentalsDeliver(array $record, array $preview, array $config, array
 {
     atlasRentalsCleanup($config['state_path'], ['json', 'lock']);
     atlasRentalsCleanup($config['pdf_path'], ['pdf']);
-    try { ($adapters['crm'] ?? 'atlasRentalsSyncCrm')($preview, $record['enquiry_reference'], $config); } catch (Throwable) {}
-    return atlasRentalsWithState($config['state_path'], $record['enquiry_reference'], function (array $state) use ($record, $config, $adapters): array {
+    $crmState = [];
+    try { $crmState = ($adapters['crm'] ?? 'atlasRentalsSyncCrm')($preview, $record['enquiry_reference'], $config); } catch (Throwable) {}
+    $delivery = atlasRentalsWithState($config['state_path'], $record['enquiry_reference'], function (array $state) use ($record, $config, $adapters): array {
         $fingerprint = hash('sha256', $record['normalized_payload'] . '|' . $record['pricing_snapshot']);
         if (isset($state['fingerprint']) && $state['fingerprint'] !== $fingerprint) throw new RuntimeException('Delivery state conflict.');
         $state['fingerprint'] = $fingerprint;
@@ -294,4 +298,8 @@ function atlasRentalsDeliver(array $record, array $preview, array $config, array
         }
         return $state;
     });
+    $delivery['crm'] = is_array($crmState['crm'] ?? null)
+        ? $crmState['crm']
+        : ['status' => 'pending', 'code' => 'CRM_SYNC_FAILED'];
+    return $delivery;
 }

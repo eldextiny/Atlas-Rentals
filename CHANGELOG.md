@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Deferred CRM synchronization until final persistence allocates the authoritative enquiry reference, with reference-keyed retry and deduplication state.
 - Refined the initial estimate state, service and laptop copy, accessible FAQ accordion, and personal-details presentation without changing workflow contracts or calculations.
 - Integrated global country-aware phone validation across the contact step and authoritative PHP boundary, with E.164 normalization, accessible server-error recovery, and shared multi-region fixtures while retaining the existing downstream phone contract.
 - Added the Phase A global-phone dependency foundation with locked PHP/browser libphonenumber packages, a deterministic same-origin browser bundle, and Cloudways build verification without changing the live enquiry workflow.

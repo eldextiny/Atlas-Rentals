@@ -16,7 +16,7 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 - `api/enquiry-service.php` owns server validation, authoritative pricing, canonical idempotency hashing and transactional persistence.
 - `api/journey-identifier.php` owns private, atomic journey expiry state and bounded tombstones.
 - `api/rate-limit.php` owns private, file-locked per-address limits in independent review and submission namespaces.
-- `api/review-enquiry.php` synchronizes an idempotent CRM review draft using the journey identity.
+- `api/review-enquiry.php` validates the completed browser review without persistence or CRM side effects.
 - `api/integration-runtime.php` owns private configuration, recovery state, CRM transport, reusable PDF generation and recipient-specific Resend delivery.
 - `tests/pricing.test.mjs` protects the deterministic calculation contract using Node's built-in test runner.
 - `composer.json` and `composer.lock` pin the server-side `giggsey/libphonenumber-for-php` dependency for installation through Composer's optimized production autoloader.
@@ -28,7 +28,7 @@ Form values remain in their controls while users move through the four steps. St
 
 The yearly counter row is locked with `SELECT ... FOR UPDATE`. Counter increment and enquiry insertion occur in one InnoDB transaction. An identical retry resolves by the unique idempotency hash and returns its original reference. A failed transaction rolls back the counter increment.
 
-The browser creates one `j1` journey identity per planner journey with an issuance timestamp and 128 cryptographically random bits. Review-stage CRM calls reuse it and update the same private recovery state. Submission persists first, then resumes CRM reference synchronization, PDF generation, client email and administrator email. Each completed operation remains completed across retries. PDFs and state remain outside `public_html` and expire after 30 days.
+The browser creates one `j1` journey identity per planner journey with an issuance timestamp and 128 cryptographically random bits. Review performs validation only. Final submission persists first, then synchronizes CRM with the allocated `ARQ` reference before continuing PDF generation, client email and administrator email. CRM recovery is keyed by that authoritative reference, while its fingerprint binds the reference to canonical enquiry content. Each completed operation remains completed across retries; failures remain pending without invalidating the persisted enquiry. PDFs and state remain outside `public_html` and expire after 30 days.
 
 Historical records are read through their stored pricing snapshots. A historical `best` payload is eligible only for an existing idempotency-hash lookup; if no matching record exists it fails validation before pricing or persistence. Historical snapshots continue through CRM, email, PDF and retry presentation without repricing.
 

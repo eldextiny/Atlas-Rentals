@@ -212,11 +212,32 @@ $tests['optional technician presentation and approved rate are preserved'] = fun
     check(!str_contains($message['html'], '>Technician<') && !str_contains($message['text'], 'Technician:'), 'unselected technician was presented');
 };
 $tests['CRM document synchronization is deduplicated and changed content updates'] = function () use ($preview, $config): void {
-    $calls = 0; $poster = function () use (&$calls): array { $calls++; return atlasRentalsSafeResult(true, 'CRM_ACCEPTED'); };
+    $calls = 0; $captured = null; $poster = function ($payload) use (&$calls, &$captured): array { $calls++; $captured = $payload; return atlasRentalsSafeResult(true, 'CRM_ACCEPTED'); };
     atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster); atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster);
-    check($calls === 1, 'unchanged CRM review duplicated');
+    check($calls === 1, 'unchanged CRM delivery duplicated');
+    check($captured['sourceModule'] === 'Atlas Rental' && $captured['documentType'] === 'Laptop Rental Quotation'
+        && $captured['documentReference'] === 'ARQ-2026-000001', 'CRM did not receive the allocated document identity');
+    $sameEnquiryNewJourney = $preview; $sameEnquiryNewJourney['journeyId'] = 'fedcba9876543210fedcba9876543210';
+    atlasRentalsSyncCrm($sameEnquiryNewJourney, 'ARQ-2026-000001', $config, $poster);
+    check($calls === 1, 'completed reference was duplicated by a new browser journey');
     $changed = $preview; $changed['canonical'] .= 'changed'; atlasRentalsSyncCrm($changed, 'ARQ-2026-000001', $config, $poster);
-    check($calls === 2, 'changed CRM review did not update');
+    check($calls === 2, 'changed CRM document did not update');
+};
+$tests['CRM requires an allocated reference and failed delivery remains pending until one safe retry succeeds'] = function () use ($preview, $config): void {
+    try { atlasRentalsSyncCrm($preview, null, $config, static fn(): array => atlasRentalsSafeResult(true, 'CRM_ACCEPTED')); }
+    catch (UnexpectedValueException) { $missingRejected = true; }
+    check($missingRejected ?? false, 'CRM accepted a review without an allocated reference');
+    $calls = 0; $poster = function (array $payload) use (&$calls): array {
+        $calls++;
+        check($payload['documentReference'] === 'ARQ-2026-000004', 'CRM retry changed the allocated reference');
+        return $calls === 1 ? atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true) : atlasRentalsSafeResult(true, 'CRM_ACCEPTED');
+    };
+    $failed = atlasRentalsSyncCrm($preview, 'ARQ-2026-000004', $config, $poster);
+    check($failed['crm']['status'] === 'pending' && $failed['crm']['code'] === 'CRM_REQUEST_FAILED', 'failed CRM delivery was not retained as pending');
+    $completed = atlasRentalsSyncCrm($preview, 'ARQ-2026-000004', $config, $poster);
+    $duplicate = atlasRentalsSyncCrm($preview, 'ARQ-2026-000004', $config, $poster);
+    check($completed['crm']['status'] === 'completed' && $duplicate['crm']['status'] === 'completed', 'successful CRM retry did not remain completed');
+    check($calls === 2, 'completed CRM delivery was duplicated');
 };
 $tests['PDF contains required quotation content'] = function () use ($record, $pdfPath): void {
     check(is_file(ATLAS_RENTALS_PDF_LOGO_PATH), 'approved DY-PLUS logo asset is missing');
