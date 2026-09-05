@@ -1,4 +1,4 @@
-import { calculateEstimate, calculateRentalDays, LAPTOP_CATALOGUE, PRICING, validateBooking } from "./pricing.js";
+import { calculateEstimate, calculateRentalDays, formatRentalPeriod, LAPTOP_CATALOGUE, PRICING, validateBooking } from "./pricing.js";
 import { PHONE_VALIDATION_MESSAGE, buildEnquiryPayload, clearJourneyId, createJourneyId, createSubmissionGuard, normalizePhoneNumber, personalDetailsError, phoneCountryOptions } from "./enquiry.js";
 
 const form = document.querySelector("#rental-form");
@@ -157,7 +157,7 @@ function updateEstimate() {
   const selectedPricing = state.laptopCategory === "standard" ? result.standardPricing : result.performancePricing;
   const equipmentTotal = state.laptopCategory === "standard" ? result.standardRental : result.performanceRental;
   const rentalPeriod = result.rentalDays && state.startDate && state.endDate
-    ? `${state.startDate} to ${state.endDate}`
+    ? formatRentalPeriod(state.startDate, state.endDate)
     : "Dates pending";
   const ratePerLaptop = !selectedDetails || !result.rentalDays
     ? "Rate pending"

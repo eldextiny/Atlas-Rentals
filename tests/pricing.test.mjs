@@ -6,10 +6,16 @@ import {
   calculateEstimate,
   calculateRentalDays,
   formatDurationBreakdown,
+  formatRentalPeriod,
   LAPTOP_CATALOGUE,
   RATE_PLANS,
   validateBooking,
 } from "../js/pricing.js";
+
+test("rental periods use direct calendar components for display", () => {
+  assert.equal(formatRentalPeriod("2026-09-07", "2026-09-10"), "Sept 07, 2026 to Sept 10, 2026");
+  assert.equal(formatRentalPeriod("2026-12-31", "2027-01-04"), "Dec 31, 2026 to Jan 04, 2027");
+});
 
 test("published rates and minimum remain fixed", () => {
   assert.deepEqual([PRICING.standardDailyRate, PRICING.performanceDailyRate], [10_000, 15_000]);
