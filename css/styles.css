@@ -254,7 +254,7 @@ progress::-moz-progress-bar { background: var(--brand-green); }
 .vat-row { border-top-style: dashed !important; }
 .total-row { position: relative; display: grid; gap: .25rem; margin-top: .8rem; padding: .9rem 1rem; color: white; background: var(--brand-blue); border-radius: 10px; box-shadow: none; }
 .total-row span { color: #e4e6ff; font-size: .72rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
-.total-row strong { color: white; font-family: Georgia, serif; font-size: clamp(2rem, 4vw, 2.45rem); line-height: 1; }
+.total-row strong { color: white; font-family: "Segoe UI", system-ui, sans-serif; font-size: clamp(2rem, 4vw, 2.45rem); line-height: 1; }
 .estimate-disclaimer { margin: .85rem 0 0; color: var(--muted); font-size: .72rem; line-height: 1.55; }
 .minimum-status { margin: 1rem 0 0; padding: .7rem .75rem; color: var(--brand-blue); background: var(--pale-blue); border-radius: 8px; font-size: .75rem; }
 .minimum-status.is-valid { color: #075d38; background: var(--pale-green); }
