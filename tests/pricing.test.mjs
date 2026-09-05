@@ -80,13 +80,22 @@ test("Delivery & Retrieval cannot be disabled by a caller", () => {
   assert.equal(result.deliveryRetrieval, 40_000);
 });
 
-test("technician support costs ₦35,000 for every billable working day", () => {
+test("one technician costs ₦35,000 for every billable working day", () => {
   const result = calculateEstimate({
     standardQuantity: 5,
     rentalDays: 3,
+    technicianQuantity: 1,
     technicianDays: 3,
   });
   assert.equal(result.technician, 105_000);
+});
+
+test("multiple technicians multiply quantity by authoritative working days", () => {
+  const result = calculateEstimate({ standardQuantity: 5, rentalDays: 5, technicianQuantity: 3, technicianDays: 5 });
+  assert.equal(result.technician, 525_000);
+  assert.equal(result.subtotalBeforeVat, 815_000);
+  assert.equal(result.vat, 61_125);
+  assert.equal(result.total, 876_125);
 });
 
 test("VAT applies after rental, Delivery & Retrieval and technician charges", () => {
@@ -95,6 +104,7 @@ test("VAT applies after rental, Delivery & Retrieval and technician charges", ()
     performanceQuantity: 2,
     ratePlan: "daily",
     rentalDays: 2,
+    technicianQuantity: 1,
     technicianDays: 2,
   });
   assert.equal(result.rentalSubtotal, 120_000);
@@ -163,16 +173,13 @@ test("booking validation accepts a specified Nigerian service city", () => {
   assert.equal(result.valid, true);
 });
 
-test("technician selection requires at least one support day", () => {
-  const result = validateBooking({
-    location: "Lagos",
-    startDate: "2026-08-04",
-    endDate: "2026-08-04",
-    standardQuantity: 5,
-    ratePlan: "daily",
-    technicianRequired: true,
-    technicianDays: 0,
-  });
-  assert.equal(result.valid, false);
-  assert.match(result.errors.technician, /at least 1/);
+test("selected technician quantity must be an integer from 1 through 10", () => {
+  const base = { location: "Lagos", startDate: "2026-08-04", endDate: "2026-08-04", standardQuantity: 5, ratePlan: "daily", technicianRequired: true, technicianDays: 1 };
+  for (const technicianQuantity of [0, -1, 1.5, "2", 11]) {
+    const result = validateBooking({ ...base, technicianQuantity });
+    assert.equal(result.valid, false);
+    assert.match(result.errors.technician, /technicianQuantity|between 1 and 10/);
+  }
+  assert.equal(validateBooking({ ...base, technicianQuantity: 1 }).valid, true);
+  assert.equal(validateBooking({ ...base, technicianQuantity: 10 }).valid, true);
 });

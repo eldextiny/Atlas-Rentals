@@ -27,9 +27,11 @@ test("support and personal details share step three", () => {
   assert.match(stepThree, /Included automatically/);
   assert.match(stepThree, /id="technician-required"/);
   assert.match(stepThree, /Optional technician support/);
-  assert.match(stepThree, /₦35,000 per billable working day/);
+  assert.match(stepThree, /₦35,000 per technician per billable working day/);
   assert.match(stepThree, /type="checkbox"[^>]*aria-describedby="technician-support-rate technician-error"/);
   assert.match(stepThree, /id="technician-days" name="technicianDays" type="hidden" value="0"/);
+  assert.match(stepThree, /id="technician-quantity" name="technicianQuantity" type="number" min="1" max="10" step="1" value="1"[^>]*disabled/);
+  assert.match(stepThree, /Number of technicians/);
   assert.match(stepThree, /name="fullName"/);
   assert.match(stepThree, /name="organization"/);
   assert.match(stepThree, /name="email"/);
@@ -81,7 +83,9 @@ test("final review and local reset contracts are retained", () => {
   assert.match(app, /restartButton\.addEventListener\("click"/);
   assert.match(app, /form\.reset\(\)/);
   assert.match(app, /technicianDaysInput\.value = String\(techSelected \? billableWorkingDays : 0\)/);
-  assert.match(app, /technician-estimate-row"\)\.hidden = result\.technicianDays === 0/);
+  assert.match(app, /technician-estimate-row"\)\.hidden = result\.technicianQuantity === 0/);
+  assert.match(app, /technicianQuantityInput\.value = "1"/);
+  assert.match(app, /technicianQuantityInput\.disabled = !technicianRequired\.checked/);
 });
 
 test("confirmation is persisted-enquiry wording rather than booking confirmation", () => {
@@ -320,10 +324,11 @@ test("estimate shows one selected category and conditionally hides technician", 
   assert.match(app, /const equipmentTotal = state\.laptopCategory === "standard" \? result\.standardRental : result\.performanceRental/);
   assert.match(html, /id="technician-estimate-row" hidden/);
   assert.match(html, /id="summary-technician-row" hidden/);
-  assert.match(app, /document\.querySelector\("#technician-estimate-row"\)\.hidden = result\.technicianDays === 0/);
-  assert.match(app, /document\.querySelector\("#summary-technician-row"\)\.hidden = result\.technicianDays === 0/);
+  assert.match(app, /document\.querySelector\("#technician-estimate-row"\)\.hidden = result\.technicianQuantity === 0/);
+  assert.match(app, /document\.querySelector\("#summary-technician-row"\)\.hidden = result\.technicianQuantity === 0/);
   assert.match(html, /class="included-status">Included/);
   assert.match(app, /technicianDays: techSelected \? billableWorkingDays : 0/);
+  assert.match(app, /technicianQuantity,/);
   assert.doesNotMatch(app, /numberValue\("technicianDays"\)/);
 });
 

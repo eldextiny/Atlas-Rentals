@@ -3,7 +3,7 @@ import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 
 const PAYLOAD_FIELDS = Object.freeze([
   "journeyId", "location", "startDate", "endDate", "ratePlan",
   "standardQuantity", "performanceQuantity", "technicianRequired",
-  "technicianDays", "fullName", "organization", "email", "phoneCountry", "phone",
+  "technicianQuantity", "technicianDays", "fullName", "organization", "email", "phoneCountry", "phone",
 ]);
 const NEW_ENQUIRY_RATE_PLANS = Object.freeze(["daily"]);
 export const PHONE_VALIDATION_MESSAGE = "Enter a valid phone number for the selected country, or include the full international number beginning with +.";
@@ -65,6 +65,7 @@ export function buildEnquiryPayload(form, journeyId) {
     standardQuantity: standardSelected ? laptopQuantity : 0,
     performanceQuantity: performanceSelected ? laptopQuantity : 0,
     technicianRequired,
+    technicianQuantity: technicianRequired ? integer(values.technicianQuantity) : 0,
     technicianDays: technicianRequired ? integer(values.technicianDays) : 0,
     fullName: text(values.fullName),
     organization: text(values.organization),

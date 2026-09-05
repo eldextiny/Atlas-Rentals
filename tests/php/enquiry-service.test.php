@@ -36,7 +36,7 @@ function valid_payload(): array
         'journeyId' => '0123456789abcdef0123456789abcdef', 'location' => 'Lagos', 'ratePlan' => 'daily',
         'startDate' => '2026-08-05', 'endDate' => '2026-08-07',
         'standardQuantity' => 3, 'performanceQuantity' => 2,
-        'technicianRequired' => true, 'technicianDays' => 2,
+        'technicianRequired' => true, 'technicianQuantity' => 1, 'technicianDays' => 2,
         'fullName' => 'Ada User', 'organization' => 'Example Limited',
         'email' => 'ADA@example.com', 'phoneCountry' => 'NG', 'phone' => '08028557479',
     ];
@@ -76,14 +76,21 @@ $tests['server pricing, working dates and technician rate'] = function (): void 
     $snapshot = json_decode($store->lastSaved['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR);
     $normalized = json_decode($store->lastSaved['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
     expect($normalized['technicianDays'] === 3 && $store->lastSaved['technician_days'] === 3, 'authoritative working days were not persisted');
-    expect($snapshot['technicianDailyRate'] === 35000 && $snapshot['technicianAmount'] === 105000, 'authoritative technician price was not persisted');
+    expect($normalized['technicianQuantity'] === 1 && $store->lastSaved['technician_quantity'] === 1, 'technician quantity was not persisted');
+    expect($snapshot['technicianQuantity'] === 1 && $snapshot['technicianDailyRate'] === 35000 && $snapshot['technicianAmount'] === 105000, 'authoritative technician price was not persisted');
+};
+$tests['multiple technicians multiply quantity and working days'] = function (): void {
+    $payload = valid_payload(); $payload['technicianQuantity'] = 3;
+    $preview = service(new MemoryStore())->preview($payload);
+    expect($preview['pricing']['technicianAmount'] === 315000, 'three-technician amount mismatch');
+    expect($preview['pricing']['subtotal'] === 535000 && $preview['pricing']['vatAmount'] === 40125 && $preview['pricing']['estimatedTotal'] === 575125, 'quantity did not update commercial totals');
 };
 $tests['unselected technician is normalized and persisted as zero'] = function (): void {
-    $payload = valid_payload(); $payload['technicianRequired'] = false; $payload['technicianDays'] = 0;
+    $payload = valid_payload(); $payload['technicianRequired'] = false; $payload['technicianQuantity'] = 0; $payload['technicianDays'] = 0;
     $preview = service($store = new MemoryStore())->preview($payload);
-    expect($preview['normalized']['technicianDays'] === 0 && $preview['pricing']['technicianAmount'] === 0, 'unselected preview included technician support');
+    expect($preview['normalized']['technicianQuantity'] === 0 && $preview['normalized']['technicianDays'] === 0 && $preview['pricing']['technicianAmount'] === 0, 'unselected preview included technician support');
     service($store)->submit($payload);
-    expect($store->lastSaved['technician_required'] === 0 && $store->lastSaved['technician_days'] === 0, 'unselected technician was not persisted as zero');
+    expect($store->lastSaved['technician_required'] === 0 && $store->lastSaved['technician_quantity'] === 0 && $store->lastSaved['technician_days'] === 0, 'unselected technician was not persisted as zero');
 };
 $tests['specified service city uses the existing location contract'] = function (): void {
     $payload = valid_payload(); $payload['location'] = 'Port Harcourt';
@@ -124,6 +131,16 @@ $tests['identical retry returns original reference'] = function (): void {
     expect($first['reference'] === $second['reference'], 'duplicate reference changed');
     expect($store->sequence === 1 && $second['duplicate'] === true, 'duplicate consumed a reference');
 };
+$tests['current one-technician retry matches a pre-quantity historical enquiry'] = function (): void {
+    $store = new MemoryStore(); $service = service($store); $payload = valid_payload();
+    $normalized = $service->preview($payload)['normalized'];
+    unset($normalized['technicianQuantity']);
+    $legacyHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    $store->records[$legacyHash] = ['enquiry_reference' => 'ARQ-2026-000099', 'status' => 'received', 'estimated_total' => '349375.00', 'currency' => 'NGN'];
+    $result = $service->submit($payload);
+    expect($result['reference'] === 'ARQ-2026-000099' && $result['duplicate'] === true, 'current retry did not match historical identity');
+    expect($store->sequence === 0, 'historical retry created a duplicate record');
+};
 $tests['expired journey identifier fails before persistence'] = function (): void {
     $store = new MemoryStore();
     $guard = static function (string $identifier): void { throw new RuntimeException('expired journey'); };
@@ -161,6 +178,15 @@ $tests['material change creates a different reference'] = function (): void {
     $second = $service->submit($changed);
     expect($first['reference'] !== $second['reference'] && $store->sequence === 2, 'material change was deduplicated');
 };
+$tests['technician quantity is canonical material while identical retries remain idempotent'] = function (): void {
+    $service = service($store = new MemoryStore());
+    $first = $service->submit(valid_payload());
+    $same = $service->submit(valid_payload());
+    $changedPayload = valid_payload(); $changedPayload['technicianQuantity'] = 2;
+    $changed = $service->submit($changedPayload);
+    expect($first['reference'] === $same['reference'] && $changed['reference'] !== $first['reference'], 'technician quantity was not canonical commercial material');
+    expect($store->sequence === 2, 'technician quantity retry/reference behavior changed');
+};
 $tests['failed persistence does not consume a reference'] = function (): void {
     $store = new MemoryStore(); $store->fail = true;
     try { service($store)->submit(valid_payload()); } catch (RuntimeException) {}
@@ -174,7 +200,7 @@ $tests['validation rejects identity quantity dates contact and unexpected fields
     ] as [$key, $value, $field]) { $payload = valid_payload(); $payload[$key] = $value; expect_validation($payload, $field); }
     $payload = valid_payload(); $payload['standardQuantity'] = 2; $payload['performanceQuantity'] = 2; expect_validation($payload, 'quantity');
     $payload = valid_payload(); unset($payload['organization']); expect_validation($payload, 'organization');
-    $payload = valid_payload(); $payload['technicianDays'] = 0; expect_validation($payload, 'technicianDays');
+    foreach ([0, -1, 1.5, '2', 11] as $quantity) { $payload = valid_payload(); $payload['technicianQuantity'] = $quantity; expect_validation($payload, 'technicianQuantity'); }
     $payload = valid_payload(); $payload['startDate'] = '2026-08-08'; expect_validation($payload, 'dates');
     $payload = valid_payload(); $payload['endDate'] = '2026-08-09'; expect_validation($payload, 'dates');
 };

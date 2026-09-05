@@ -5,7 +5,7 @@ import { buildEnquiryPayload, createJourneyId, createSubmissionGuard, hasStableP
 const payload = {
   journeyId: "0123456789abcdef0123456789abcdef", location: "Lagos", startDate: "2026-08-05", ratePlan: "daily",
   endDate: "2026-08-06", standardQuantity: 5, performanceQuantity: 0,
-  technicianRequired: false, technicianDays: 0, fullName: "Ada User",
+  technicianRequired: false, technicianQuantity: 0, technicianDays: 0, fullName: "Ada User",
   organization: "Example Ltd", email: "ada@example.com", phoneCountry: "NG", phone: "+2348028557479",
 };
 
@@ -48,11 +48,21 @@ test("payload creation normalizes a copy without mutating entered values", () =>
   assert.equal(result.standardQuantity, 0);
   assert.equal(result.performanceQuantity, 5);
   assert.equal(result.technicianDays, 0);
+  assert.equal(result.technicianQuantity, 0);
   assert.equal(result.ratePlan, "daily");
   assert.equal(result.phoneCountry, "NG");
   assert.equal(result.phone, "+2348028557479");
   assert.equal(enteredPhone, "0802 855 7479");
   assert.equal(payload.email, "ada@example.com");
+});
+
+test("selected technician quantity is included without reusing technician days", () => {
+  const originalFormData = globalThis.FormData;
+  globalThis.FormData = class { *[Symbol.iterator]() { yield* Object.entries({ ...payload, serviceCity: "Lagos", laptopCategory: "standard", laptopQuantity: 5, technicianQuantity: 3, technicianDays: 5 }); } };
+  const result = buildEnquiryPayload({ elements: { technicianRequired: { checked: true } } }, payload.journeyId);
+  globalThis.FormData = originalFormData;
+  assert.equal(result.technicianQuantity, 3);
+  assert.equal(result.technicianDays, 5);
 });
 
 test("single category maps to the stable two-quantity backend contract", () => {

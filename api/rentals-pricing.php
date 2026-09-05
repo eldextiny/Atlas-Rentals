@@ -71,7 +71,8 @@ function atlasRentalsCalculatePricing(array $normalized, int $rentalDays): array
     $standard['equipmentAmount'] = $standard['quantity'] * $standard['perUnitRental'];
     $performance['equipmentAmount'] = $performance['quantity'] * $performance['perUnitRental'];
     $equipmentAmount = $standard['equipmentAmount'] + $performance['equipmentAmount'];
-    $technicianAmount = (int)$normalized['technicianDays'] * ATLAS_RENTALS_PRICING['technicianDailyRate'];
+    $technicianQuantity = (int)$normalized['technicianQuantity'];
+    $technicianAmount = $technicianQuantity * (int)$normalized['technicianDays'] * ATLAS_RENTALS_PRICING['technicianDailyRate'];
     $subtotal = $equipmentAmount + ATLAS_RENTALS_PRICING['deliveryFee'] + $technicianAmount;
     $vat = (int)round($subtotal * ATLAS_RENTALS_PRICING['vatRate']);
     return [
@@ -79,7 +80,7 @@ function atlasRentalsCalculatePricing(array $normalized, int $rentalDays): array
         'durationLabel' => atlasRentalsDurationLabel($duration), 'standard' => $standard, 'performance' => $performance,
         'standardDailyRate' => ATLAS_RENTALS_PRICING['standard']['dailyRate'], 'performanceDailyRate' => ATLAS_RENTALS_PRICING['performance']['dailyRate'],
         'equipmentAmount' => $equipmentAmount, 'deliveryFee' => ATLAS_RENTALS_PRICING['deliveryFee'],
-        'technicianDailyRate' => ATLAS_RENTALS_PRICING['technicianDailyRate'], 'technicianAmount' => $technicianAmount,
+        'technicianQuantity' => $technicianQuantity, 'technicianDailyRate' => ATLAS_RENTALS_PRICING['technicianDailyRate'], 'technicianAmount' => $technicianAmount,
         'vatRate' => ATLAS_RENTALS_PRICING['vatRate'], 'subtotal' => $subtotal, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat,
     ];
 }
@@ -88,6 +89,7 @@ function atlasRentalsPricingFromRecord(array $record): array
 {
     $snapshot = json_decode((string)($record['pricing_snapshot'] ?? ''), true);
     if (is_array($snapshot) && isset($snapshot['standard']['perUnitRental'], $snapshot['performance']['perUnitRental'], $snapshot['duration'])) {
+        if (!isset($snapshot['technicianQuantity'])) $snapshot['technicianQuantity'] = atlasRentalsTechnicianQuantityFromRecord($record);
         if (!isset($snapshot['ratePlan'])) return ['historicalPricing' => true, 'ratePlan' => 'historical', 'ratePlanLabel' => 'Historical stored pricing'] + $snapshot;
         return $snapshot;
     }
@@ -104,9 +106,17 @@ function atlasRentalsPricingFromRecord(array $record): array
         'duration' => ['totalDays' => $days, 'months' => 0, 'weeks' => 0, 'days' => $days],
         'durationLabel' => $days . ' day' . ($days === 1 ? '' : 's'), 'standard' => $standard, 'performance' => $performance,
         'equipmentAmount' => $standard['equipmentAmount'] + $performance['equipmentAmount'],
-        'deliveryFee' => (int)$record['delivery_fee'], 'technicianDailyRate' => (int)$record['technician_daily_rate'],
+        'deliveryFee' => (int)$record['delivery_fee'], 'technicianQuantity' => atlasRentalsTechnicianQuantityFromRecord($record), 'technicianDailyRate' => (int)$record['technician_daily_rate'],
         'technicianAmount' => (int)$record['technician_days'] * (int)$record['technician_daily_rate'],
         'vatRate' => (float)($snapshot['vatRate'] ?? 0.075), 'subtotal' => (int)$record['subtotal'],
         'vatAmount' => (int)$record['vat_amount'], 'estimatedTotal' => (int)$record['estimated_total'],
     ];
+}
+
+function atlasRentalsTechnicianQuantityFromRecord(array $record): int
+{
+    if (array_key_exists('technician_quantity', $record) && $record['technician_quantity'] !== null) return (int)$record['technician_quantity'];
+    $normalized = json_decode((string)($record['normalized_payload'] ?? ''), true);
+    if (is_array($normalized) && isset($normalized['technicianQuantity']) && is_int($normalized['technicianQuantity'])) return $normalized['technicianQuantity'];
+    return (int)($record['technician_required'] ?? 0) === 1 ? 1 : 0;
 }

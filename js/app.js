@@ -17,6 +17,8 @@ const ratePlanHelp = document.querySelector("#rate-plan-help");
 const ratePlanDetails = document.querySelector("#rate-plan-details");
 const categoryDetails = document.querySelector("#category-details");
 const technicianRequired = document.querySelector("#technician-required");
+const technicianQuantityWrap = document.querySelector("#technician-quantity-wrap");
+const technicianQuantityInput = document.querySelector("#technician-quantity");
 const technicianDaysInput = document.querySelector("#technician-days");
 const phoneCountry = document.querySelector("#phone-country");
 const phoneInput = document.querySelector("#phone");
@@ -85,6 +87,14 @@ function updateCustomCityState({ clearWhenHidden = false } = {}) {
   }
 }
 
+function updateTechnicianQuantityState({ reset = false } = {}) {
+  if (reset || !technicianRequired.checked) technicianQuantityInput.value = "1";
+  technicianQuantityInput.disabled = !technicianRequired.checked;
+  technicianQuantityWrap.hidden = !technicianRequired.checked;
+  technicianQuantityInput.removeAttribute("aria-invalid");
+  showError("technician-error");
+}
+
 function rentalDays() {
   try {
     return calculateRentalDays(form.elements.startDate.value, form.elements.endDate.value);
@@ -95,6 +105,7 @@ function rentalDays() {
 
 function plannerState() {
   const techSelected = form.elements.technicianRequired.checked;
+  const technicianQuantity = techSelected ? numberValue("technicianQuantity") : 0;
   const category = form.elements.laptopCategory.value;
   const quantity = numberValue("laptopQuantity");
   const billableWorkingDays = rentalDays();
@@ -110,6 +121,7 @@ function plannerState() {
     rentalDays: billableWorkingDays,
     ratePlan: ratePlan.value,
     technicianRequired: techSelected,
+    technicianQuantity,
     technicianDays: techSelected ? billableWorkingDays : 0,
   };
 }
@@ -172,10 +184,10 @@ function updateEstimate() {
   setText("#estimate-equipment-total", currency.format(equipmentTotal));
   setText("#summary-equipment-cost", currency.format(equipmentTotal));
   setText("#delivery-retrieval-cost", currency.format(result.deliveryRetrieval));
-  setText("#technician-summary", result.technicianDays ? `${result.technicianDays} day${result.technicianDays === 1 ? "" : "s"} selected` : "Not selected");
+  setText("#technician-summary", result.technicianQuantity ? `${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} working day${result.technicianDays === 1 ? "" : "s"}` : "Not selected");
   setText("#technician-cost", currency.format(result.technician));
-  document.querySelector("#technician-estimate-row").hidden = result.technicianDays === 0;
-  document.querySelector("#summary-technician-row").hidden = result.technicianDays === 0;
+  document.querySelector("#technician-estimate-row").hidden = result.technicianQuantity === 0;
+  document.querySelector("#summary-technician-row").hidden = result.technicianQuantity === 0;
   setText("#estimate-subtotal", currency.format(result.subtotalBeforeVat));
   setText("#vat-cost", currency.format(result.vat));
   setText("#total-cost", currency.format(result.total));
@@ -195,8 +207,8 @@ function updateEstimate() {
 }
 
 function estimateMarkup(result) {
-  const technicianLine = result.technicianDays
-    ? `<div class="summary-line"><span>Technician (${result.technicianDays} days)</span><strong>${currency.format(result.technician)}</strong></div>`
+  const technicianLine = result.technicianQuantity
+    ? `<div class="summary-line"><span>${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} working day${result.technicianDays === 1 ? "" : "s"}</span><strong>${currency.format(result.technician)}</strong></div>`
     : "";
   const selectedPricing = result.standardQuantity ? result.standardPricing : result.performancePricing;
   const categoryName = result.standardQuantity ? "Standard Business Laptop" : "High Performance Laptop";
@@ -230,7 +242,7 @@ function renderReview(state, result) {
     <div class="summary-group"><h4>Equipment &amp; support</h4>
       <div class="summary-line"><span>${state.laptopCategory === "standard" ? "Standard Business Laptop" : "High Performance Laptop"}</span><strong>${state.laptopQuantity}</strong></div>
       <div class="summary-line"><span>Delivery &amp; Retrieval</span><strong>Included service</strong></div>
-      ${state.technicianRequired ? `<div class="summary-line"><span>Technician</span><strong>${result.technicianDays} days</strong></div>` : ""}
+      ${state.technicianRequired ? `<div class="summary-line"><span>Technician</span><strong>${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} working day${result.technicianDays === 1 ? "" : "s"}</strong></div>` : ""}
     </div>
     <div class="summary-group"><h4>Personal details</h4>
       <div class="summary-line"><span>Contact</span><strong>${escaped(values.fullName)}</strong></div>
@@ -359,9 +371,11 @@ function validateCurrentStep() {
   if (currentStep === 3) {
     showError("technician-error", booking.errors.technician);
     if (booking.errors.technician) {
-      technicianRequired.focus();
+      technicianQuantityInput.setAttribute("aria-invalid", "true");
+      technicianQuantityInput.focus();
       return false;
     }
+    technicianQuantityInput.removeAttribute("aria-invalid");
     if (!validatePersonalDetails()) return false;
   }
   return true;
@@ -503,6 +517,7 @@ rateCards.forEach((card) => {
 });
 
 technicianRequired.addEventListener("change", () => {
+  updateTechnicianQuantityState({ reset: true });
   updateEstimate();
 });
 
@@ -653,6 +668,7 @@ finishButton.addEventListener("click", async () => {
 restartButton.addEventListener("click", () => {
   hideSubmissionOverlay();
   form.reset();
+  updateTechnicianQuantityState({ reset: true });
   clearJourneyId();
   journeyId = createJourneyId();
   highestStep = 1;
@@ -686,6 +702,7 @@ document.querySelectorAll(".form-step h3").forEach((heading) => heading.setAttri
 document.querySelector("#year").textContent = new Date().getFullYear();
 populatePhoneCountries();
 updateCustomCityState();
+updateTechnicianQuantityState();
 updateEstimate();
 planner.dataset.currentStep = "1";
 steps.forEach((section, index) => { section.inert = index !== 0; section.setAttribute("aria-hidden", index === 0 ? "false" : "true"); });

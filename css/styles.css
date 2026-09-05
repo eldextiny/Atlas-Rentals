@@ -208,6 +208,10 @@ progress::-webkit-progress-value { background: var(--brand-green); }
 progress::-moz-progress-bar { background: var(--brand-green); }
 .service-card { margin-bottom: .85rem; }
 .service-card > strong { white-space: nowrap; }
+.technician-quantity-field { display: grid; gap: .45rem; max-width: 16rem; margin: 0 0 .85rem 2.9rem; }
+.technician-quantity-field[hidden] { display: none; }
+.technician-quantity-field label { color: var(--brand-navy); font-weight: 800; }
+.technician-quantity-field small { color: var(--muted); font-size: .76rem; }
 .included-service { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 1rem; align-items: center; margin-bottom: .85rem; padding: 1.15rem; color: var(--brand-navy); background: var(--pale-blue); border: 1px solid #c9ceff; border-left: 4px solid var(--brand-blue); border-radius: 12px; cursor: default; }
 .included-service-icon { display: grid; place-items: center; width: 2.8rem; height: 2.8rem; color: var(--brand-blue); background: white; border: 1px solid #d8dcff; border-radius: 10px; }
 .included-service-icon svg { width: 1.65rem; height: 1.65rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -390,6 +394,7 @@ footer p { margin: 0; }
   .product label { max-width: 130px; }
   .service-card { align-items: flex-start; flex-wrap: wrap; }
   .service-card > strong { margin-left: 1.9rem; }
+  .technician-quantity-field { max-width: none; margin-left: 0; }
   .included-service { grid-template-columns: auto minmax(0, 1fr); }
   .included-service > strong { grid-column: 2; }
   #rental-form, .estimate-card { padding: 1.2rem; }

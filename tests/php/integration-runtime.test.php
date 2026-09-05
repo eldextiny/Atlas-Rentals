@@ -18,12 +18,12 @@ $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'atlas-rentals-' . bin2hex(ra
 $statePath = $root . DIRECTORY_SEPARATOR . 'state'; $pdfPath = $root . DIRECTORY_SEPARATOR . 'pdf';
 mkdir($statePath, 0700, true); mkdir($pdfPath, 0700, true);
 $config = ['state_path' => $statePath, 'pdf_path' => $pdfPath, 'crm_source' => 'Atlas Rentals', 'crm_service' => 'Laptop Rental'];
-$normalized = ['location' => 'Lagos', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'ratePlan' => 'daily', 'standardQuantity' => 3, 'performanceQuantity' => 2, 'technicianRequired' => true, 'technicianDays' => 2, 'fullName' => 'Ada User', 'organization' => 'Example Ltd', 'email' => 'ada@example.com', 'phone' => '+2348028557479'];
+$normalized = ['location' => 'Lagos', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'ratePlan' => 'daily', 'standardQuantity' => 3, 'performanceQuantity' => 2, 'technicianRequired' => true, 'technicianQuantity' => 1, 'technicianDays' => 2, 'fullName' => 'Ada User', 'organization' => 'Example Ltd', 'email' => 'ada@example.com', 'phone' => '+2348028557479'];
 $pricing = atlasRentalsCalculatePricing($normalized, 3);
 $crmNormalized = $normalized; $crmNormalized['standardQuantity'] = 5; $crmNormalized['performanceQuantity'] = 0;
 $crmPricing = atlasRentalsCalculatePricing($crmNormalized, 3);
 $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $crmNormalized, 'canonical' => json_encode($crmNormalized), 'pricing' => $crmPricing];
-$record = ['enquiry_reference' => 'ARQ-2026-000001', 'normalized_payload' => json_encode($normalized), 'pricing_snapshot' => json_encode($pricing), 'created_at' => '2026-08-05 12:00:00', 'rental_days' => 3, 'standard_quantity' => 3, 'performance_quantity' => 2, 'technician_required' => 1, 'technician_days' => 2, 'standard_daily_rate' => 10000, 'performance_daily_rate' => 15000, 'delivery_fee' => 40000, 'technician_daily_rate' => 35000, 'subtotal' => 290000, 'vat_amount' => 21750, 'estimated_total' => 311750, 'email' => 'ada@example.com', 'full_name' => 'Ada User', 'organization' => 'Example Ltd', 'location' => 'Lagos', 'start_date' => '2026-08-05', 'end_date' => '2026-08-07'];
+$record = ['enquiry_reference' => 'ARQ-2026-000001', 'normalized_payload' => json_encode($normalized), 'pricing_snapshot' => json_encode($pricing), 'created_at' => '2026-08-05 12:00:00', 'rental_days' => 3, 'standard_quantity' => 3, 'performance_quantity' => 2, 'technician_required' => 1, 'technician_quantity' => 1, 'technician_days' => 2, 'standard_daily_rate' => 10000, 'performance_daily_rate' => 15000, 'delivery_fee' => 40000, 'technician_daily_rate' => 35000, 'subtotal' => 290000, 'vat_amount' => 21750, 'estimated_total' => 311750, 'email' => 'ada@example.com', 'full_name' => 'Ada User', 'organization' => 'Example Ltd', 'location' => 'Lagos', 'start_date' => '2026-08-05', 'end_date' => '2026-08-07'];
 
 $tests = [];
 $tests['CRM payload exactly matches the deployed receiver contract'] = function () use ($preview, $config): void {
@@ -35,7 +35,7 @@ $tests['CRM payload exactly matches the deployed receiver contract'] = function 
         'title' => 'Laptop Rental Quotation', 'category' => 'Standard Business Laptop', 'serviceMode' => 'Daily Rate',
         'venue' => 'Lagos', 'durationValue' => 3, 'durationUnit' => 'days',
         'commercial' => ['subtotalNgn' => 260000, 'vatNgn' => 19500, 'grandTotalNgn' => 279500],
-        'documentContext' => ['standardQuantity' => 5, 'performanceQuantity' => 0, 'technicianRequired' => true, 'technicianDays' => 2, 'ratePlan' => 'daily', 'ratePlanLabel' => 'Daily Rate', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'rentalDays' => 3, 'currency' => 'NGN', 'enquiryReference' => 'ARQ-2026-000001'],
+        'documentContext' => ['standardQuantity' => 5, 'performanceQuantity' => 0, 'technicianRequired' => true, 'technicianQuantity' => 1, 'technicianDays' => 2, 'ratePlan' => 'daily', 'ratePlanLabel' => 'Daily Rate', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'rentalDays' => 3, 'currency' => 'NGN', 'enquiryReference' => 'ARQ-2026-000001'],
     ], 'CRM payload mapping changed');
     foreach (['journeyId', 'enquiryReference', 'contact', 'organisation', 'location', 'dates', 'laptops', 'technician', 'estimate', 'source', 'service', 'stage'] as $obsolete) check(!array_key_exists($obsolete, $payload), "obsolete CRM field {$obsolete} returned");
 };
@@ -117,7 +117,7 @@ $tests['historical best snapshot remains authoritative for email PDF CRM and ret
     $pricing = ['currency' => 'NGN', 'ratePlan' => 'best', 'ratePlanLabel' => 'Best Available Rate', 'rentalDays' => 40,
         'duration' => ['totalDays' => 40, 'months' => 1, 'weeks' => 1, 'days' => 3], 'durationLabel' => '1 month + 1 week + 3 days',
         'standard' => $standard, 'performance' => $performance, 'equipmentAmount' => $standard['equipmentAmount'],
-        'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'technicianAmount' => 1400000,
+        'deliveryFee' => 40000, 'technicianQuantity' => 1, 'technicianDailyRate' => 35000, 'technicianAmount' => 1400000,
         'vatRate' => .075, 'subtotal' => $subtotal, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat];
     $tiered['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR); $tiered['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR);
     $tiered['rental_days'] = 40; $tiered['standard_quantity'] = 6; $tiered['performance_quantity'] = 0; $tiered['technician_days'] = 40;
@@ -159,7 +159,7 @@ $tests['historical weekly and monthly snapshots retain saved labels rates totals
         $subtotal = $standard['equipmentAmount'] + 40000 + 70000; $vat = (int)round($subtotal * .075);
         $pricing = ['currency' => 'NGN', 'ratePlan' => $plan, 'ratePlanLabel' => $label, 'rentalDays' => $days,
             'duration' => $duration, 'durationLabel' => atlasRentalsDurationLabel($duration), 'standard' => $standard, 'performance' => $performance,
-            'equipmentAmount' => $standard['equipmentAmount'], 'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'technicianAmount' => 70000,
+            'equipmentAmount' => $standard['equipmentAmount'], 'deliveryFee' => 40000, 'technicianQuantity' => 1, 'technicianDailyRate' => 35000, 'technicianAmount' => 70000,
             'vatRate' => .075, 'subtotal' => $subtotal, 'vatAmount' => $vat, 'estimatedTotal' => $subtotal + $vat];
         $item['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR);
         $item['rental_days'] = $days; $item['standard_quantity'] = 5; $item['performance_quantity'] = 0;
@@ -186,10 +186,12 @@ $tests['daily rate propagates through snapshot CRM email and PDF'] = function ()
 };
 $tests['legacy stored snapshots retain their original daily calculation'] = function () use ($record): void {
     $legacy = $record;
-    $normalized = json_decode($legacy['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); unset($normalized['ratePlan']); $legacy['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR);
+    unset($legacy['technician_quantity']);
+    $normalized = json_decode($legacy['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); unset($normalized['ratePlan'], $normalized['technicianQuantity']); $legacy['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR);
     $legacy['pricing_snapshot'] = json_encode(['standardDailyRate' => 10000, 'performanceDailyRate' => 15000, 'deliveryFee' => 40000, 'technicianDailyRate' => 35000, 'vatRate' => .075, 'subtotal' => 290000, 'vatAmount' => 21750, 'estimatedTotal' => 311750], JSON_THROW_ON_ERROR);
     $model = atlasRentalsEmailModel($legacy);
     check($model['legacyPricing'] === true && $model['standardPerUnit'] === '₦30,000.00' && $model['total'] === '₦311,750.00', 'historical pricing was recalculated');
+    check($model['technicianQuantity'] === 1, 'historical technician support did not retain one-technician meaning');
     $message = atlasRentalsBuildEmail($legacy, 'client');
     check(!str_contains($message['html'], 'Weekly') && str_contains($message['html'], 'Daily'), 'legacy quotation was presented as tiered pricing');
     check(str_contains($message['html'], 'Historical stored pricing'), 'historical rate-plan compatibility label missing');
@@ -204,9 +206,14 @@ $tests['historical tiered snapshots without a rate plan remain authoritative'] =
 };
 $tests['optional technician presentation and approved rate are preserved'] = function () use ($record): void {
     $with = atlasRentalsBuildEmail($record, 'client');
-    check(str_contains($with['html'], 'Technician') && str_contains($with['html'], '₦35,000.00'), 'approved technician presentation missing');
-    $without = $record; $without['technician_required'] = 0; $without['technician_days'] = 0;
-    $payload = json_decode($without['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); $payload['technicianRequired'] = false; $payload['technicianDays'] = 0;
+    check(str_contains($with['html'], '1 technician') && str_contains($with['html'], '₦35,000.00'), 'singular technician presentation missing');
+    $multiple = $record; $multiple['technician_quantity'] = 3;
+    $payload = json_decode($multiple['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); $payload['technicianQuantity'] = 3; $multiple['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR);
+    $snapshot = json_decode($multiple['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR); $snapshot['technicianQuantity'] = 3; $multiple['pricing_snapshot'] = json_encode($snapshot, JSON_THROW_ON_ERROR);
+    check(str_contains(atlasRentalsBuildEmail($multiple, 'admin')['text'], '3 technicians × 2 working days'), 'plural technician email presentation missing');
+    check(str_contains(atlasRentalsRenderQuotationPdf($multiple), 'Technician - 3 technicians'), 'plural technician PDF presentation missing');
+    $without = $record; $without['technician_required'] = 0; $without['technician_quantity'] = 0; $without['technician_days'] = 0;
+    $payload = json_decode($without['normalized_payload'], true, 32, JSON_THROW_ON_ERROR); $payload['technicianRequired'] = false; $payload['technicianQuantity'] = 0; $payload['technicianDays'] = 0;
     $without['normalized_payload'] = json_encode($payload, JSON_THROW_ON_ERROR);
     $message = atlasRentalsBuildEmail($without, 'client');
     check(!str_contains($message['html'], '>Technician<') && !str_contains($message['text'], 'Technician:'), 'unselected technician was presented');
