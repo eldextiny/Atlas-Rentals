@@ -28,6 +28,18 @@ export const RATE_PLANS = Object.freeze({
   daily: Object.freeze({ label: "Daily Rate", help: "Charged for each Monday-to-Friday rental day." }),
 });
 
+const DISPLAY_MONTHS = Object.freeze(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"]);
+
+export function formatRentalPeriod(startDate, endDate) {
+  const formatDate = (value, fieldName) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    const month = match ? DISPLAY_MONTHS[Number(match[2]) - 1] : null;
+    if (!match || !month) throw new TypeError(`${fieldName} must use YYYY-MM-DD format.`);
+    return `${month} ${match[3]}, ${match[1]}`;
+  };
+  return `${formatDate(startDate, "startDate")} to ${formatDate(endDate, "endDate")}`;
+}
+
 function requireNonNegativeInteger(value, fieldName) {
   if (!Number.isInteger(value) || value < 0) {
     throw new TypeError(`${fieldName} must be a non-negative integer.`);
