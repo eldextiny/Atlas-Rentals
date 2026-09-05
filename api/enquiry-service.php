@@ -111,12 +111,12 @@ final class EnquiryService
 {
     private const ALLOWED_FIELDS = [
         'journeyId', 'location', 'startDate', 'endDate', 'ratePlan', 'standardQuantity',
-        'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
+        'performanceQuantity', 'technicianRequired', 'technicianQuantity', 'technicianDays', 'fullName',
         'organization', 'email', 'phoneCountry', 'phone',
     ];
     private const REQUIRED_FIELDS = [
         'journeyId', 'location', 'startDate', 'endDate', 'ratePlan', 'standardQuantity',
-        'performanceQuantity', 'technicianRequired', 'technicianDays', 'fullName',
+        'performanceQuantity', 'technicianRequired', 'technicianQuantity', 'technicianDays', 'fullName',
         'organization', 'email', 'phoneCountry', 'phone',
     ];
 
@@ -131,8 +131,11 @@ final class EnquiryService
     {
         if (!array_key_exists('ratePlan', $input)) {
             $legacyInput = $input; $legacyInput['ratePlan'] = 'daily';
+            $legacyQuantityMissing = !array_key_exists('technicianQuantity', $legacyInput);
+            if ($legacyQuantityMissing) $legacyInput['technicianQuantity'] = ($legacyInput['technicianRequired'] ?? false) === true ? 1 : 0;
             $legacyPreview = $this->preview($legacyInput, true); $legacyNormalized = $legacyPreview['normalized'];
             unset($legacyNormalized['ratePlan']);
+            if ($legacyQuantityMissing) unset($legacyNormalized['technicianQuantity']);
             $legacyCanonical = json_encode($legacyNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $historical = $this->store->findByHash(hash('sha256', $legacyCanonical));
             if ($historical !== null) return $this->result($historical, true);
@@ -140,13 +143,27 @@ final class EnquiryService
         }
         if ($input['ratePlan'] === 'best') {
             $historicalInput = $input; $historicalInput['ratePlan'] = 'daily';
+            $legacyQuantityMissing = !array_key_exists('technicianQuantity', $historicalInput);
+            if ($legacyQuantityMissing) $historicalInput['technicianQuantity'] = ($historicalInput['technicianRequired'] ?? false) === true ? 1 : 0;
             $historicalPreview = $this->preview($historicalInput, true);
             $historicalNormalized = $historicalPreview['normalized'];
             $historicalNormalized['ratePlan'] = 'best';
+            if ($legacyQuantityMissing) unset($historicalNormalized['technicianQuantity']);
             $historicalCanonical = json_encode($historicalNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $historical = $this->store->findByHash(hash('sha256', $historicalCanonical));
             if ($historical !== null) return $this->result($historical, true);
             throw new EnquiryValidationException(['ratePlan' => 'Daily Rate is the only supported rental rate plan.']);
+        }
+        if (!array_key_exists('technicianQuantity', $input)) {
+            $historicalInput = $input;
+            $historicalInput['technicianQuantity'] = ($historicalInput['technicianRequired'] ?? false) === true ? 1 : 0;
+            $historicalPreview = $this->preview($historicalInput, true);
+            $historicalNormalized = $historicalPreview['normalized'];
+            unset($historicalNormalized['technicianQuantity']);
+            $historicalCanonical = json_encode($historicalNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $historical = $this->store->findByHash(hash('sha256', $historicalCanonical));
+            if ($historical !== null) return $this->result($historical, true);
+            throw new EnquiryValidationException(['technicianQuantity' => 'Choose between 1 and 10 technicians.']);
         }
         $preview = $this->preview($input);
         $normalized = $preview['normalized'];
@@ -155,6 +172,14 @@ final class EnquiryService
         $existing = $this->store->findByHash($hash);
         if ($existing !== null) {
             return $this->result($existing, true);
+        }
+        $historicalQuantity = $normalized['technicianRequired'] ? 1 : 0;
+        if ($normalized['technicianQuantity'] === $historicalQuantity) {
+            $historicalNormalized = $normalized;
+            unset($historicalNormalized['technicianQuantity']);
+            $historicalCanonical = json_encode($historicalNormalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $historical = $this->store->findByHash(hash('sha256', $historicalCanonical));
+            if ($historical !== null) return $this->result($historical, true);
         }
 
         $days = $this->rentalDays($normalized['startDate'], $normalized['endDate']);
@@ -168,7 +193,7 @@ final class EnquiryService
             'rental_days' => $days, 'standard_quantity' => $normalized['standardQuantity'],
             'performance_quantity' => $normalized['performanceQuantity'],
             'technician_required' => $normalized['technicianRequired'] ? 1 : 0,
-            'technician_days' => $normalized['technicianDays'], 'full_name' => $normalized['fullName'],
+            'technician_quantity' => $normalized['technicianQuantity'], 'technician_days' => $normalized['technicianDays'], 'full_name' => $normalized['fullName'],
             'organization' => $normalized['organization'], 'email' => $normalized['email'],
             'phone' => $normalized['phone'], 'description' => null,
             'currency' => 'NGN', 'standard_daily_rate' => $this->money(ATLAS_RENTALS_PRICING['standard']['dailyRate']),
@@ -219,7 +244,7 @@ final class EnquiryService
             'journeyId' => $text($input['journeyId']), 'location' => $text($input['location']),
             'startDate' => $text($input['startDate']), 'endDate' => $text($input['endDate']), 'ratePlan' => $text($input['ratePlan']),
             'standardQuantity' => $input['standardQuantity'], 'performanceQuantity' => $input['performanceQuantity'],
-            'technicianRequired' => $input['technicianRequired'], 'technicianDays' => $input['technicianDays'],
+            'technicianRequired' => $input['technicianRequired'], 'technicianQuantity' => $input['technicianQuantity'], 'technicianDays' => $input['technicianDays'],
             'fullName' => $text($input['fullName']), 'organization' => $text($input['organization']),
             'email' => strtolower($text($input['email'])), 'phone' => $text($input['phone']),
         ];
@@ -238,15 +263,20 @@ final class EnquiryService
         foreach (['standardQuantity', 'performanceQuantity', 'technicianDays'] as $field) {
             if (!is_int($value[$field]) || $value[$field] < 0 || $value[$field] > 10000) $errors[$field] = 'Enter a valid whole number.';
         }
+        if (!is_int($value['technicianQuantity']) || $value['technicianQuantity'] < 0 || $value['technicianQuantity'] > 10) $errors['technicianQuantity'] = 'Choose between 1 and 10 technicians.';
         if (!is_bool($value['technicianRequired'])) $errors['technicianRequired'] = 'Choose whether a technician is required.';
         if (is_int($value['standardQuantity']) && is_int($value['performanceQuantity'])
             && $value['standardQuantity'] + $value['performanceQuantity'] < 5) $errors['quantity'] = 'Select at least 5 laptops.';
-        if ($value['technicianRequired'] === true && (!is_int($value['technicianDays']) || $value['technicianDays'] < 1)) $errors['technicianDays'] = 'Enter at least 1 technician day.';
+        if ($value['technicianRequired'] === true && (!is_int($value['technicianQuantity']) || $value['technicianQuantity'] < 1 || $value['technicianQuantity'] > 10)) $errors['technicianQuantity'] = 'Choose between 1 and 10 technicians.';
+        if ($value['technicianRequired'] === false && $value['technicianQuantity'] !== 0) $errors['technicianQuantity'] = 'Technician quantity must be zero when support is not selected.';
         if ($value['technicianRequired'] === false && $value['technicianDays'] !== 0) $errors['technicianDays'] = 'Technician days must be zero when support is not selected.';
         try {
             $rentalDays = $this->rentalDays($value['startDate'], $value['endDate'], $historicalCalendar);
             atlasRentalsRatePlanUnitPrice($rentalDays, ATLAS_RENTALS_PRICING['standard'], $value['ratePlan']);
-            if (!$historicalCalendar) $value['technicianDays'] = $value['technicianRequired'] ? $rentalDays : 0;
+            if (!$historicalCalendar) {
+                $value['technicianQuantity'] = $value['technicianRequired'] ? $value['technicianQuantity'] : 0;
+                $value['technicianDays'] = $value['technicianRequired'] ? $rentalDays : 0;
+            }
         }
         catch (InvalidArgumentException $error) {
             if (str_contains($error->getMessage(), 'Rate') || str_contains($error->getMessage(), 'rate plan')) $errors['ratePlan'] = $error->getMessage();

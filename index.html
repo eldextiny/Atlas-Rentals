@@ -221,7 +221,12 @@
                 <span class="included-service-copy"><span class="included-badge">Included automatically</span><b>Delivery &amp; Retrieval</b><small>Required service · charged once</small></span>
                 <strong>₦40,000</strong>
               </div>
-              <label class="service-card" for="technician-required"><input id="technician-required" name="technicianRequired" type="checkbox" aria-describedby="technician-support-rate technician-error"><span><b>Optional technician support</b><small id="technician-support-rate">₦35,000 per billable working day</small></span></label>
+              <label class="service-card" for="technician-required"><input id="technician-required" name="technicianRequired" type="checkbox" aria-describedby="technician-support-rate technician-error"><span><b>Optional technician support</b><small id="technician-support-rate">₦35,000 per technician per billable working day</small></span></label>
+              <div class="technician-quantity-field" id="technician-quantity-wrap" hidden>
+                <label for="technician-quantity">Number of technicians</label>
+                <input id="technician-quantity" name="technicianQuantity" type="number" min="1" max="10" step="1" value="1" inputmode="numeric" aria-describedby="technician-quantity-hint technician-error" disabled>
+                <small id="technician-quantity-hint">Choose between 1 and 10 technicians.</small>
+              </div>
               <input id="technician-days" name="technicianDays" type="hidden" value="0">
               <p class="field-error" id="technician-error"></p>
               <section class="personal-details-card" aria-labelledby="personal-details-title">

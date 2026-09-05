@@ -28,6 +28,7 @@ function atlasRentalsEmailModel(array $record): array
         'performanceDailyRate' => $money($performance['dailyRate']), 'performanceWeeklyRate' => $money($performance['weeklyRate'] ?? 0), 'performanceMonthlyRate' => $money($performance['monthlyRate'] ?? 0),
         'performancePerUnit' => $money($performance['perUnitRental']), 'performanceAmount' => $money($performance['equipmentAmount']),
         'technicianRequired' => (int)$record['technician_required'] === 1,
+        'technicianQuantity' => atlasRentalsTechnicianQuantityFromRecord($record),
         'technicianDays' => (int)$record['technician_days'], 'technicianRate' => $money($record['technician_daily_rate']),
         'technicianAmount' => $money($pricing['technicianAmount']), 'delivery' => $money($pricing['deliveryFee']),
         'subtotal' => $money($record['subtotal']), 'vat' => $money($record['vat_amount']),
@@ -113,7 +114,10 @@ function atlasRentalsBuildEmail(array $record, string $audience, array $config =
         ['Applied rate', $rateText($m, 'performance')],
         ['Per-unit rental', $m['performancePerUnit']], ['Equipment amount', $m['performanceAmount']],
     ]);
-    if ($m['technicianRequired']) $itemRows[] = ['Technician', $m['technicianDays'] . ' days × ' . $m['technicianRate'] . ' — ' . $m['technicianAmount']];
+    if ($m['technicianRequired']) {
+        $technicianLabel = $m['technicianQuantity'] . ' technician' . ($m['technicianQuantity'] === 1 ? '' : 's');
+        $itemRows[] = ['Technician', $technicianLabel . ' × ' . $m['technicianDays'] . ' working day' . ($m['technicianDays'] === 1 ? '' : 's') . ' × ' . $m['technicianRate'] . ' per technician per working day — ' . $m['technicianAmount']];
+    }
     $itemRows[] = ['Delivery & retrieval', 'Standard rental service — ' . $m['delivery']];
     $totals = [['Subtotal before VAT', $m['subtotal']], ['VAT (7.5%)', $m['vat']], ['Estimated total', $m['total']]];
 

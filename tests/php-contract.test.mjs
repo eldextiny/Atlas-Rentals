@@ -15,6 +15,7 @@ const journeyIdentifier = readFileSync(new URL("../api/journey-identifier.php", 
 const reviewEndpoint = readFileSync(new URL("../api/review-enquiry.php", import.meta.url), "utf8");
 const rateLimit = readFileSync(new URL("../api/rate-limit.php", import.meta.url), "utf8");
 const privatePath = readFileSync(new URL("../api/private-path.php", import.meta.url), "utf8");
+const technicianMigration = readFileSync(new URL("../docs/migrations/2026-09-05-technician-quantity.sql", import.meta.url), "utf8");
 
 test("PDO store uses prepared statements and one locked transaction", () => {
   assert.match(service, /beginTransaction\(\)/);
@@ -173,10 +174,18 @@ test("technician selection derives authoritative working days and reaches every 
   assert.match(service, /\$value\['technicianDays'\] = \$value\['technicianRequired'\] \? \$rentalDays : 0/);
   assert.match(service, /'technician_required' => \$normalized\['technicianRequired'\] \? 1 : 0/);
   assert.match(service, /'technician_days' => \$normalized\['technicianDays'\]/);
-  assert.match(serverPricing, /\$technicianAmount = \(int\)\$normalized\['technicianDays'\] \* ATLAS_RENTALS_PRICING\['technicianDailyRate'\]/);
-  assert.match(runtime, /'technicianRequired' => \$technicianRequired, 'technicianDays' => \$requiredInteger\(\$data, 'technicianDays'\)/);
-  assert.match(emailTemplate, /if \(\$m\['technicianRequired'\]\) \$itemRows\[\] = \['Technician'/);
-  assert.match(pdfTemplate, /if \(\(int\)\$record\['technician_required'\] === 1\) \$item\('Technician'/);
+  assert.match(service, /'technician_quantity' => \$normalized\['technicianQuantity'\]/);
+  assert.match(serverPricing, /\$technicianAmount = \$technicianQuantity \* \(int\)\$normalized\['technicianDays'\] \* ATLAS_RENTALS_PRICING\['technicianDailyRate'\]/);
+  assert.match(runtime, /'technicianRequired' => \$technicianRequired, 'technicianQuantity' => \$technicianQuantity, 'technicianDays'/);
+  assert.match(emailTemplate, /technicianLabel.*technicianQuantity/);
+  assert.match(pdfTemplate, /Technician - .*technicianLabel/);
+});
+
+test("technician quantity schema migration is explicit idempotent and nullable for historical inference", () => {
+  assert.match(technicianMigration, /ALTER TABLE atlas_rental_enquiries/);
+  assert.match(technicianMigration, /ADD COLUMN IF NOT EXISTS technician_quantity TINYINT UNSIGNED NULL/);
+  assert.match(service, /'technician_quantity' => \$normalized\['technicianQuantity'\]/);
+  assert.match(serverPricing, /technician_required.*\? 1 : 0/s);
 });
 
 test("journey identifiers use private check-before-cleanup expiry tombstones", () => {

@@ -97,6 +97,9 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
     if (($pricing['standard']['quantity'] ?? null) !== $standardQuantity || ($pricing['performance']['quantity'] ?? null) !== $performanceQuantity) throw new UnexpectedValueException('CRM payload quantities are inconsistent.');
     $technicianRequired = $data['technicianRequired'] ?? null;
     if (!is_bool($technicianRequired)) throw new UnexpectedValueException('CRM payload requires valid technicianRequired.');
+    $technicianQuantity = $requiredInteger($data, 'technicianQuantity');
+    if (($technicianRequired && ($technicianQuantity < 1 || $technicianQuantity > 10)) || (!$technicianRequired && $technicianQuantity !== 0)) throw new UnexpectedValueException('CRM payload technician quantity is inconsistent.');
+    if (($pricing['technicianQuantity'] ?? null) !== $technicianQuantity) throw new UnexpectedValueException('CRM payload technician pricing is inconsistent.');
     $email = $requiredText($data, 'email');
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) throw new UnexpectedValueException('CRM payload requires a valid email.');
     $category = $standardQuantity > 0 ? 'Standard Business Laptop' : 'High Performance Laptop';
@@ -115,7 +118,7 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
         'commercial' => ['subtotalNgn' => $subtotal, 'vatNgn' => $vat, 'grandTotalNgn' => $total],
         'documentContext' => [
             'standardQuantity' => $standardQuantity, 'performanceQuantity' => $performanceQuantity,
-            'technicianRequired' => $technicianRequired, 'technicianDays' => $requiredInteger($data, 'technicianDays'),
+            'technicianRequired' => $technicianRequired, 'technicianQuantity' => $technicianQuantity, 'technicianDays' => $requiredInteger($data, 'technicianDays'),
             'ratePlan' => $ratePlan, 'ratePlanLabel' => $requiredText($pricing, 'ratePlanLabel'),
             'startDate' => $startDate, 'endDate' => $endDate,
             'rentalDays' => $rentalDays, 'currency' => 'NGN', 'enquiryReference' => $reference,

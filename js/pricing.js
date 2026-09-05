@@ -110,11 +110,13 @@ export function calculateEstimate({
   performanceQuantity = 0,
   rentalDays = 0,
   ratePlan = "daily",
+  technicianQuantity = 0,
   technicianDays = 0,
 } = {}) {
   requireNonNegativeInteger(standardQuantity, "standardQuantity");
   requireNonNegativeInteger(performanceQuantity, "performanceQuantity");
   requireNonNegativeInteger(rentalDays, "rentalDays");
+  requireNonNegativeInteger(technicianQuantity, "technicianQuantity");
   requireNonNegativeInteger(technicianDays, "technicianDays");
 
   const standardPricing = calculateRatePlanPerUnit(rentalDays, LAPTOP_CATALOGUE.standard, ratePlan);
@@ -126,7 +128,7 @@ export function calculateEstimate({
   const performanceRental = performanceQuantity * performancePricing.perUnitRental;
   const rentalSubtotal = standardRental + performanceRental;
   const deliveryRetrieval = PRICING.deliveryRetrievalPerBooking;
-  const technician = technicianDays * PRICING.technicianDailyRate;
+  const technician = technicianQuantity * technicianDays * PRICING.technicianDailyRate;
   const subtotalBeforeVat = rentalSubtotal + deliveryRetrieval + technician;
   const vat = Math.round(subtotalBeforeVat * PRICING.vatRate);
 
@@ -146,6 +148,7 @@ export function calculateEstimate({
     performanceRental,
     rentalSubtotal,
     deliveryRetrieval,
+    technicianQuantity,
     technicianDays,
     technician,
     subtotalBeforeVat,
@@ -163,6 +166,7 @@ export function validateBooking({
   standardQuantity = 0,
   performanceQuantity = 0,
   technicianRequired = false,
+  technicianQuantity = 0,
   technicianDays = 0,
   ratePlan = "",
 } = {}) {
@@ -194,13 +198,13 @@ export function validateBooking({
 
   if (technicianRequired) {
     try {
-      requireNonNegativeInteger(technicianDays, "technicianDays");
-      if (technicianDays < 1) {
-        errors.technician = "Enter at least 1 technician day.";
-      }
+      requireNonNegativeInteger(technicianQuantity, "technicianQuantity");
+      if (technicianQuantity < 1 || technicianQuantity > 10) errors.technician = "Choose between 1 and 10 technicians.";
     } catch (error) {
       errors.technician = error.message;
     }
+  } else if (technicianQuantity !== 0 || technicianDays !== 0) {
+    errors.technician = "Technician quantity and days must be zero when support is not selected.";
   }
 
   if (!errors.dates) {
