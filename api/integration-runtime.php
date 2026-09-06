@@ -110,18 +110,22 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
     $subtotal = $requiredNumber($pricing, 'subtotal'); $vat = $requiredNumber($pricing, 'vatAmount'); $total = $requiredNumber($pricing, 'estimatedTotal');
     if (abs(($subtotal + $vat) - $total) > 0.001) throw new UnexpectedValueException('CRM payload commercial totals are inconsistent.');
     return [
-        'sourceModule' => 'Atlas Rental', 'documentType' => 'Laptop Rental Quotation', 'documentReference' => $reference,
+        'sourceModule' => 'Atlas Rental', 'documentType' => 'quotation',
+        'crm' => ['journeyId' => 'atlas-rental-' . $reference, 'lifecycleStage' => 'quotation_generated'],
         'client' => ['organisation' => $requiredText($data, 'organization'), 'contactPerson' => $requiredText($data, 'fullName'), 'email' => $email, 'phone' => $requiredText($data, 'phone')],
-        'title' => 'Laptop Rental Quotation', 'category' => $category,
-        'serviceMode' => $requiredText($pricing, 'ratePlanLabel'), 'venue' => $requiredText($data, 'location'),
-        'durationValue' => $rentalDays, 'durationUnit' => 'days',
-        'commercial' => ['subtotalNgn' => $subtotal, 'vatNgn' => $vat, 'grandTotalNgn' => $total],
-        'documentContext' => [
-            'standardQuantity' => $standardQuantity, 'performanceQuantity' => $performanceQuantity,
-            'technicianRequired' => $technicianRequired, 'technicianQuantity' => $technicianQuantity, 'technicianDays' => $requiredInteger($data, 'technicianDays'),
-            'ratePlan' => $ratePlan, 'ratePlanLabel' => $requiredText($pricing, 'ratePlanLabel'),
-            'startDate' => $startDate, 'endDate' => $endDate,
-            'rentalDays' => $rentalDays, 'currency' => 'NGN', 'enquiryReference' => $reference,
+        'document' => [
+            'reference' => $reference, 'eventTitle' => 'Laptop Rental Quotation', 'eventType' => $category,
+            'serviceMode' => $requiredText($pricing, 'ratePlanLabel'), 'venue' => $requiredText($data, 'location'),
+            'participants' => $standardQuantity + $performanceQuantity, 'durationValue' => $rentalDays, 'durationUnit' => 'days',
+            'workingLanguages' => [], 'subtotalNgn' => $subtotal, 'vatNgn' => $vat, 'grandTotalNgn' => $total,
+            'pricingStatus' => 'Estimated', 'documentStatus' => 'Enquiry Received',
+            'documentContext' => [
+                'standardQuantity' => $standardQuantity, 'performanceQuantity' => $performanceQuantity,
+                'technicianRequired' => $technicianRequired, 'technicianQuantity' => $technicianQuantity, 'technicianDays' => $requiredInteger($data, 'technicianDays'),
+                'ratePlan' => $ratePlan, 'ratePlanLabel' => $requiredText($pricing, 'ratePlanLabel'),
+                'startDate' => $startDate, 'endDate' => $endDate,
+                'rentalDays' => $rentalDays, 'currency' => 'NGN', 'enquiryReference' => $reference,
+            ],
         ],
     ];
 }
