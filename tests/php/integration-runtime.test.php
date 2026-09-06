@@ -7,12 +7,18 @@ function check(bool $condition, string $message): void { if (!$condition) throw 
 function receiver_accepts_rentals_fixture(array $payload): bool
 {
     return ($payload['sourceModule'] ?? null) === 'Atlas Rental'
-        && ($payload['documentType'] ?? null) === 'Laptop Rental Quotation'
-        && is_string($payload['documentReference'] ?? null) && trim($payload['documentReference']) !== ''
+        && ($payload['documentType'] ?? null) === 'quotation'
+        && is_array($payload['crm'] ?? null)
+        && ($payload['crm']['journeyId'] ?? null) === 'atlas-rental-' . ($payload['document']['reference'] ?? '')
+        && preg_match('/^[A-Za-z0-9-]{16,80}$/D', (string)($payload['crm']['journeyId'] ?? '')) === 1
+        && ($payload['crm']['lifecycleStage'] ?? null) === 'quotation_generated'
+        && is_array($payload['document'] ?? null)
+        && is_string($payload['document']['reference'] ?? null) && trim($payload['document']['reference']) !== ''
         && is_array($payload['client'] ?? null) && trim((string)($payload['client']['organisation'] ?? '')) !== ''
         && trim((string)($payload['client']['contactPerson'] ?? '')) !== ''
         && filter_var($payload['client']['email'] ?? '', FILTER_VALIDATE_EMAIL) !== false
-        && is_array($payload['commercial'] ?? null) && is_array($payload['documentContext'] ?? null);
+        && array_key_exists('subtotalNgn', $payload['document'])
+        && is_array($payload['document']['documentContext'] ?? null);
 }
 $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'atlas-rentals-' . bin2hex(random_bytes(5));
 $statePath = $root . DIRECTORY_SEPARATOR . 'state'; $pdfPath = $root . DIRECTORY_SEPARATOR . 'pdf';
@@ -30,12 +36,16 @@ $tests['CRM payload exactly matches the deployed receiver contract'] = function 
     $payload = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
     check(receiver_accepts_rentals_fixture($payload), 'receiver-compatible fixture rejected emitted payload');
     check($payload === [
-        'sourceModule' => 'Atlas Rental', 'documentType' => 'Laptop Rental Quotation', 'documentReference' => 'ARQ-2026-000001',
+        'sourceModule' => 'Atlas Rental', 'documentType' => 'quotation',
+        'crm' => ['journeyId' => 'atlas-rental-ARQ-2026-000001', 'lifecycleStage' => 'quotation_generated'],
         'client' => ['organisation' => 'Example Ltd', 'contactPerson' => 'Ada User', 'email' => 'ada@example.com', 'phone' => '+2348028557479'],
-        'title' => 'Laptop Rental Quotation', 'category' => 'Standard Business Laptop', 'serviceMode' => 'Daily Rate',
-        'venue' => 'Lagos', 'durationValue' => 3, 'durationUnit' => 'days',
-        'commercial' => ['subtotalNgn' => 260000, 'vatNgn' => 19500, 'grandTotalNgn' => 279500],
-        'documentContext' => ['standardQuantity' => 5, 'performanceQuantity' => 0, 'technicianRequired' => true, 'technicianQuantity' => 1, 'technicianDays' => 2, 'ratePlan' => 'daily', 'ratePlanLabel' => 'Daily Rate', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'rentalDays' => 3, 'currency' => 'NGN', 'enquiryReference' => 'ARQ-2026-000001'],
+        'document' => [
+            'reference' => 'ARQ-2026-000001', 'eventTitle' => 'Laptop Rental Quotation', 'eventType' => 'Standard Business Laptop',
+            'serviceMode' => 'Daily Rate', 'venue' => 'Lagos', 'participants' => 5, 'durationValue' => 3, 'durationUnit' => 'days',
+            'workingLanguages' => [], 'subtotalNgn' => 260000, 'vatNgn' => 19500, 'grandTotalNgn' => 279500,
+            'pricingStatus' => 'Estimated', 'documentStatus' => 'Enquiry Received',
+            'documentContext' => ['standardQuantity' => 5, 'performanceQuantity' => 0, 'technicianRequired' => true, 'technicianQuantity' => 1, 'technicianDays' => 2, 'ratePlan' => 'daily', 'ratePlanLabel' => 'Daily Rate', 'startDate' => '2026-08-05', 'endDate' => '2026-08-07', 'rentalDays' => 3, 'currency' => 'NGN', 'enquiryReference' => 'ARQ-2026-000001'],
+        ],
     ], 'CRM payload mapping changed');
     foreach (['journeyId', 'enquiryReference', 'contact', 'organisation', 'location', 'dates', 'laptops', 'technician', 'estimate', 'source', 'service', 'stage'] as $obsolete) check(!array_key_exists($obsolete, $payload), "obsolete CRM field {$obsolete} returned");
 };
@@ -128,7 +138,7 @@ $tests['historical best snapshot remains authoritative for email PDF CRM and ret
     check(str_contains($pdf, 'Best Available Rate') && str_contains($pdf, '1 month + 1 week + 3 days') && str_contains($pdf, 'month at NGN 185,000.00') && str_contains($pdf, 'week at NGN 59,500.00') && str_contains($pdf, 'unit NGN 274,500.00'), 'PDF tier presentation mismatch');
     $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $payload, 'pricing' => $pricing];
     $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
-    check($crm['serviceMode'] === 'Best Available Rate' && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], 'CRM authoritative pricing mismatch');
+    check($crm['document']['serviceMode'] === 'Best Available Rate' && $crm['document']['grandTotalNgn'] === $pricing['estimatedTotal'], 'CRM authoritative pricing mismatch');
 };
 $tests['historical tier helper fails cleanly when persisted rate keys are missing'] = function (): void {
     set_error_handler(static function (int $severity, string $message): never { throw new ErrorException($message, 0, $severity); });
@@ -169,7 +179,7 @@ $tests['historical weekly and monthly snapshots retain saved labels rates totals
         check(str_contains($pdf, $label) && str_contains($pdf, 'unit NGN ' . number_format($standard['perUnitRental'], 2)), "historical {$plan} PDF changed");
         $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $payload, 'pricing' => $pricing];
         $crm = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
-        check($crm['documentContext']['ratePlan'] === $plan && $crm['commercial']['grandTotalNgn'] === $pricing['estimatedTotal'], "historical {$plan} CRM changed");
+        check($crm['document']['documentContext']['ratePlan'] === $plan && $crm['document']['grandTotalNgn'] === $pricing['estimatedTotal'], "historical {$plan} CRM changed");
     }
 };
 $tests['daily rate propagates through snapshot CRM email and PDF'] = function () use ($record, $config): void {
@@ -179,7 +189,7 @@ $tests['daily rate propagates through snapshot CRM email and PDF'] = function ()
         $pricing = atlasRentalsCalculatePricing($normalized, $days); $item['normalized_payload'] = json_encode($normalized, JSON_THROW_ON_ERROR); $item['pricing_snapshot'] = json_encode($pricing, JSON_THROW_ON_ERROR); $item['rental_days'] = $days;
         $item['subtotal'] = $pricing['subtotal']; $item['vat_amount'] = $pricing['vatAmount']; $item['estimated_total'] = $pricing['estimatedTotal'];
         $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $normalized, 'pricing' => $pricing];
-        check(atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config)['documentContext']['ratePlan'] === $plan, "CRM missing {$plan}");
+        check(atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config)['document']['documentContext']['ratePlan'] === $plan, "CRM missing {$plan}");
         check(str_contains(atlasRentalsBuildEmail($item, 'client')['html'], $label), "email missing {$plan}");
         check(str_contains(atlasRentalsRenderQuotationPdf($item), $label), "PDF missing {$plan}");
     }
@@ -234,8 +244,8 @@ $tests['CRM document synchronization is deduplicated and changed content updates
     $calls = 0; $captured = null; $poster = function ($payload) use (&$calls, &$captured): array { $calls++; $captured = $payload; return atlasRentalsSafeResult(true, 'CRM_ACCEPTED'); };
     atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster); atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster);
     check($calls === 1, 'unchanged CRM delivery duplicated');
-    check($captured['sourceModule'] === 'Atlas Rental' && $captured['documentType'] === 'Laptop Rental Quotation'
-        && $captured['documentReference'] === 'ARQ-2026-000001', 'CRM did not receive the allocated document identity');
+    check($captured['sourceModule'] === 'Atlas Rental' && $captured['documentType'] === 'quotation'
+        && $captured['document']['reference'] === 'ARQ-2026-000001', 'CRM did not receive the allocated document identity');
     $sameEnquiryNewJourney = $preview; $sameEnquiryNewJourney['journeyId'] = 'fedcba9876543210fedcba9876543210';
     atlasRentalsSyncCrm($sameEnquiryNewJourney, 'ARQ-2026-000001', $config, $poster);
     check($calls === 1, 'completed reference was duplicated by a new browser journey');
@@ -248,7 +258,11 @@ $tests['CRM requires an allocated reference and failed delivery remains pending 
     check($missingRejected ?? false, 'CRM accepted a review without an allocated reference');
     $calls = 0; $poster = function (array $payload) use (&$calls): array {
         $calls++;
-        check($payload['documentReference'] === 'ARQ-2026-000004', 'CRM retry changed the allocated reference');
+        check($payload['crm']['journeyId'] === 'atlas-rental-ARQ-2026-000004', 'CRM retry changed the lifecycle journey identity');
+        check(strlen($payload['crm']['journeyId']) >= 16 && strlen($payload['crm']['journeyId']) <= 80
+            && preg_match('/^[A-Za-z0-9-]{16,80}$/D', $payload['crm']['journeyId']) === 1, 'CRM retry emitted an invalid lifecycle journey identity');
+        check($payload['crm']['lifecycleStage'] === 'quotation_generated', 'CRM retry changed the lifecycle stage');
+        check($payload['document']['reference'] === 'ARQ-2026-000004', 'CRM retry changed the allocated reference');
         return $calls === 1 ? atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true) : atlasRentalsSafeResult(true, 'CRM_ACCEPTED');
     };
     $failed = atlasRentalsSyncCrm($preview, 'ARQ-2026-000004', $config, $poster);
