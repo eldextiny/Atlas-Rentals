@@ -6,6 +6,7 @@
 
 ## Unreleased
 
+- Added application-owned CRM failure diagnostics to private delivery state, including HTTP/transport classification and actual HTTP-attempt metadata, without retaining receiver response text or changing public enquiry responses and successful delivery behaviour.
 - Corrected the outbound Atlas CRM `documentType` to the approved `Laptop Rental Quotation` value so quotation deliveries satisfy the receiver contract.
 - Corrected the Atlas CRM adapter to send the allocated enquiry reference and commercial details in the receiver's nested quotation document contract, including a deterministic namespaced journey identity for the required `quotation_generated` lifecycle data, while preserving reference-keyed retry behavior.
 - Deferred CRM synchronization until final persistence allocates the authoritative enquiry reference, with reference-keyed retry and deduplication state.

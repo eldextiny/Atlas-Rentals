@@ -130,21 +130,60 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
     ];
 }
 
-function atlasRentalsPostCrm(array $payload, array $config): array
+function atlasRentalsCrmHttpResult(string|false $body, int $status, int $curlErrorNumber): array
+{
+    $decoded = is_string($body) ? json_decode($body, true) : null;
+    if ($body !== false && $curlErrorNumber === 0 && $status >= 200 && $status < 300 && is_array($decoded)) {
+        return atlasRentalsSafeResult(true, 'CRM_ACCEPTED', false, ['attempted' => true]);
+    }
+    $category = $body === false || $curlErrorNumber !== 0 ? 'transport'
+        : ($status >= 400 && $status < 500 ? 'http_4xx'
+        : ($status >= 500 && $status < 600 ? 'http_5xx'
+        : ($status >= 200 && $status < 300 ? 'invalid_response' : 'http_other')));
+    $diagnostics = ['attempted' => true, 'httpStatus' => max(0, $status), 'curlErrorNumber' => max(0, $curlErrorNumber), 'errorCategory' => $category];
+    return atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true, $diagnostics);
+}
+
+function atlasRentalsPostCrm(array $payload, array $config, ?callable $request = null, ?bool $curlAvailable = null): array
 {
     if (!filter_var($config['crm_endpoint'] ?? '', FILTER_VALIDATE_URL)
         || ($config['crm_token'] ?? '') === '' || ($config['crm_source'] ?? '') === '' || ($config['crm_service'] ?? '') === '') {
-        return atlasRentalsSafeResult(false, 'CRM_CONFIG_MISSING', true);
+        return atlasRentalsSafeResult(false, 'CRM_CONFIG_MISSING', true, ['attempted' => false, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'configuration']);
     }
-    if (!function_exists('curl_init')) return atlasRentalsSafeResult(false, 'CRM_HTTP_UNAVAILABLE', true);
+    $curlAvailable ??= function_exists('curl_init');
+    if (!$curlAvailable) return atlasRentalsSafeResult(false, 'CRM_HTTP_UNAVAILABLE', true, ['attempted' => false, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'runtime']);
+    if ($request !== null) {
+        $attempted = true;
+        try {
+            $response = $request($payload, $config);
+            if (!is_array($response)) throw new UnexpectedValueException('CRM request seam returned an invalid result.');
+            return atlasRentalsCrmHttpResult($response['body'] ?? false, (int)($response['status'] ?? 0), (int)($response['curlErrorNumber'] ?? 0));
+        } catch (Throwable) {
+            return atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true, ['attempted' => $attempted, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'transport']);
+        }
+    }
     $handle = curl_init($config['crm_endpoint']);
-    curl_setopt_array($handle, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'X-Atlas-CRM-Integration-Token: ' . $config['crm_token']],
-        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)]);
-    $body = curl_exec($handle); $status = (int)curl_getinfo($handle, CURLINFO_HTTP_CODE); curl_close($handle);
-    $decoded = json_decode((string)$body, true);
-    return $body !== false && $status >= 200 && $status < 300 && is_array($decoded)
-        ? atlasRentalsSafeResult(true, 'CRM_ACCEPTED') : atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true);
+    if ($handle === false) return atlasRentalsSafeResult(false, 'CRM_HTTP_UNAVAILABLE', true, ['attempted' => false, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'runtime']);
+    try {
+        $configured = curl_setopt_array($handle, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'X-Atlas-CRM-Integration-Token: ' . $config['crm_token']],
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)]);
+        if (!$configured) return atlasRentalsSafeResult(false, 'CRM_HTTP_UNAVAILABLE', true, ['attempted' => false, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'runtime']);
+        $attempted = false;
+        try {
+            $attempted = true;
+            $body = curl_exec($handle);
+            $status = (int)curl_getinfo($handle, CURLINFO_HTTP_CODE);
+            $curlErrorNumber = curl_errno($handle);
+            return atlasRentalsCrmHttpResult($body, $status, $curlErrorNumber);
+        } catch (Throwable) {
+            return atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true, ['attempted' => $attempted, 'httpStatus' => 0, 'curlErrorNumber' => max(0, curl_errno($handle)), 'errorCategory' => 'transport']);
+        }
+    } catch (Throwable) {
+        return atlasRentalsSafeResult(false, 'CRM_HTTP_UNAVAILABLE', true, ['attempted' => false, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'runtime']);
+    } finally {
+        curl_close($handle);
+    }
 }
 
 function atlasRentalsCleanup(string $directory, array $extensions): void
@@ -166,8 +205,23 @@ function atlasRentalsSyncCrm(array $preview, ?string $reference, array $config, 
     $fingerprint = hash('sha256', $preview['canonical'] . '|' . $reference);
     return atlasRentalsWithState($config['state_path'], 'CRM-' . $reference, function (array $state) use ($preview, $reference, $config, $fingerprint, $poster): array {
         if (($state['crm']['fingerprint'] ?? '') === $fingerprint && ($state['crm']['status'] ?? '') === 'completed') return $state;
-        $result = $poster ? $poster(atlasRentalsCrmPayload($preview, $reference, $config), $config) : atlasRentalsPostCrm(atlasRentalsCrmPayload($preview, $reference, $config), $config);
-        $state['crm'] = ['fingerprint' => $fingerprint, 'status' => $result['ok'] ? 'completed' : 'pending', 'code' => $result['code']];
+        $payload = atlasRentalsCrmPayload($preview, $reference, $config);
+        $result = $poster ? $poster($payload, $config) : atlasRentalsPostCrm($payload, $config);
+        $crm = ['fingerprint' => $fingerprint, 'status' => $result['ok'] ? 'completed' : 'pending', 'code' => $result['code']];
+        if (!$result['ok']) {
+            $previousAttempts = $state['crm']['attemptCount'] ?? 0;
+            $previousAttempts = is_int($previousAttempts) && $previousAttempts >= 0 ? $previousAttempts : 0;
+            $attempted = ($result['attempted'] ?? null) === true;
+            $crm['attemptCount'] = $attempted ? min(PHP_INT_MAX, $previousAttempts + 1) : $previousAttempts;
+            if ($attempted) $crm['attemptedAt'] = gmdate('c');
+            elseif (is_string($state['crm']['attemptedAt'] ?? null)) $crm['attemptedAt'] = $state['crm']['attemptedAt'];
+            $crm['httpStatus'] = is_int($result['httpStatus'] ?? null) && $result['httpStatus'] >= 100 && $result['httpStatus'] <= 599 ? $result['httpStatus'] : 0;
+            $crm['curlErrorNumber'] = is_int($result['curlErrorNumber'] ?? null) ? max(0, $result['curlErrorNumber']) : 0;
+            $category = $result['errorCategory'] ?? null;
+            $crm['errorCategory'] = is_string($category) && in_array($category, ['configuration', 'runtime', 'transport', 'http_4xx', 'http_5xx', 'invalid_response', 'http_other'], true)
+                ? $category : 'unknown';
+        }
+        $state['crm'] = $crm;
         return $state;
     });
 }
