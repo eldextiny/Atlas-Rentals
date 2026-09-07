@@ -91,6 +91,16 @@ test("CRM transport uses the receiver integration-token header, never Bearer aut
   assert.doesNotMatch(crmTransport, /Authorization:\s*Bearer/);
 });
 
+test("CRM diagnostics are application-owned, private and out of the public response", () => {
+  assert.match(runtime, /'attempted'\s*=>\s*(?:true|false|\$attempted)/);
+  assert.match(runtime, /'httpStatus'\s*=>/);
+  assert.match(runtime, /'curlErrorNumber'\s*=>/);
+  assert.match(runtime, /'errorCategory'\s*=>/);
+  assert.match(runtime, /'attemptCount'\s*=>|\['attemptCount'\]/);
+  assert.match(runtime, /'attemptedAt'\s*=>|\['attemptedAt'\]/);
+  assert.doesNotMatch(submitEndpoint, /httpStatus|curlErrorNumber|errorCategory|attemptCount|attemptedAt|attempted/);
+});
+
 test("review defers CRM until final persistence allocates the authoritative reference", () => {
   assert.doesNotMatch(reviewEndpoint, /atlasRentalsSyncCrm|atlasRentalsDeliver|atlasRentalsCrmPayload/);
   assert.match(reviewEndpoint, /\$service->preview\(\$input\);[\s\S]*reviewRespond\(202, \['ok' => true, 'crm' => 'pending'\]\)/);

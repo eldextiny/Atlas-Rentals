@@ -62,6 +62,34 @@ $tests['CRM payload fails closed for missing malformed or inconsistent authorita
         throw new RuntimeException('Malformed authoritative CRM input was accepted.');
     }
 };
+$tests['CRM transport reports only application-owned diagnostics and an explicit execution boundary'] = function () use ($preview, $config): void {
+    $payload = atlasRentalsCrmPayload($preview, 'ARQ-2026-000010', $config);
+    $transportConfig = $config + ['crm_endpoint' => 'https://crm.example.test/review', 'crm_token' => 'test-token'];
+    $calls = 0;
+    $clientFailure = atlasRentalsPostCrm($payload, $transportConfig, function () use (&$calls): array {
+        $calls++;
+        return ['body' => json_encode(['message' => 'Ada User ada@example.com token=top-secret'], JSON_THROW_ON_ERROR), 'status' => 422, 'curlErrorNumber' => 0];
+    }, true);
+    check($clientFailure['ok'] === false && $clientFailure['code'] === 'CRM_REQUEST_FAILED', 'CRM 4xx result changed');
+    check($calls === 1 && $clientFailure['attempted'] === true && $clientFailure['httpStatus'] === 422 && $clientFailure['curlErrorNumber'] === 0 && $clientFailure['errorCategory'] === 'http_4xx', 'CRM 4xx execution diagnostics missing');
+    check(array_keys($clientFailure) === ['ok', 'code', 'retryable', 'attempted', 'httpStatus', 'curlErrorNumber', 'errorCategory'], 'CRM failure returned non-application-owned diagnostics');
+    $serverFailure = atlasRentalsPostCrm($payload, $transportConfig, static fn(): array => ['body' => '<html>private receiver content</html>', 'status' => 503, 'curlErrorNumber' => 0], true);
+    check($serverFailure['attempted'] === true && $serverFailure['httpStatus'] === 503 && $serverFailure['errorCategory'] === 'http_5xx', 'CRM 5xx diagnostics missing');
+    $transportFailure = atlasRentalsPostCrm($payload, $transportConfig, static fn(): array => ['body' => false, 'status' => 0, 'curlErrorNumber' => 28], true);
+    check($transportFailure['attempted'] === true && $transportFailure['httpStatus'] === 0 && $transportFailure['curlErrorNumber'] === 28 && $transportFailure['errorCategory'] === 'transport', 'CRM transport diagnostics missing');
+    $malformed = atlasRentalsPostCrm($payload, $transportConfig, static fn(): array => ['body' => '{malformed', 'status' => 200, 'curlErrorNumber' => 0], true);
+    check($malformed['attempted'] === true && $malformed['errorCategory'] === 'invalid_response', 'malformed successful CRM response was accepted');
+    $empty = atlasRentalsPostCrm($payload, $transportConfig, static fn(): array => ['body' => '', 'status' => 500, 'curlErrorNumber' => 0], true);
+    check($empty['attempted'] === true && $empty['httpStatus'] === 500 && $empty['errorCategory'] === 'http_5xx', 'empty CRM failure response was misclassified');
+    $thrown = atlasRentalsPostCrm($payload, $transportConfig, static function (): never { throw new RuntimeException('post-execution failure with private data'); }, true);
+    check($thrown['attempted'] === true && $thrown['errorCategory'] === 'transport' && !str_contains(json_encode($thrown, JSON_THROW_ON_ERROR), 'private data'), 'post-boundary exception lost safe attempt evidence');
+    $notConfigured = atlasRentalsPostCrm($payload, $config, static function () use (&$calls): array { $calls++; return []; }, true);
+    check($notConfigured['attempted'] === false && $notConfigured['errorCategory'] === 'configuration' && $calls === 1, 'configuration failure crossed the HTTP boundary');
+    $runtimeUnavailable = atlasRentalsPostCrm($payload, $transportConfig, static function () use (&$calls): array { $calls++; return []; }, false);
+    check($runtimeUnavailable['attempted'] === false && $runtimeUnavailable['errorCategory'] === 'runtime' && $calls === 1, 'missing cURL crossed the HTTP boundary');
+    $success = atlasRentalsPostCrm($payload, $transportConfig, static fn(): array => ['body' => '{"ok":true}', 'status' => 200, 'curlErrorNumber' => 0], true);
+    check($success === atlasRentalsSafeResult(true, 'CRM_ACCEPTED', false, ['attempted' => true]), 'successful CRM result changed');
+};
 $tests['client and administrator emails are branded, distinct, escaped, and retain text alternatives'] = function () use ($record): void {
     $unsafe = $record;
     $payload = json_decode($unsafe['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
@@ -263,14 +291,52 @@ $tests['CRM requires an allocated reference and failed delivery remains pending 
             && preg_match('/^[A-Za-z0-9-]{16,80}$/D', $payload['crm']['journeyId']) === 1, 'CRM retry emitted an invalid lifecycle journey identity');
         check($payload['crm']['lifecycleStage'] === 'quotation_generated', 'CRM retry changed the lifecycle stage');
         check($payload['document']['reference'] === 'ARQ-2026-000004', 'CRM retry changed the allocated reference');
-        return $calls === 1 ? atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true) : atlasRentalsSafeResult(true, 'CRM_ACCEPTED');
+        return $calls === 1
+            ? atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true, ['attempted' => true, 'httpStatus' => 503, 'curlErrorNumber' => 0, 'errorCategory' => 'http_5xx'])
+            : atlasRentalsSafeResult(true, 'CRM_ACCEPTED', false, ['attempted' => true]);
     };
     $failed = atlasRentalsSyncCrm($preview, 'ARQ-2026-000004', $config, $poster);
     check($failed['crm']['status'] === 'pending' && $failed['crm']['code'] === 'CRM_REQUEST_FAILED', 'failed CRM delivery was not retained as pending');
+    check($failed['crm']['attemptCount'] === 1 && preg_match('/^\d{4}-\d{2}-\d{2}T/', $failed['crm']['attemptedAt']) === 1, 'failed CRM attempt metadata missing');
+    check($failed['crm']['httpStatus'] === 503 && $failed['crm']['curlErrorNumber'] === 0 && $failed['crm']['errorCategory'] === 'http_5xx', 'CRM failure diagnostics were not persisted');
     $completed = atlasRentalsSyncCrm($preview, 'ARQ-2026-000004', $config, $poster);
     $duplicate = atlasRentalsSyncCrm($preview, 'ARQ-2026-000004', $config, $poster);
     check($completed['crm']['status'] === 'completed' && $duplicate['crm']['status'] === 'completed', 'successful CRM retry did not remain completed');
     check($calls === 2, 'completed CRM delivery was duplicated');
+    foreach (['attemptCount', 'attemptedAt', 'httpStatus', 'curlErrorNumber', 'errorCategory'] as $diagnostic) {
+        check(!array_key_exists($diagnostic, $completed['crm']), "successful CRM state retained {$diagnostic}");
+    }
+};
+$tests['CRM state compatibility and attempt counting follow the HTTP boundary'] = function () use ($preview, $config, $statePath): void {
+    $seed = static function (string $reference, array $state) use ($statePath): void {
+        file_put_contents(atlasRentalsStateFile($statePath, 'CRM-' . $reference), json_encode($state, JSON_THROW_ON_ERROR), LOCK_EX);
+    };
+    $fingerprint = static fn(string $reference): string => hash('sha256', $preview['canonical'] . '|' . $reference);
+    $calls = 0;
+    $completedReference = 'ARQ-2026-000011';
+    $seed($completedReference, ['crm' => ['fingerprint' => $fingerprint($completedReference), 'status' => 'completed', 'code' => 'CRM_ACCEPTED']]);
+    $completed = atlasRentalsSyncCrm($preview, $completedReference, $config, function () use (&$calls): array { $calls++; return atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED'); });
+    check($calls === 0 && $completed['crm'] === ['fingerprint' => $fingerprint($completedReference), 'status' => 'completed', 'code' => 'CRM_ACCEPTED'], 'legacy completed CRM state was not preserved');
+
+    $pendingReference = 'ARQ-2026-000012';
+    $seed($pendingReference, ['crm' => ['fingerprint' => $fingerprint($pendingReference), 'status' => 'pending', 'code' => 'CRM_REQUEST_FAILED']]);
+    $configuration = atlasRentalsSyncCrm($preview, $pendingReference, $config, static fn(): array => atlasRentalsSafeResult(false, 'CRM_CONFIG_MISSING', true, ['attempted' => false, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'configuration']));
+    check($configuration['crm']['attemptCount'] === 0 && !isset($configuration['crm']['attemptedAt']), 'configuration failure incremented a legacy pending state');
+
+    $runtime = atlasRentalsSyncCrm($preview, $pendingReference, $config, static fn(): array => atlasRentalsSafeResult(false, 'CRM_HTTP_UNAVAILABLE', true, ['attempted' => false, 'httpStatus' => 0, 'curlErrorNumber' => 0, 'errorCategory' => 'runtime']));
+    check($runtime['crm']['attemptCount'] === 0 && !isset($runtime['crm']['attemptedAt']), 'runtime failure incremented without an HTTP attempt');
+
+    $attempted = atlasRentalsSyncCrm($preview, $pendingReference, $config, static fn(): array => atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true, ['attempted' => true, 'httpStatus' => 400, 'curlErrorNumber' => 0, 'errorCategory' => 'http_4xx']));
+    check($attempted['crm']['attemptCount'] === 1 && isset($attempted['crm']['attemptedAt']), 'HTTP failure did not increment exactly once');
+
+    $recovered = atlasRentalsSyncCrm($preview, $pendingReference, $config, static fn(): array => atlasRentalsSafeResult(true, 'CRM_ACCEPTED', false, ['attempted' => true]));
+    check($recovered['crm']['status'] === 'completed', 'legacy pending CRM state did not recover');
+    foreach (['attemptCount', 'attemptedAt', 'httpStatus', 'curlErrorNumber', 'errorCategory'] as $diagnostic) check(!array_key_exists($diagnostic, $recovered['crm']), "successful retry retained {$diagnostic}");
+
+    $noCrmReference = 'ARQ-2026-000013';
+    $seed($noCrmReference, ['legacy' => ['status' => 'present']]);
+    $noCrm = atlasRentalsSyncCrm($preview, $noCrmReference, $config, static fn(): array => atlasRentalsSafeResult(false, 'CRM_REQUEST_FAILED', true, ['attempted' => true, 'httpStatus' => 500, 'curlErrorNumber' => 0, 'errorCategory' => 'http_5xx']));
+    check($noCrm['legacy']['status'] === 'present' && $noCrm['crm']['attemptCount'] === 1, 'state without a CRM section was not preserved and initialized');
 };
 $tests['PDF contains required quotation content'] = function () use ($record, $pdfPath): void {
     check(is_file(ATLAS_RENTALS_PDF_LOGO_PATH), 'approved DY-PLUS logo asset is missing');
