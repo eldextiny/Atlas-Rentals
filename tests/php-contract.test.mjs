@@ -106,7 +106,7 @@ test("CRM payload builder uses only the deployed commercial-document field contr
   const builder = runtime.match(/function atlasRentalsCrmPayload[\s\S]*?\n\}/)?.[0] || "";
   for (const field of ["sourceModule", "documentType", "crm", "journeyId", "lifecycleStage", "document", "reference", "client", "organisation", "contactPerson", "eventTitle", "eventType", "serviceMode", "venue", "participants", "durationValue", "durationUnit", "workingLanguages", "subtotalNgn", "vatNgn", "grandTotalNgn", "pricingStatus", "documentStatus", "documentContext"]) assert.match(builder, new RegExp(`'${field}'\\s*=>`));
   assert.match(builder, /'sourceModule' => 'Atlas Rental'/);
-  assert.match(builder, /'documentType' => 'quotation'/);
+  assert.match(builder, /'documentType' => 'Laptop Rental Quotation'/);
   assert.match(builder, /'crm' => \['journeyId' => 'atlas-rental-' \. \$reference, 'lifecycleStage' => 'quotation_generated'\]/);
   assert.match(builder, /'document' => \[[\s\S]*'reference' => \$reference/);
   assert.doesNotMatch(builder, /'documentReference'\s*=>/);

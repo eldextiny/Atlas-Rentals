@@ -7,7 +7,7 @@ function check(bool $condition, string $message): void { if (!$condition) throw 
 function receiver_accepts_rentals_fixture(array $payload): bool
 {
     return ($payload['sourceModule'] ?? null) === 'Atlas Rental'
-        && ($payload['documentType'] ?? null) === 'quotation'
+        && ($payload['documentType'] ?? null) === 'Laptop Rental Quotation'
         && is_array($payload['crm'] ?? null)
         && ($payload['crm']['journeyId'] ?? null) === 'atlas-rental-' . ($payload['document']['reference'] ?? '')
         && preg_match('/^[A-Za-z0-9-]{16,80}$/D', (string)($payload['crm']['journeyId'] ?? '')) === 1
@@ -36,7 +36,7 @@ $tests['CRM payload exactly matches the deployed receiver contract'] = function 
     $payload = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
     check(receiver_accepts_rentals_fixture($payload), 'receiver-compatible fixture rejected emitted payload');
     check($payload === [
-        'sourceModule' => 'Atlas Rental', 'documentType' => 'quotation',
+        'sourceModule' => 'Atlas Rental', 'documentType' => 'Laptop Rental Quotation',
         'crm' => ['journeyId' => 'atlas-rental-ARQ-2026-000001', 'lifecycleStage' => 'quotation_generated'],
         'client' => ['organisation' => 'Example Ltd', 'contactPerson' => 'Ada User', 'email' => 'ada@example.com', 'phone' => '+2348028557479'],
         'document' => [
@@ -244,7 +244,7 @@ $tests['CRM document synchronization is deduplicated and changed content updates
     $calls = 0; $captured = null; $poster = function ($payload) use (&$calls, &$captured): array { $calls++; $captured = $payload; return atlasRentalsSafeResult(true, 'CRM_ACCEPTED'); };
     atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster); atlasRentalsSyncCrm($preview, 'ARQ-2026-000001', $config, $poster);
     check($calls === 1, 'unchanged CRM delivery duplicated');
-    check($captured['sourceModule'] === 'Atlas Rental' && $captured['documentType'] === 'quotation'
+    check($captured['sourceModule'] === 'Atlas Rental' && $captured['documentType'] === 'Laptop Rental Quotation'
         && $captured['document']['reference'] === 'ARQ-2026-000001', 'CRM did not receive the allocated document identity');
     $sameEnquiryNewJourney = $preview; $sameEnquiryNewJourney['journeyId'] = 'fedcba9876543210fedcba9876543210';
     atlasRentalsSyncCrm($sameEnquiryNewJourney, 'ARQ-2026-000001', $config, $poster);
