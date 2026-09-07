@@ -110,7 +110,7 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
     $subtotal = $requiredNumber($pricing, 'subtotal'); $vat = $requiredNumber($pricing, 'vatAmount'); $total = $requiredNumber($pricing, 'estimatedTotal');
     if (abs(($subtotal + $vat) - $total) > 0.001) throw new UnexpectedValueException('CRM payload commercial totals are inconsistent.');
     return [
-        'sourceModule' => 'Atlas Rental', 'documentType' => 'quotation',
+        'sourceModule' => 'Atlas Rental', 'documentType' => 'Laptop Rental Quotation',
         'crm' => ['journeyId' => 'atlas-rental-' . $reference, 'lifecycleStage' => 'quotation_generated'],
         'client' => ['organisation' => $requiredText($data, 'organization'), 'contactPerson' => $requiredText($data, 'fullName'), 'email' => $email, 'phone' => $requiredText($data, 'phone')],
         'document' => [
