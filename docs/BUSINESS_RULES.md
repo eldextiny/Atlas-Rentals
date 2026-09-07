@@ -27,7 +27,7 @@
 10. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
 11. The estimate total is the pre-VAT subtotal plus VAT.
 
-Historical stored pricing snapshots, including snapshots whose `ratePlan` is `best`, remain authoritative for duplicate lookup, rendering and delivery retry. They are never recalculated, migrated or accepted as new enquiries.
+Historical stored pricing snapshots, including snapshots whose `ratePlan` is `best`, remain authoritative for duplicate lookup, rendering and delivery retry. They are never recalculated, migrated or accepted as new enquiries. Non-daily historical snapshots cannot enter the daily-only CRM v1 contract and remain pending rather than being relabeled or repriced.
 
 ## Validation
 
