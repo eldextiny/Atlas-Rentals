@@ -81,18 +81,29 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
         if (!is_int($value) || $value < 0) throw new UnexpectedValueException("CRM payload requires valid {$key}.");
         return $value;
     };
-    $requiredNumber = static function (array $source, string $key): int|float {
-        $value = $source[$key] ?? null;
-        if (!is_int($value) && !is_float($value) || $value < 0 || !is_finite((float)$value)) throw new UnexpectedValueException("CRM payload requires valid {$key}.");
-        return $value;
+    $checkedProduct = static function (int ...$values): int {
+        $result = 1;
+        foreach ($values as $value) {
+            if ($value !== 0 && $result > intdiv(PHP_INT_MAX, $value)) throw new UnexpectedValueException('CRM payload monetary calculation exceeds the supported range.');
+            $result *= $value;
+        }
+        return $result;
+    };
+    $checkedSum = static function (int ...$values): int {
+        $result = 0;
+        foreach ($values as $value) {
+            if ($result > PHP_INT_MAX - $value) throw new UnexpectedValueException('CRM payload monetary calculation exceeds the supported range.');
+            $result += $value;
+        }
+        return $result;
     };
     if (!is_string($reference) || preg_match('/^ARQ-\d{4}-\d{6}$/', $reference) !== 1) throw new UnexpectedValueException('CRM payload requires a valid enquiry reference.');
     $standardQuantity = $requiredInteger($data, 'standardQuantity');
     $performanceQuantity = $requiredInteger($data, 'performanceQuantity');
     if (($standardQuantity > 0) === ($performanceQuantity > 0)) throw new UnexpectedValueException('CRM payload requires exactly one laptop category.');
+    $laptopQuantity = $checkedSum($standardQuantity, $performanceQuantity);
     $ratePlan = $requiredText($data, 'ratePlan');
-    // `best` is accepted here only to resume delivery from an authoritative historical pricing snapshot.
-    if (!in_array($ratePlan, ['daily', 'weekly', 'monthly', 'best'], true)) throw new UnexpectedValueException('CRM payload rate plan is unsupported.');
+    if ($ratePlan !== 'daily') throw new UnexpectedValueException('CRM payload requires the Daily Rate plan.');
     if (($pricing['ratePlan'] ?? null) !== $ratePlan || ($pricing['currency'] ?? null) !== 'NGN') throw new UnexpectedValueException('CRM payload pricing snapshot is inconsistent.');
     if (($pricing['standard']['quantity'] ?? null) !== $standardQuantity || ($pricing['performance']['quantity'] ?? null) !== $performanceQuantity) throw new UnexpectedValueException('CRM payload quantities are inconsistent.');
     $technicianRequired = $data['technicianRequired'] ?? null;
@@ -107,25 +118,38 @@ function atlasRentalsCrmPayload(array $preview, ?string $reference, array $confi
     if ($rentalDays < 1) throw new UnexpectedValueException('CRM payload requires positive rentalDays.');
     $startDate = $requiredText($data, 'startDate'); $endDate = $requiredText($data, 'endDate');
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) !== 1 || preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) !== 1) throw new UnexpectedValueException('CRM payload requires valid rental dates.');
-    $subtotal = $requiredNumber($pricing, 'subtotal'); $vat = $requiredNumber($pricing, 'vatAmount'); $total = $requiredNumber($pricing, 'estimatedTotal');
-    if (abs(($subtotal + $vat) - $total) > 0.001) throw new UnexpectedValueException('CRM payload commercial totals are inconsistent.');
+    $subtotal = $requiredInteger($pricing, 'subtotal'); $vat = $requiredInteger($pricing, 'vatAmount'); $total = $requiredInteger($pricing, 'estimatedTotal');
+    if ($subtotal > PHP_INT_MAX - $vat || $subtotal + $vat !== $total) throw new UnexpectedValueException('CRM payload commercial totals are inconsistent.');
+    $selectedPricing = $standardQuantity > 0 ? ($pricing['standard'] ?? null) : ($pricing['performance'] ?? null);
+    if (!is_array($selectedPricing)) throw new UnexpectedValueException('CRM payload requires selected laptop pricing.');
+    $dailyLaptopRate = $requiredInteger($selectedPricing, 'dailyRate');
+    $laptopAmount = $requiredInteger($pricing, 'equipmentAmount');
+    $technicianDays = $requiredInteger($data, 'technicianDays');
+    $technicianDailyRate = $requiredInteger($pricing, 'technicianDailyRate');
+    $technicianAmount = $requiredInteger($pricing, 'technicianAmount');
+    $deliveryFee = $requiredInteger($pricing, 'deliveryFee');
+    if (($technicianRequired && $technicianDays !== $rentalDays) || (!$technicianRequired && $technicianDays !== 0)) throw new UnexpectedValueException('CRM payload technician days are inconsistent.');
+    if ($checkedProduct($laptopQuantity, $rentalDays, $dailyLaptopRate) !== $laptopAmount
+        || $checkedProduct($technicianQuantity, $technicianDays, $technicianDailyRate) !== $technicianAmount
+        || $checkedSum($laptopAmount, $technicianAmount, $deliveryFee) !== $subtotal) {
+        throw new UnexpectedValueException('CRM payload component totals are inconsistent.');
+    }
     return [
         'sourceModule' => 'Atlas Rental', 'documentType' => 'Laptop Rental Quotation',
-        'crm' => ['journeyId' => 'atlas-rental-' . $reference, 'lifecycleStage' => 'quotation_generated'],
+        'documentReference' => $reference,
         'client' => ['organisation' => $requiredText($data, 'organization'), 'contactPerson' => $requiredText($data, 'fullName'), 'email' => $email, 'phone' => $requiredText($data, 'phone')],
-        'document' => [
-            'reference' => $reference, 'eventTitle' => 'Laptop Rental Quotation', 'eventType' => $category,
-            'serviceMode' => $requiredText($pricing, 'ratePlanLabel'), 'venue' => $requiredText($data, 'location'),
-            'participants' => $standardQuantity + $performanceQuantity, 'durationValue' => $rentalDays, 'durationUnit' => 'days',
-            'workingLanguages' => [], 'subtotalNgn' => $subtotal, 'vatNgn' => $vat, 'grandTotalNgn' => $total,
-            'pricingStatus' => 'Estimated', 'documentStatus' => 'Enquiry Received',
-            'documentContext' => [
-                'standardQuantity' => $standardQuantity, 'performanceQuantity' => $performanceQuantity,
-                'technicianRequired' => $technicianRequired, 'technicianQuantity' => $technicianQuantity, 'technicianDays' => $requiredInteger($data, 'technicianDays'),
-                'ratePlan' => $ratePlan, 'ratePlanLabel' => $requiredText($pricing, 'ratePlanLabel'),
-                'startDate' => $startDate, 'endDate' => $endDate,
-                'rentalDays' => $rentalDays, 'currency' => 'NGN', 'enquiryReference' => $reference,
-            ],
+        'title' => 'Laptop Rental Quotation', 'category' => $category,
+        'serviceMode' => $requiredText($pricing, 'ratePlanLabel'), 'venue' => $requiredText($data, 'location'),
+        'participants' => $laptopQuantity, 'durationValue' => $rentalDays, 'durationUnit' => 'days',
+        'workingLanguages' => [],
+        'commercial' => ['subtotalNgn' => $subtotal, 'vatNgn' => $vat, 'grandTotalNgn' => $total, 'currency' => 'NGN'],
+        'pricingStatus' => 'Estimated', 'documentStatus' => 'Enquiry Received',
+        'documentContext' => [
+            'contractVersion' => '1', 'startDate' => $startDate, 'endDate' => $endDate, 'rentalDays' => $rentalDays,
+            'laptopCategory' => $category, 'laptopQuantity' => $laptopQuantity,
+            'ratePlan' => 'daily', 'dailyLaptopRate' => $dailyLaptopRate, 'laptopAmount' => $laptopAmount,
+            'technicianRequired' => $technicianRequired, 'technicianQuantity' => $technicianQuantity, 'technicianDays' => $technicianDays,
+            'technicianDailyRate' => $technicianDailyRate, 'technicianAmount' => $technicianAmount, 'deliveryFee' => $deliveryFee,
         ],
     ];
 }

@@ -114,13 +114,12 @@ test("review defers CRM until final persistence allocates the authoritative refe
 
 test("CRM payload builder uses only the deployed commercial-document field contract", () => {
   const builder = runtime.match(/function atlasRentalsCrmPayload[\s\S]*?\n\}/)?.[0] || "";
-  for (const field of ["sourceModule", "documentType", "crm", "journeyId", "lifecycleStage", "document", "reference", "client", "organisation", "contactPerson", "eventTitle", "eventType", "serviceMode", "venue", "participants", "durationValue", "durationUnit", "workingLanguages", "subtotalNgn", "vatNgn", "grandTotalNgn", "pricingStatus", "documentStatus", "documentContext"]) assert.match(builder, new RegExp(`'${field}'\\s*=>`));
+  for (const field of ["sourceModule", "documentType", "documentReference", "client", "organisation", "contactPerson", "title", "category", "serviceMode", "venue", "participants", "durationValue", "durationUnit", "workingLanguages", "commercial", "subtotalNgn", "vatNgn", "grandTotalNgn", "currency", "pricingStatus", "documentStatus", "documentContext", "contractVersion", "startDate", "endDate", "rentalDays", "laptopCategory", "laptopQuantity", "ratePlan", "dailyLaptopRate", "laptopAmount", "technicianRequired", "technicianQuantity", "technicianDays", "technicianDailyRate", "technicianAmount", "deliveryFee"]) assert.match(builder, new RegExp(`'${field}'\\s*=>`));
   assert.match(builder, /'sourceModule' => 'Atlas Rental'/);
   assert.match(builder, /'documentType' => 'Laptop Rental Quotation'/);
-  assert.match(builder, /'crm' => \['journeyId' => 'atlas-rental-' \. \$reference, 'lifecycleStage' => 'quotation_generated'\]/);
-  assert.match(builder, /'document' => \[[\s\S]*'reference' => \$reference/);
-  assert.doesNotMatch(builder, /'documentReference'\s*=>/);
-  for (const obsolete of ["enquiryReference' => \\$reference,\\n        'contact", "'estimate' =>", "'source' =>", "'service' =>", "'stage' =>"]) assert.doesNotMatch(builder, new RegExp(obsolete));
+  assert.match(builder, /'documentReference' => \$reference/);
+  assert.match(builder, /'commercial' => \['subtotalNgn' => \$subtotal, 'vatNgn' => \$vat, 'grandTotalNgn' => \$total, 'currency' => 'NGN'\]/);
+  assert.doesNotMatch(builder, /'crm'\s*=>|'document'\s*=>|'usdEquivalent'\s*=>|'eventTitle'\s*=>|'eventType'\s*=>/);
 });
 
 test("presentation templates are branded, escaped and Rentals-specific", () => {

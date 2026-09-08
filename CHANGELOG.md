@@ -8,7 +8,7 @@
 
 - Added application-owned CRM failure diagnostics to private delivery state, including HTTP/transport classification and actual HTTP-attempt metadata, without retaining receiver response text or changing public enquiry responses and successful delivery behaviour.
 - Corrected the outbound Atlas CRM `documentType` to the approved `Laptop Rental Quotation` value so quotation deliveries satisfy the receiver contract.
-- Corrected the Atlas CRM adapter to send the allocated enquiry reference and commercial details in the receiver's nested quotation document contract, including a deterministic namespaced journey identity for the required `quotation_generated` lifecycle data, while preserving reference-keyed retry behavior.
+- Aligned the Atlas CRM adapter with Laptop Rental Quotation contract v1: the exact allocated reference is now sent as root `documentReference`, document and commercial values use the receiver's flat/root structures, and the allowlisted rental context is sent without the obsolete nested `document` or sender-only lifecycle metadata.
 - Deferred CRM synchronization until final persistence allocates the authoritative enquiry reference, with reference-keyed retry and deduplication state.
 - Refined the initial estimate state, service and laptop copy, accessible FAQ accordion, and personal-details presentation without changing workflow contracts or calculations.
 - Integrated global country-aware phone validation across the contact step and authoritative PHP boundary, with E.164 normalization, accessible server-error recovery, and shared multi-region fixtures while retaining the existing downstream phone contract.
