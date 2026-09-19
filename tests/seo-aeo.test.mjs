@@ -20,9 +20,12 @@ test("homepage metadata consistently uses the canonical laptop-rental domain", (
   assert.equal(metaContent("property", "og:url"), canonical);
   assert.equal(metaContent("property", "og:type"), "website");
   assert.equal(metaContent("property", "og:locale"), "en_NG");
-  assert.equal(metaContent("name", "twitter:card"), "summary");
-  assert.match(metaContent("property", "og:image"), /^https:\/\/laptops\.dyplus\.com\.ng\//);
-  assert.match(metaContent("name", "twitter:image"), /^https:\/\/laptops\.dyplus\.com\.ng\//);
+  assert.equal(metaContent("name", "twitter:card"), "summary_large_image");
+assert.equal(metaContent("property", "og:image"), `${canonical}assets/atlas-laptop-rental-nigeria-social.png`);
+assert.equal(metaContent("property", "og:image:width"), "1200");
+assert.equal(metaContent("property", "og:image:height"), "630");
+assert.equal(metaContent("property", "og:image:type"), "image/png");
+assert.equal(metaContent("name", "twitter:image"), `${canonical}assets/atlas-laptop-rental-nigeria-social.png`);
   assert.doesNotMatch(html, /https:\/\/rentals\.dyplus\.com\.ng\//);
 });
 

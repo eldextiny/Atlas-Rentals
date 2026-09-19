@@ -5,6 +5,7 @@
 - Changed new laptop-rental enquiries to Daily Rate only, with UTC-safe inclusive Monday-to-Friday billing, clear weekend-endpoint rejection, and matching browser, server, quotation, email, CRM, documentation and regression coverage.
 
 ## Unreleased
+- Updated the homepage Open Graph and Twitter metadata to use a dedicated 1200 × 630 social-preview image, with explicit image dimensions, type, alt text, and large-card rendering.
 
 - Added application-owned CRM failure diagnostics to private delivery state, including HTTP/transport classification and actual HTTP-attempt metadata, without retaining receiver response text or changing public enquiry responses and successful delivery behaviour.
 - Corrected the outbound Atlas CRM `documentType` to the approved `Laptop Rental Quotation` value so quotation deliveries satisfy the receiver contract.
