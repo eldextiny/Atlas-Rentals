@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../pdf-png.php';
 require_once __DIR__ . '/../../rentals-pricing.php';
+require_once __DIR__ . '/../../rentals-date.php';
 
 const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v12-calendar-day-billing';
 const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
@@ -107,16 +108,16 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $text(42, $y, 'Laptop Rental Quotation', 20, true, [0.071, 0.220, 0.357]);
     $y -= 25;
     $text(42, $y, 'Reference: ' . $reference, 9.5, true);
-    $text(300, $y, 'Issue date: ' . $created->format('d F Y'), 9.5);
+    $text(300, $y, 'Issue date: ' . atlasRentalsFormatDate($created), 9.5);
     $y -= 16;
-    $text(300, $y, 'Valid until: ' . $created->modify('+30 days')->format('d F Y'), 9.5);
+    $text(300, $y, 'Valid until: ' . atlasRentalsFormatDate($created->modify('+30 days')), 9.5);
     $y -= 17;
 
     $section('Customer Details');
     $row('Customer', $data['fullName']); $row('Organisation', $data['organization']);
     $row('Email', $data['email']); $row('Phone', $data['phone']);
     $section('Rental Details');
-    $row('Rental period', $data['startDate'] . ' to ' . $data['endDate']);
+    $row('Rental period', atlasRentalsFormatDate((string)$data['startDate']) . ' to ' . atlasRentalsFormatDate((string)$data['endDate']));
     $row($calendarDayBilling ? 'Billable days' : 'Billable working days', $days . ' day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
     $row('Rental rate plan', $pricing['ratePlanLabel']);
     $section('Itemised Quotation');

@@ -202,8 +202,19 @@ $tests['validation rejects identity quantity dates contact and unexpected fields
     $payload = valid_payload(); $payload['standardQuantity'] = 2; $payload['performanceQuantity'] = 2; expect_validation($payload, 'quantity');
     $payload = valid_payload(); unset($payload['organization']); expect_validation($payload, 'organization');
     foreach ([0, -1, 1.5, '2', 11] as $quantity) { $payload = valid_payload(); $payload['technicianQuantity'] = $quantity; expect_validation($payload, 'technicianQuantity'); }
-    $payload = valid_payload(); $payload['startDate'] = '2026-08-08'; expect_validation($payload, 'dates');
-    $payload = valid_payload(); $payload['endDate'] = '2026-08-09'; expect_validation($payload, 'dates');
+};
+$tests['weekend endpoints are accepted and every calendar day is billed'] = function (): void {
+    foreach ([['2026-08-08', '2026-08-08', 1], ['2026-08-08', '2026-08-09', 2], ['2026-08-07', '2026-08-09', 3]] as [$start, $end, $days]) {
+        $payload = valid_payload(); $payload['startDate'] = $start; $payload['endDate'] = $end;
+        $payload['standardQuantity'] = 5; $payload['performanceQuantity'] = 0;
+        $preview = service($store = new MemoryStore())->preview($payload);
+        expect($preview['normalized']['startDate'] === $start && $preview['normalized']['endDate'] === $end, 'machine dates changed');
+        expect($preview['pricing']['rentalDays'] === $days, 'weekend calendar days not counted inclusively');
+        expect($preview['pricing']['equipmentAmount'] === 5 * $days * 10000, 'weekend laptop billing mismatch');
+        expect($preview['normalized']['technicianDays'] === $days && $preview['pricing']['technicianAmount'] === $days * 35000, 'weekend technician billing mismatch');
+        service($store)->submit($payload);
+        expect($store->lastSaved['start_date'] === $start && $store->lastSaved['end_date'] === $end && $store->lastSaved['rental_days'] === $days, 'weekend persistence mismatch');
+    }
 };
 $tests['global phone fixtures normalize to E.164 and reject invalid numbers'] = function (): void {
     $fixtures = json_decode(file_get_contents(__DIR__ . '/../fixtures/phone-numbers.json'), true, flags: JSON_THROW_ON_ERROR);

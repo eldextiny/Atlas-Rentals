@@ -430,3 +430,9 @@ test("customer-facing output uses included-service wording", () => {
   assert.match(html + app, /Included(?: rental service| service)?/i);
   assert.match(app, /Included service/);
 });
+
+
+test("review shares the estimate rental-period formatter", () => {
+  assert.match(app, /escaped\(formatRentalPeriod\(state.startDate, state.endDate\)\)/);
+  assert.doesNotMatch(app, /escaped\(state\.(startDate|endDate)\)/);
+});

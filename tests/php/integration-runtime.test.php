@@ -29,6 +29,47 @@ $preview = ['journeyId' => '0123456789abcdef0123456789abcdef', 'normalized' => $
 $record = ['enquiry_reference' => 'ARQ-2026-000001', 'normalized_payload' => json_encode($normalized), 'pricing_snapshot' => json_encode($pricing), 'created_at' => '2026-08-05 12:00:00', 'rental_days' => 3, 'standard_quantity' => 3, 'performance_quantity' => 2, 'technician_required' => 1, 'technician_quantity' => 1, 'technician_days' => 2, 'standard_daily_rate' => 10000, 'performance_daily_rate' => 15000, 'delivery_fee' => 40000, 'technician_daily_rate' => 35000, 'subtotal' => 290000, 'vat_amount' => 21750, 'estimated_total' => 311750, 'email' => 'ada@example.com', 'full_name' => 'Ada User', 'organization' => 'Example Ltd', 'location' => 'Lagos', 'start_date' => '2026-08-05', 'end_date' => '2026-08-07'];
 
 $tests = [];
+$tests['friendly dates preserve calendar components, fallbacks and timezones'] = function (): void {
+    foreach (['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as $index => $month) {
+        check(atlasRentalsFormatDate(sprintf('2026-%02d-08', $index + 1)) === $month . ' 8, 2026', 'month/day display mismatch');
+    }
+    check(atlasRentalsFormatDate('2024-02-29') === 'Feb 29, 2024', 'leap date display mismatch');
+    foreach ([null, '', 'invalid', '2026-02-29', '2026-04-31', '2026-13-08', '2026-10-8'] as $value) {
+        check(atlasRentalsFormatDate($value) === ($value ?? ''), 'optional/invalid fallback changed');
+    }
+    $original = date_default_timezone_get();
+    try {
+        foreach (['UTC', 'America/Los_Angeles', 'Pacific/Kiritimati', 'Africa/Lagos'] as $zone) {
+            date_default_timezone_set($zone);
+            check(atlasRentalsFormatDate('2026-10-08') === 'Oct 8, 2026', 'date-only timezone shift');
+            $instant = new DateTimeImmutable('2026-12-31 23:30:00', new DateTimeZone($zone));
+            check(atlasRentalsFormatDate($instant) === 'Dec 31, 2026', 'timestamp timezone changed');
+            check(atlasRentalsFormatDate($instant->modify('+30 days')) === 'Jan 30, 2027', 'validity calculation changed');
+        }
+    } finally { date_default_timezone_set($original); }
+};
+$tests['both email audiences format dates without changing stored or CRM values'] = function () use ($record, $config): void {
+    $before = $record;
+    foreach (['client', 'admin'] as $audience) {
+        $message = atlasRentalsBuildEmail($record, $audience);
+        foreach ([$message['html'], $message['text']] as $output) {
+            check(str_contains($output, 'Aug 5, 2026 to Aug 7, 2026'), 'rental display mismatch');
+            check(!str_contains($output, '2026-08-05') && !str_contains($output, '2026-08-07'), 'raw rental dates leaked into presentation');
+        }
+    }
+    check($record === $before, 'presentation mutated stored record');
+    $normalized = json_decode($record['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
+    $normalized['standardQuantity'] = 5; $normalized['performanceQuantity'] = 0; $normalized['technicianDays'] = 3;
+    $payload = atlasRentalsCrmPayload(['normalized' => $normalized, 'pricing' => atlasRentalsCalculatePricing($normalized, 3)], 'ARQ-2026-000001', $config);
+    check($payload['documentContext']['startDate'] === '2026-08-05' && $payload['documentContext']['endDate'] === '2026-08-07', 'CRM contract dates changed');
+};
+
+$tests['PDF rental issue and validity dates share friendly display'] = function () use ($record): void {
+    $pdf = atlasRentalsRenderQuotationPdf($record);
+    check(str_contains($pdf, 'Issue date: Aug 5, 2026') && str_contains($pdf, 'Valid until: Sep 4, 2026'), 'PDF issue/validity display mismatch');
+    check(str_contains($pdf, 'Aug 5, 2026 to Aug 7, 2026'), 'PDF rental period display mismatch');
+    check(!str_contains($pdf, '2026-08-05') && !str_contains($pdf, '2026-08-07'), 'raw rental dates leaked into PDF');
+};
 $tests['CRM payload exactly matches the deployed receiver contract'] = function () use ($preview, $config): void {
     $payload = atlasRentalsCrmPayload($preview, 'ARQ-2026-000001', $config);
     check(receiver_accepts_rentals_fixture($payload), 'receiver-compatible fixture rejected emitted payload');
@@ -361,7 +402,7 @@ $tests['PDF contains required quotation content'] = function () use ($record, $p
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath); $bytes = file_get_contents($pdf['path']);
     check(str_starts_with($bytes, '%PDF-1.4') && str_ends_with($bytes, '%%EOF'), 'PDF structure invalid');
     check(str_contains($bytes, '/Subtype /Image') && str_contains($bytes, '/Width 200 /Height 129') && str_contains($bytes, '/SMask'), 'approved logo was not embedded with transparency');
-    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Billable days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
+    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', 'Sep 4, 2026', 'Ada User', 'Billable days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
     check(!str_contains($bytes, 'Compulsory service'), 'PDF retained obsolete service wording');
     check(str_contains($bytes, 'VAT \\(7.5%\\)'), 'PDF missing VAT (7.5%)');
     $long = $record; $long['enquiry_reference'] = 'ARQ-2026-000099';
