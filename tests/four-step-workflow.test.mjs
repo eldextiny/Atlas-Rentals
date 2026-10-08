@@ -27,7 +27,7 @@ test("support and personal details share step three", () => {
   assert.match(stepThree, /Included automatically/);
   assert.match(stepThree, /id="technician-required"/);
   assert.match(stepThree, /Optional technician support/);
-  assert.match(stepThree, /₦35,000 per technician per billable working day/);
+  assert.match(stepThree, /₦35,000 per technician per billable calendar day/);
   assert.match(stepThree, /type="checkbox"[^>]*aria-describedby="technician-support-rate technician-error"/);
   assert.match(stepThree, /id="technician-days" name="technicianDays" type="hidden" value="0"/);
   assert.match(stepThree, /id="technician-quantity" name="technicianQuantity" type="number" min="1" max="10" step="1" value="1"[^>]*disabled/);
@@ -82,7 +82,7 @@ test("final review and local reset contracts are retained", () => {
   assert.match(stepFour, /id="restart-button"/);
   assert.match(app, /restartButton\.addEventListener\("click"/);
   assert.match(app, /form\.reset\(\)/);
-  assert.match(app, /technicianDaysInput\.value = String\(techSelected \? billableWorkingDays : 0\)/);
+  assert.match(app, /technicianDaysInput\.value = String\(techSelected \? billableDays : 0\)/);
   assert.match(app, /technician-estimate-row"\)\.hidden = result\.technicianQuantity === 0/);
   assert.match(app, /technicianQuantityInput\.value = "1"/);
   assert.match(app, /technicianQuantityInput\.disabled = !technicianRequired\.checked/);
@@ -120,7 +120,7 @@ test("step two fixes new enquiries to daily pricing without exposing plan choice
   const stepTwo = html.match(/<section class="form-step" data-step="2"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(stepTwo, /input id="rate-plan" name="ratePlan" type="hidden" value="daily"/);
   assert.doesNotMatch(stepTwo, /<select id="rate-plan"|value="weekly"|value="monthly"|value="best"/i);
-  assert.match(stepTwo, /Daily pricing applies to each Monday-to-Friday rental day/);
+  assert.match(stepTwo, /Daily pricing applies to every calendar day in the rental period/);
   assert.match(app, /ratePlan: ratePlan\.value/);
   const goToStepBody = app.match(/function goToStep[\s\S]*?\n\}/)?.[0] || "";
   assert.doesNotMatch(goToStepBody, /ratePlan\.value\s*=/);
@@ -144,7 +144,7 @@ test("native category selector exposes polished accessible state hooks", () => {
   assert.match(app, /LAPTOP_CATALOGUE\[category\]/);
   assert.match(app, /Daily:/);
   assert.doesNotMatch(app, /Weekly —|Monthly —/);
-  assert.match(app, /Billable working days/);
+  assert.match(app, /Billable days/);
   assert.match(app, /Per-unit rental/);
   assert.match(app, /Equipment amount/);
 });
@@ -275,12 +275,12 @@ test("estimate presents rental selection, additional services and ordered costs"
   }
   assert.match(estimate, /Your estimate updates as you change the rental details\./);
   assert.match(estimate, /class="estimate-badge">Estimate only/);
-  for (const detail of ["Laptop category", "Quantity", "Rental period", "Billable working days", "Rate plan", "Applied duration", "Rate per laptop", "Equipment rental total"]) {
+  for (const detail of ["Laptop category", "Quantity", "Rental period", "Billable days", "Rate plan", "Applied duration", "Rate per laptop", "Equipment rental total"]) {
     assert.match(estimate, new RegExp(detail));
   }
   assert.match(estimate, /id="estimate-rental-days"/);
   assert.match(app, /setText\("#estimate-rental-days", result\.rentalDays/);
-  assert.match(app, /<span>Billable working days<\/span>/);
+  assert.match(app, /<span>Billable days<\/span>/);
   assert.match(estimate, /id="estimate-duration-detail"/);
   assert.match(estimate, /id="estimate-rate-plan"/);
   assert.match(estimate, /id="estimate-subtotal"/);
@@ -327,7 +327,7 @@ test("estimate shows one selected category and conditionally hides technician", 
   assert.match(app, /document\.querySelector\("#technician-estimate-row"\)\.hidden = result\.technicianQuantity === 0/);
   assert.match(app, /document\.querySelector\("#summary-technician-row"\)\.hidden = result\.technicianQuantity === 0/);
   assert.match(html, /class="included-status">Included/);
-  assert.match(app, /technicianDays: techSelected \? billableWorkingDays : 0/);
+  assert.match(app, /technicianDays: techSelected \? billableDays : 0/);
   assert.match(app, /technicianQuantity,/);
   assert.doesNotMatch(app, /numberValue\("technicianDays"\)/);
 });

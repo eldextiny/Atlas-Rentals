@@ -1,5 +1,7 @@
 # Changelog
 
+- Changed new laptop-rental enquiries to bill every calendar day inclusively, including Saturdays and Sundays, with matching browser, server, quotation, email, PDF, CRM, documentation and regression coverage.
+
 - Added optional technician quantity (1–10) with server-authoritative per-technician, per-working-day pricing and backward-compatible historical rendering.
 
 - Changed new laptop-rental enquiries to Daily Rate only, with UTC-safe inclusive Monday-to-Friday billing, clear weekend-endpoint rejection, and matching browser, server, quotation, email, CRM, documentation and regression coverage.

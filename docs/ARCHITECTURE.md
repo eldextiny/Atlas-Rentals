@@ -8,7 +8,7 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 
 - `index.html` contains semantic page structure, the four-step planner, SEO metadata and structured data.
 - `css/styles.css` contains responsive presentation, accessible focus states and reduced-motion handling.
-- `js/pricing.js` is the browser business-rule boundary. Its pure functions parse UTC calendar dates, reject weekend endpoints, calculate inclusive Monday-to-Friday duration, enforce daily-only pricing, and produce itemized estimates.
+- `js/pricing.js` is the browser business-rule boundary. Its pure functions parse UTC calendar dates, calculate the inclusive calendar-day duration, enforce daily-only pricing, and produce itemized estimates.
 - `js/app.js` coordinates browser state, step navigation, form feedback, estimate rendering and the final local review.
 - `js/enquiry.js` builds the stable normalized browser payload and guards in-flight submissions.
 - `api/submit-enquiry.php` is the bounded same-origin JSON boundary and loads database configuration from outside the public document root.
@@ -24,7 +24,7 @@ AR-H1 is a framework-free rental enquiry workflow. It persists enquiries for DY-
 
 ## Data flow
 
-Form values remain in their controls while users move through the four steps. Step 2 holds one selected laptop category and one quantity; a fixed daily-plan value is submitted without exposing alternative choices. Optional support uses a distinct `technicianQuantity` of 1–10 while `technicianDays` remains the authoritative billable duration. The browser renders an estimate, then submits the stable payload. The server independently normalizes dates in UTC, rejects weekend endpoints, counts Monday-to-Friday days inclusively, rejects every non-daily plan, validates technician quantity, recalculates pricing, hashes the canonical material content, and stores the full audit snapshot in MySQL. Success is shown only after the transaction commits.
+Form values remain in their controls while users move through the four steps. Step 2 holds one selected laptop category and one quantity; a fixed daily-plan value is submitted without exposing alternative choices. Optional support uses a distinct `technicianQuantity` of 1–10 while `technicianDays` remains the authoritative billable duration. The browser renders an estimate, then submits the stable payload. The server independently normalizes dates in UTC, counts every calendar day inclusively, rejects every non-daily plan, validates technician quantity, recalculates pricing, hashes the canonical material content, and stores the full audit snapshot in MySQL. Success is shown only after the transaction commits.
 
 The yearly counter row is locked with `SELECT ... FOR UPDATE`. Counter increment and enquiry insertion occur in one InnoDB transaction. An identical retry resolves by the unique idempotency hash and returns its original reference. A failed transaction rolls back the counter increment.
 

@@ -76,7 +76,7 @@ function atlasRentalsCalculatePricing(array $normalized, int $rentalDays): array
     $subtotal = $equipmentAmount + ATLAS_RENTALS_PRICING['deliveryFee'] + $technicianAmount;
     $vat = (int)round($subtotal * ATLAS_RENTALS_PRICING['vatRate']);
     return [
-        'currency' => 'NGN', 'ratePlan' => $ratePlan, 'ratePlanLabel' => ATLAS_RENTALS_RATE_PLANS[$ratePlan], 'rentalDays' => $rentalDays, 'duration' => $duration,
+        'currency' => 'NGN', 'billingBasis' => 'calendar_days', 'ratePlan' => $ratePlan, 'ratePlanLabel' => ATLAS_RENTALS_RATE_PLANS[$ratePlan], 'rentalDays' => $rentalDays, 'duration' => $duration,
         'durationLabel' => atlasRentalsDurationLabel($duration), 'standard' => $standard, 'performance' => $performance,
         'standardDailyRate' => ATLAS_RENTALS_PRICING['standard']['dailyRate'], 'performanceDailyRate' => ATLAS_RENTALS_PRICING['performance']['dailyRate'],
         'equipmentAmount' => $equipmentAmount, 'deliveryFee' => ATLAS_RENTALS_PRICING['deliveryFee'],

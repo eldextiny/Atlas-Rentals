@@ -25,7 +25,7 @@ export const LAPTOP_CATALOGUE = Object.freeze({
 });
 
 export const RATE_PLANS = Object.freeze({
-  daily: Object.freeze({ label: "Daily Rate", help: "Charged for each Monday-to-Friday rental day." }),
+  daily: Object.freeze({ label: "Daily Rate", help: "Charged for each calendar day of the rental period." }),
 });
 
 const DISPLAY_MONTHS = Object.freeze(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"]);
@@ -72,21 +72,7 @@ export function calculateRentalDays(startDate, endDate) {
     throw new RangeError("endDate must be on or after startDate.");
   }
 
-  const startDay = start.getUTCDay();
-  const endDay = end.getUTCDay();
-  if (startDay === 0 || startDay === 6) {
-    throw new RangeError("Rental start date must be a weekday (Monday to Friday).");
-  }
-  if (endDay === 0 || endDay === 6) {
-    throw new RangeError("Rental end date must be a weekday (Monday to Friday).");
-  }
-
-  let workingDays = 0;
-  for (let cursor = start.getTime(); cursor <= end.getTime(); cursor += 86_400_000) {
-    const day = new Date(cursor).getUTCDay();
-    if (day !== 0 && day !== 6) workingDays += 1;
-  }
-  return workingDays;
+  return elapsedDays + 1;
 }
 
 export function calculateRatePlanPerUnit(totalDays, rates, ratePlan) {
