@@ -129,8 +129,8 @@ test("presentation templates are branded, escaped and Rentals-specific", () => {
   assert.match(emailTemplate, /Delivery & retrieval/);
   assert.match(emailTemplate, /Standard rental service/);
   assert.match(pdfTemplate, /Standard rental service/);
-  assert.match(emailTemplate, /Billable working days/);
-  assert.match(pdfTemplate, /Billable working days/);
+  assert.match(emailTemplate, /Billable days/);
+  assert.match(pdfTemplate, /Billable days/);
   assert.doesNotMatch(emailTemplate + pdfTemplate, /Inclusive duration|inclusive day\(s\)/i);
   assert.doesNotMatch(emailTemplate + pdfTemplate, /Compulsory service/);
   assert.match(emailTemplate, /Chat with us on WhatsApp/);
@@ -180,9 +180,17 @@ test("server pricing retains every protected rate", () => {
   assert.match(serverPricing, /'deliveryFee' => 40000/);
   assert.match(serverPricing, /'technicianDailyRate' => 35000/);
   assert.match(serverPricing, /'vatRate' => 0\.075/);
+  assert.match(serverPricing, /'billingBasis' => 'calendar_days'/);
 });
 
-test("technician selection derives authoritative working days and reaches every downstream surface", () => {
+test("new calendar-day quotations remain distinguishable from historical working-day records", () => {
+  assert.match(emailTemplate, /calendarDayBilling.*billingBasis/s);
+  assert.match(emailTemplate, /calendarDayBilling.*Billable days.*Billable working days/s);
+  assert.match(pdfTemplate, /calendarDayBilling.*billingBasis/s);
+  assert.match(pdfTemplate, /calendarDayBilling \? 'Billable days' : 'Billable working days'/);
+});
+
+test("technician selection derives authoritative calendar days and reaches every downstream surface", () => {
   assert.match(service, /\$value\['technicianDays'\] = \$value\['technicianRequired'\] \? \$rentalDays : 0/);
   assert.match(service, /'technician_required' => \$normalized\['technicianRequired'\] \? 1 : 0/);
   assert.match(service, /'technician_days' => \$normalized\['technicianDays'\]/);

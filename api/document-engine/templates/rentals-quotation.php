@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../pdf-png.php';
 require_once __DIR__ . '/../../rentals-pricing.php';
 
-const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v11-preserved-line-breaks';
+const ATLAS_RENTALS_PDF_PRESENTATION_VERSION = 'rentals-quotation-v12-calendar-day-billing';
 const ATLAS_RENTALS_PDF_LOGO_PATH = __DIR__ . '/../../../assets/dyplus-logo.png';
 
 function atlasRentalsPdfText(mixed $value): string
@@ -42,6 +42,7 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $reference = (string)$record['enquiry_reference'];
     $days = (int)$record['rental_days'];
     $pricing = atlasRentalsPricingFromRecord($record);
+    $calendarDayBilling = ($pricing['billingBasis'] ?? '') === 'calendar_days';
     $standard = $pricing['standard']; $performance = $pricing['performance'];
     $technicianAmount = $pricing['technicianAmount'];
     $technicianQuantity = atlasRentalsTechnicianQuantityFromRecord($record);
@@ -116,7 +117,7 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     $row('Email', $data['email']); $row('Phone', $data['phone']);
     $section('Rental Details');
     $row('Rental period', $data['startDate'] . ' to ' . $data['endDate']);
-    $row('Billable working days', $days . ' day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
+    $row($calendarDayBilling ? 'Billable days' : 'Billable working days', $days . ' day' . ($days === 1 ? '' : 's') . ' (' . $pricing['durationLabel'] . ')'); $row('Location', $data['location']);
     $row('Rental rate plan', $pricing['ratePlanLabel']);
     $section('Itemised Quotation');
     if ((int)$record['standard_quantity'] > 0) $item('Standard Business Laptop - ' . $record['standard_quantity'] . ' units', atlasRentalsAppliedRatesLabel($standard, 'atlasRentalsPdfMoney') . ' | per unit ' . atlasRentalsPdfMoney($standard['perUnitRental']), atlasRentalsPdfMoney($standard['equipmentAmount']));
@@ -124,9 +125,10 @@ function atlasRentalsRenderQuotationPdf(array $record): string
     if ((int)$record['technician_required'] === 1) {
         $technicianLabel = $technicianQuantity . ' technician' . ($technicianQuantity === 1 ? '' : 's');
         $technicianDays = (int)$record['technician_days'];
-        $technicianDayLabel = $technicianDays . ' working day' . ($technicianDays === 1 ? '' : 's');
+        $dayType = $calendarDayBilling ? 'calendar day' : 'working day';
+        $technicianDayLabel = $technicianDays . ' ' . $dayType . ($technicianDays === 1 ? '' : 's');
         $technicianCalculation = "Unit rate: " . atlasRentalsPdfMoney($record['technician_daily_rate'])
-            . "\nPer technician\nPer working day\nQuantity: " . $technicianLabel . "\nBillable days: " . $technicianDayLabel;
+            . "\nPer technician\nPer " . $dayType . "\nQuantity: " . $technicianLabel . "\nBillable days: " . $technicianDayLabel;
         $item('Technician - ' . $technicianLabel, $technicianCalculation, atlasRentalsPdfMoney($technicianAmount));
     }
     $item('Delivery & retrieval', 'Standard rental service', atlasRentalsPdfMoney($record['delivery_fee']));

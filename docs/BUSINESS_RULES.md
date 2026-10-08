@@ -2,7 +2,7 @@
 
 ## Rates
 
-| Laptop category | Daily rate per billable working day |
+| Laptop category | Daily rate per billable calendar day |
 | --- | ---: |
 | Standard Business Laptop | ₦10,000 |
 | High Performance Laptop | ₦15,000 |
@@ -10,20 +10,20 @@
 | Other item | Rate |
 | --- | ---: |
 | Included Delivery & Retrieval | ₦40,000 once per booking |
-| Optional technician | ₦35,000 per technician per billable working day (1–10 technicians) |
+| Optional technician | ₦35,000 per technician per billable calendar day (1–10 technicians) |
 | VAT | 7.5% |
 
 ## Calculation order
 
-1. Start and end dates must each be Monday through Friday. Weekend endpoints are rejected.
-2. Billable working days include both valid endpoints and exclude intervening Saturdays and Sundays. A same-weekday rental is one day.
-3. Nigerian public holidays remain billable when they fall Monday through Friday.
-4. Daily is the only rate plan: `billable working days × daily rate`.
+1. Start and end dates may be any valid calendar date, including Saturdays and Sundays.
+2. Billable days include both endpoints and every intervening calendar day. A same-day rental is one day.
+3. Saturdays, Sundays and Nigerian public holidays are billable at the same daily rate.
+4. Daily is the only rate plan: `billable calendar days × daily rate`.
 5. Equipment amount is `per-unit charge × quantity`.
 6. The selected category maps to its existing server quantity field and the unselected category maps to zero.
 7. At least five laptops are required.
 8. Delivery & Retrieval is an included rental service and is added once regardless of quantity or duration.
-9. Optional technician support is `technicianQuantity × billable working days × ₦35,000`. `technicianQuantity` is 1–10 when selected and zero otherwise; persisted `technicianDays` remains derived from the authoritative rental duration.
+9. Optional technician support is `technicianQuantity × billable calendar days × ₦35,000`. `technicianQuantity` is 1–10 when selected and zero otherwise; persisted `technicianDays` remains derived from the authoritative rental duration.
 10. VAT is 7.5% of rental, Delivery & Retrieval and technician charges combined.
 11. The estimate total is the pre-VAT subtotal plus VAT.
 
@@ -33,9 +33,9 @@ Historical stored pricing snapshots, including snapshots whose `ratePlan` is `be
 
 - Service location may be Abuja, Lagos, or another specified Nigerian city.
 - End date must be the same as or later than the start date.
-- Start and end dates must be weekdays; dates are parsed as UTC calendar dates to avoid timezone shifts.
+- Start and end dates may be any valid calendar dates; dates are parsed in UTC to avoid timezone shifts.
 - Laptop quantities must be whole, non-negative numbers. Selected technician quantity must be a whole number from 1 through 10.
-- Technician support, when selected, covers every billable working day.
+- Technician support, when selected, covers every billable calendar day.
 - An estimate is non-binding and does not confirm availability or create a booking.
 - A quotation estimate is valid for 30 days.
 

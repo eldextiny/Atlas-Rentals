@@ -20,6 +20,7 @@ function atlasRentalsEmailModel(array $record): array
         'organization' => (string)$data['organization'], 'email' => (string)$data['email'],
         'phone' => (string)$data['phone'], 'location' => (string)$data['location'],
         'start' => (string)$data['startDate'], 'end' => (string)$data['endDate'], 'days' => $days,
+        'calendarDayBilling' => ($pricing['billingBasis'] ?? '') === 'calendar_days',
         'legacyPricing' => (bool)($pricing['legacyPricing'] ?? false),
         'ratePlan' => (string)$pricing['ratePlan'], 'ratePlanLabel' => (string)$pricing['ratePlanLabel'],
         'durationLabel' => $pricing['durationLabel'], 'standardQuantity' => (int)$record['standard_quantity'],
@@ -93,9 +94,11 @@ function atlasRentalsBuildEmail(array $record, string $audience, array $config =
 {
     if (!in_array($audience, ['client', 'admin'], true)) throw new InvalidArgumentException('Invalid email audience.');
     $m = atlasRentalsEmailModel($record);
+    $dayType = $m['calendarDayBilling'] ? 'calendar day' : 'working day';
+    $billableDaysLabel = $m['calendarDayBilling'] ? 'Billable days' : 'Billable working days';
     $rentalRows = [
         ['Quotation reference', $m['reference']], ['Rental period', $m['start'] . ' to ' . $m['end']],
-        ['Billable working days', $m['days'] . ' day' . ($m['days'] === 1 ? '' : 's') . ' (' . $m['durationLabel'] . ')'], ['Rental rate plan', $m['ratePlanLabel']], ['Location', $m['location']],
+        [$billableDaysLabel, $m['days'] . ' day' . ($m['days'] === 1 ? '' : 's') . ' (' . $m['durationLabel'] . ')'], ['Rental rate plan', $m['ratePlanLabel']], ['Location', $m['location']],
     ];
     $itemRows = [];
     $rateText = static function (array $m, string $prefix): string {
@@ -116,7 +119,7 @@ function atlasRentalsBuildEmail(array $record, string $audience, array $config =
     ]);
     if ($m['technicianRequired']) {
         $technicianLabel = $m['technicianQuantity'] . ' technician' . ($m['technicianQuantity'] === 1 ? '' : 's');
-        $itemRows[] = ['Technician', $technicianLabel . ' × ' . $m['technicianDays'] . ' working day' . ($m['technicianDays'] === 1 ? '' : 's') . ' × ' . $m['technicianRate'] . ' per technician per working day — ' . $m['technicianAmount']];
+        $itemRows[] = ['Technician', $technicianLabel . ' × ' . $m['technicianDays'] . ' ' . $dayType . ($m['technicianDays'] === 1 ? '' : 's') . ' × ' . $m['technicianRate'] . ' per technician per ' . $dayType . ' — ' . $m['technicianAmount']];
     }
     $itemRows[] = ['Delivery & retrieval', 'Standard rental service — ' . $m['delivery']];
     $totals = [['Subtotal before VAT', $m['subtotal']], ['VAT (7.5%)', $m['vat']], ['Estimated total', $m['total']]];
@@ -144,7 +147,7 @@ function atlasRentalsBuildEmail(array $record, string $audience, array $config =
         $opening = ['A new ATLAS Rentals enquiry requires operational and commercial review.'];
     }
 
-    $lines = array_merge($opening, ['', 'REFERENCE', $m['reference'], '', 'CUSTOMER', $m['name'], 'Organisation: ' . $m['organization'], 'Email: ' . $m['email'], 'Phone: ' . $m['phone'], '', 'RENTAL DETAILS', 'Dates: ' . $m['start'] . ' to ' . $m['end'], 'Billable working days: ' . $m['days'] . ' day(s) (' . $m['durationLabel'] . ')', 'Rental rate plan: ' . $m['ratePlanLabel'], 'Location: ' . $m['location'], '', 'QUOTATION BREAKDOWN']);
+    $lines = array_merge($opening, ['', 'REFERENCE', $m['reference'], '', 'CUSTOMER', $m['name'], 'Organisation: ' . $m['organization'], 'Email: ' . $m['email'], 'Phone: ' . $m['phone'], '', 'RENTAL DETAILS', 'Dates: ' . $m['start'] . ' to ' . $m['end'], $billableDaysLabel . ': ' . $m['days'] . ' day(s) (' . $m['durationLabel'] . ')', 'Rental rate plan: ' . $m['ratePlanLabel'], 'Location: ' . $m['location'], '', 'QUOTATION BREAKDOWN']);
     foreach ($itemRows as [$label, $value]) $lines[] = $label . ': ' . $value;
     $lines = array_merge($lines, ['', 'COMMERCIAL SUMMARY', 'Subtotal before VAT: ' . $m['subtotal'], 'VAT (7.5%): ' . $m['vat'], 'Estimated total: ' . $m['total'], '', 'This estimate is valid for 30 days and remains subject to equipment availability and DY-PLUS review.', 'This enquiry does not confirm availability or create a booking.']);
     if ($audience === 'client' && isset($whatsAppUrl) && $whatsAppUrl !== null) $lines = array_merge($lines, ['', 'Chat with us on WhatsApp:', $whatsAppUrl]);

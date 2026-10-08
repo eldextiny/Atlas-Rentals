@@ -80,7 +80,7 @@ test("Delivery & Retrieval cannot be disabled by a caller", () => {
   assert.equal(result.deliveryRetrieval, 40_000);
 });
 
-test("one technician costs ₦35,000 for every billable working day", () => {
+test("one technician costs ₦35,000 for every billable calendar day", () => {
   const result = calculateEstimate({
     standardQuantity: 5,
     rentalDays: 3,
@@ -90,7 +90,7 @@ test("one technician costs ₦35,000 for every billable working day", () => {
   assert.equal(result.technician, 105_000);
 });
 
-test("multiple technicians multiply quantity by authoritative working days", () => {
+test("multiple technicians multiply quantity by authoritative calendar days", () => {
   const result = calculateEstimate({ standardQuantity: 5, rentalDays: 5, technicianQuantity: 3, technicianDays: 5 });
   assert.equal(result.technician, 525_000);
   assert.equal(result.subtotalBeforeVat, 815_000);
@@ -123,14 +123,15 @@ test("technician remains optional while Delivery & Retrieval stays included", ()
   assert.equal(result.total, 96_750);
 });
 
-test("working-day duration is inclusive, timezone-safe and excludes weekends", () => {
+test("calendar-day duration is inclusive, timezone-safe and includes weekends", () => {
   assert.equal(calculateRentalDays("2026-08-31", "2026-09-02"), 3);
   assert.equal(calculateRentalDays("2028-02-28", "2028-03-01"), 3);
   assert.equal(calculateRentalDays("2026-08-04", "2026-08-04"), 1);
   assert.equal(calculateRentalDays("2026-08-03", "2026-08-03"), 1);
   assert.equal(calculateRentalDays("2026-08-03", "2026-08-07"), 5);
-  assert.equal(calculateRentalDays("2026-08-07", "2026-08-10"), 2);
-  assert.equal(calculateRentalDays("2026-08-07", "2026-08-14"), 6);
+  assert.equal(calculateRentalDays("2026-08-07", "2026-08-10"), 4);
+  assert.equal(calculateRentalDays("2026-08-07", "2026-08-14"), 8);
+  assert.equal(calculateRentalDays("2026-08-08", "2026-08-09"), 2);
   assert.equal(calculateRentalDays("2026-10-01", "2026-10-01"), 1);
 });
 
@@ -138,8 +139,6 @@ test("invalid and reversed dates are rejected", () => {
   assert.throws(() => calculateRentalDays("2026-02-30", "2026-03-01"));
   assert.throws(() => calculateRentalDays("2026-08-05", "2026-08-04"));
   assert.throws(() => calculateRentalDays("04/08/2026", "05/08/2026"));
-  assert.throws(() => calculateRentalDays("2026-08-08", "2026-08-10"), /start date must be a weekday/);
-  assert.throws(() => calculateRentalDays("2026-08-07", "2026-08-09"), /end date must be a weekday/);
 });
 
 test("negative and fractional quantities fail deterministically", () => {

@@ -108,8 +108,8 @@ function plannerState() {
   const technicianQuantity = techSelected ? numberValue("technicianQuantity") : 0;
   const category = form.elements.laptopCategory.value;
   const quantity = numberValue("laptopQuantity");
-  const billableWorkingDays = rentalDays();
-  technicianDaysInput.value = String(techSelected ? billableWorkingDays : 0);
+  const billableDays = rentalDays();
+  technicianDaysInput.value = String(techSelected ? billableDays : 0);
   return {
     location: selectedLocation(),
     startDate: form.elements.startDate.value,
@@ -118,11 +118,11 @@ function plannerState() {
     laptopQuantity: quantity,
     standardQuantity: category === "standard" ? quantity : 0,
     performanceQuantity: category === "performance" ? quantity : 0,
-    rentalDays: billableWorkingDays,
+    rentalDays: billableDays,
     ratePlan: ratePlan.value,
     technicianRequired: techSelected,
     technicianQuantity,
-    technicianDays: techSelected ? billableWorkingDays : 0,
+    technicianDays: techSelected ? billableDays : 0,
   };
 }
 
@@ -138,15 +138,15 @@ function setText(selector, text) {
 function renderRatePlanHelp(category, plan) {
   const details = LAPTOP_CATALOGUE[category];
   if (!details || plan !== "daily") {
-    ratePlanHelp.textContent = "Daily pricing applies to each Monday-to-Friday rental day.";
+    ratePlanHelp.textContent = "Daily pricing applies to every calendar day in the rental period.";
     ratePlanDetails.hidden = true;
     ratePlanDetails.replaceChildren();
     return;
   }
-  const applicable = `Daily rate: ${currency.format(details.dailyRate)} per billable working day.`;
+  const applicable = `Daily rate: ${currency.format(details.dailyRate)} per billable calendar day.`;
   ratePlanHelp.textContent = applicable;
   ratePlanDetails.hidden = false;
-  ratePlanDetails.innerHTML = `<span class="selected-category-state">Pricing</span><h4>Daily Rate</h4><p>Only Monday-to-Friday rental days are billed. Public holidays on weekdays remain billable.</p><dl><div><dt>Applicable rate</dt><dd>${applicable.replace(/\.$/, "")}</dd></div><div><dt>Weekend rule</dt><dd>Saturday and Sunday endpoints are not accepted, and intervening weekends are excluded.</dd></div></dl>`;
+  ratePlanDetails.innerHTML = `<span class="selected-category-state">Pricing</span><h4>Daily Rate</h4><p>Every calendar day from the start date through the end date is billed.</p><dl><div><dt>Applicable rate</dt><dd>${applicable.replace(/\.$/, "")}</dd></div><div><dt>Weekend billing</dt><dd>Saturdays and Sundays are accepted and billed at the same daily rate.</dd></div></dl>`;
 }
 
 function renderCategoryDetails(category) {
@@ -156,7 +156,7 @@ function renderCategoryDetails(category) {
     categoryDetails.replaceChildren();
     return;
   }
-  categoryDetails.innerHTML = `<span class="selected-category-state">Selected category</span><h4>${details.title}</h4><div class="category-rates"><span>Daily: <strong>${currency.format(details.dailyRate)}</strong> per billable working day</span></div><p class="category-best-use"><strong>Best suited for:</strong> ${details.bestSuitedFor}</p><div class="category-specs">${details.features.map((detail) => `<span>${detail}</span>`).join("")}</div><p class="category-minimum">Minimum quantity: ${PRICING.minimumLaptopQuantity} laptops</p>`;
+  categoryDetails.innerHTML = `<span class="selected-category-state">Selected category</span><h4>${details.title}</h4><div class="category-rates"><span>Daily: <strong>${currency.format(details.dailyRate)}</strong> per billable calendar day</span></div><p class="category-best-use"><strong>Best suited for:</strong> ${details.bestSuitedFor}</p><div class="category-specs">${details.features.map((detail) => `<span>${detail}</span>`).join("")}</div><p class="category-minimum">Minimum quantity: ${PRICING.minimumLaptopQuantity} laptops</p>`;
 }
 
 function updateEstimate() {
@@ -173,18 +173,18 @@ function updateEstimate() {
     : "Dates pending";
   const ratePerLaptop = !selectedDetails || !result.rentalDays
     ? "Rate pending"
-    : `${currency.format(selectedDetails.dailyRate)} per working day`;
+    : `${currency.format(selectedDetails.dailyRate)} per calendar day`;
   setText("#estimate-category", selectedDetails?.title || "Select a laptop category");
   setText("#estimate-quantity", selectedDetails ? `${result.totalQuantity} laptop${result.totalQuantity === 1 ? "" : "s"}` : "Quantity pending");
   setText("#estimate-duration-detail", rentalPeriod);
   setText("#estimate-rental-days", result.rentalDays ? `${result.rentalDays} day${result.rentalDays === 1 ? "" : "s"}` : "Days pending");
   setText("#estimate-rate-plan", "Daily Rate");
-  setText("#estimate-billing-blocks", result.rentalDays ? result.durationLabel : "Working days pending");
+  setText("#estimate-billing-blocks", result.rentalDays ? result.durationLabel : "Days pending");
   setText("#estimate-rate-per-laptop", ratePerLaptop);
   setText("#estimate-equipment-total", currency.format(equipmentTotal));
   setText("#summary-equipment-cost", currency.format(equipmentTotal));
   setText("#delivery-retrieval-cost", currency.format(result.deliveryRetrieval));
-  setText("#technician-summary", result.technicianQuantity ? `${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} working day${result.technicianDays === 1 ? "" : "s"}` : "Not selected");
+  setText("#technician-summary", result.technicianQuantity ? `${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} calendar day${result.technicianDays === 1 ? "" : "s"}` : "Not selected");
   setText("#technician-cost", currency.format(result.technician));
   document.querySelector("#technician-estimate-row").hidden = result.technicianQuantity === 0;
   document.querySelector("#summary-technician-row").hidden = result.technicianQuantity === 0;
@@ -208,13 +208,13 @@ function updateEstimate() {
 
 function estimateMarkup(result) {
   const technicianLine = result.technicianQuantity
-    ? `<div class="summary-line"><span>${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} working day${result.technicianDays === 1 ? "" : "s"}</span><strong>${currency.format(result.technician)}</strong></div>`
+    ? `<div class="summary-line"><span>${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} calendar day${result.technicianDays === 1 ? "" : "s"}</span><strong>${currency.format(result.technician)}</strong></div>`
     : "";
   const selectedPricing = result.standardQuantity ? result.standardPricing : result.performancePricing;
   const categoryName = result.standardQuantity ? "Standard Business Laptop" : "High Performance Laptop";
   const quantity = result.standardQuantity || result.performanceQuantity;
   const equipmentAmount = result.standardQuantity ? result.standardRental : result.performanceRental;
-  const categoryLine = `<div class="summary-group tiered-rental-summary"><h5>${categoryName}</h5><div class="summary-line"><span>Rate plan</span><strong>Daily Rate</strong></div><div class="summary-line"><span>Quantity</span><strong>${quantity}</strong></div><div class="summary-line"><span>Billable working days</span><strong>${result.durationLabel}</strong></div><div class="summary-line"><span>Applied rate</span><strong>${selectedPricing.days} × ${currency.format(selectedPricing.dailyRate)} daily</strong></div><div class="summary-line"><span>Per-unit rental</span><strong>${currency.format(selectedPricing.perUnitRental)}</strong></div><div class="summary-line"><span>Equipment amount</span><strong>${currency.format(equipmentAmount)}</strong></div></div>`;
+  const categoryLine = `<div class="summary-group tiered-rental-summary"><h5>${categoryName}</h5><div class="summary-line"><span>Rate plan</span><strong>Daily Rate</strong></div><div class="summary-line"><span>Quantity</span><strong>${quantity}</strong></div><div class="summary-line"><span>Billable days</span><strong>${result.durationLabel}</strong></div><div class="summary-line"><span>Applied rate</span><strong>${selectedPricing.days} × ${currency.format(selectedPricing.dailyRate)} daily</strong></div><div class="summary-line"><span>Per-unit rental</span><strong>${currency.format(selectedPricing.perUnitRental)}</strong></div><div class="summary-line"><span>Equipment amount</span><strong>${currency.format(equipmentAmount)}</strong></div></div>`;
   return `
     ${categoryLine}
     <div class="summary-line"><span>Rental subtotal</span><strong>${currency.format(result.rentalSubtotal)}</strong></div>
@@ -237,12 +237,12 @@ function renderReview(state, result) {
     <div class="summary-group"><h4>Schedule</h4>
       <div class="summary-line"><span>Location</span><strong>${escaped(state.location)}</strong></div>
       <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)}</strong></div>
-      <div class="summary-line"><span>Billable working days</span><strong>${state.rentalDays}</strong></div>
+      <div class="summary-line"><span>Billable days</span><strong>${state.rentalDays}</strong></div>
     </div>
     <div class="summary-group"><h4>Equipment &amp; support</h4>
       <div class="summary-line"><span>${state.laptopCategory === "standard" ? "Standard Business Laptop" : "High Performance Laptop"}</span><strong>${state.laptopQuantity}</strong></div>
       <div class="summary-line"><span>Delivery &amp; Retrieval</span><strong>Included service</strong></div>
-      ${state.technicianRequired ? `<div class="summary-line"><span>Technician</span><strong>${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} working day${result.technicianDays === 1 ? "" : "s"}</strong></div>` : ""}
+      ${state.technicianRequired ? `<div class="summary-line"><span>Technician</span><strong>${result.technicianQuantity} technician${result.technicianQuantity === 1 ? "" : "s"} × ${result.technicianDays} calendar day${result.technicianDays === 1 ? "" : "s"}</strong></div>` : ""}
     </div>
     <div class="summary-group"><h4>Personal details</h4>
       <div class="summary-line"><span>Contact</span><strong>${escaped(values.fullName)}</strong></div>

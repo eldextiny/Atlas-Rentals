@@ -296,14 +296,7 @@ final class EnquiryService
         $from = new DateTimeImmutable($start, new DateTimeZone('UTC'));
         $to = new DateTimeImmutable($end, new DateTimeZone('UTC'));
         if ($to < $from) throw new InvalidArgumentException('End date must be on or after start date.');
-        if ($historicalCalendar) return (int)$from->diff($to)->days + 1;
-        if (in_array((int)$from->format('N'), [6, 7], true)) throw new InvalidArgumentException('Rental start date must be a weekday (Monday to Friday).');
-        if (in_array((int)$to->format('N'), [6, 7], true)) throw new InvalidArgumentException('Rental end date must be a weekday (Monday to Friday).');
-        $workingDays = 0;
-        for ($cursor = $from; $cursor <= $to; $cursor = $cursor->modify('+1 day')) {
-            if ((int)$cursor->format('N') <= 5) $workingDays++;
-        }
-        return $workingDays;
+        return (int)$from->diff($to)->days + 1;
     }
 
     private function normalizePhone(string $phone, string $phoneCountry): ?string

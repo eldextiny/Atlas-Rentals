@@ -115,7 +115,7 @@ $tests['client and administrator emails are branded, distinct, escaped, and reta
         check(str_contains($message['html'], 'DY-PLUS') && str_contains($message['html'], 'ATLAS Rentals'), 'email branding missing');
         check(str_contains($message['html'], 'https://laptops.dyplus.com.ng/assets/dyplus-logo.png') && str_contains($message['html'], 'alt="DY-PLUS company logo"'), 'approved email logo missing');
         check(str_contains($message['html'], 'ARQ-2026-000001') && str_contains($message['html'], '₦311,750.00'), 'required email fields missing');
-        check(str_contains($message['html'], 'Billable working days') && str_contains($message['text'], 'Billable working days:'), 'working-days label missing from email');
+        check(str_contains($message['html'], 'Billable days') && str_contains($message['text'], 'Billable days:'), 'billable-days label missing from email');
         check(!str_contains($message['html'], 'Inclusive duration') && !str_contains($message['text'], 'inclusive day(s)'), 'obsolete inclusive-days label remains in email');
         check(str_contains($message['html'], 'valid for 30 days') && str_contains($message['text'], 'valid for 30 days'), '30-day validity missing from email');
         check(!str_contains($message['html'], '<script>') && str_contains($message['html'], '&lt;script&gt;'), 'user HTML was not escaped');
@@ -262,12 +262,12 @@ $tests['historical tiered snapshots without a rate plan remain authoritative'] =
     check($model['ratePlanLabel'] === 'Historical stored pricing' && $model['standardPerUnit'] === '₦123,456.00', 'historical tiered snapshot was repriced');
 };
 $tests['optional technician presentation and approved rate are preserved'] = function () use ($record): void {
-    $wrapped = atlasRentalsPdfWrap("Unit rate: NGN 35,000.00\nPer technician\nPer working day", 29);
-    check($wrapped === ['Unit rate: NGN 35,000.00', 'Per technician', 'Per working day'], 'explicit PDF calculation lines were not preserved');
+    $wrapped = atlasRentalsPdfWrap("Unit rate: NGN 35,000.00\nPer technician\nPer calendar day", 29);
+    check($wrapped === ['Unit rate: NGN 35,000.00', 'Per technician', 'Per calendar day'], 'explicit PDF calculation lines were not preserved');
     $with = atlasRentalsBuildEmail($record, 'client');
     check(str_contains($with['html'], '1 technician') && str_contains($with['html'], '₦35,000.00'), 'singular technician presentation missing');
     $singlePdf = atlasRentalsRenderQuotationPdf($record);
-    foreach (['Technician - 1 technician', 'Unit rate: NGN 35,000.00', 'Per technician', 'Per working day', 'Quantity: 1 technician', 'Billable days: 2 working days', 'NGN 70,000.00'] as $text) {
+    foreach (['Technician - 1 technician', 'Unit rate: NGN 35,000.00', 'Per technician', 'Per calendar day', 'Quantity: 1 technician', 'Billable days: 2 calendar days', 'NGN 70,000.00'] as $text) {
         check(str_contains($singlePdf, $text), "single-technician PDF missing {$text}");
     }
     $multiple = $record; $multiple['technician_quantity'] = 3;
@@ -276,9 +276,9 @@ $tests['optional technician presentation and approved rate are preserved'] = fun
     $snapshot['technicianQuantity'] = 3; $snapshot['technicianAmount'] = 210000; $snapshot['subtotal'] = 430000; $snapshot['vatAmount'] = 32250; $snapshot['estimatedTotal'] = 462250;
     $multiple['pricing_snapshot'] = json_encode($snapshot, JSON_THROW_ON_ERROR);
     $multiple['subtotal'] = 430000; $multiple['vat_amount'] = 32250; $multiple['estimated_total'] = 462250;
-    check(str_contains(atlasRentalsBuildEmail($multiple, 'admin')['text'], '3 technicians × 2 working days'), 'plural technician email presentation missing');
+    check(str_contains(atlasRentalsBuildEmail($multiple, 'admin')['text'], '3 technicians × 2 calendar days'), 'plural technician email presentation missing');
     $multiplePdf = atlasRentalsRenderQuotationPdf($multiple);
-    foreach (['Technician - 3 technicians', 'Unit rate: NGN 35,000.00', 'Per technician', 'Per working day', 'Quantity: 3 technicians', 'Billable days: 2 working days', 'NGN 210,000.00'] as $text) {
+    foreach (['Technician - 3 technicians', 'Unit rate: NGN 35,000.00', 'Per technician', 'Per calendar day', 'Quantity: 3 technicians', 'Billable days: 2 calendar days', 'NGN 210,000.00'] as $text) {
         check(str_contains($multiplePdf, $text), "multiple-technician PDF missing {$text}");
     }
     $without = $record; $without['technician_required'] = 0; $without['technician_quantity'] = 0; $without['technician_days'] = 0;
@@ -361,7 +361,7 @@ $tests['PDF contains required quotation content'] = function () use ($record, $p
     $pdf = atlasRentalsGeneratePdf($record, $pdfPath); $bytes = file_get_contents($pdf['path']);
     check(str_starts_with($bytes, '%PDF-1.4') && str_ends_with($bytes, '%%EOF'), 'PDF structure invalid');
     check(str_contains($bytes, '/Subtype /Image') && str_contains($bytes, '/Width 200 /Height 129') && str_contains($bytes, '/SMask'), 'approved logo was not embedded with transparency');
-    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Billable working days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
+    foreach (['DY-PLUS', 'ATLAS Rentals', 'Laptop Rental Quotation', 'ARQ-2026-000001', '04 September 2026', 'Ada User', 'Billable days', 'Standard Business Laptop', 'High Performance Laptop', 'Technician', 'NGN 35,000.00', 'Delivery & retrieval', 'Standard rental service', 'ESTIMATED TOTAL', 'NGN 311,750.00', 'valid for 30 days', 'subject to equipment availability', 'does not confirm availability', 'Page 1'] as $text) check(str_contains($bytes, $text), "PDF missing {$text}");
     check(!str_contains($bytes, 'Compulsory service'), 'PDF retained obsolete service wording');
     check(str_contains($bytes, 'VAT \\(7.5%\\)'), 'PDF missing VAT (7.5%)');
     $long = $record; $long['enquiry_reference'] = 'ARQ-2026-000099';

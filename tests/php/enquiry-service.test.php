@@ -68,18 +68,18 @@ function expect_validation(array $payload, string $field): void
 }
 
 $tests = [];
-$tests['server pricing, working dates and technician rate'] = function (): void {
+$tests['server pricing, calendar dates and technician rate'] = function (): void {
     $payload = valid_payload(); $payload['technicianDays'] = 1;
     $result = service($store = new MemoryStore())->submit($payload);
     expect($result['reference'] === 'ARQ-2026-000001', 'reference format mismatch');
     expect($result['estimatedTotal'] === 349375.0, 'server total mismatch');
     $snapshot = json_decode($store->lastSaved['pricing_snapshot'], true, 32, JSON_THROW_ON_ERROR);
     $normalized = json_decode($store->lastSaved['normalized_payload'], true, 32, JSON_THROW_ON_ERROR);
-    expect($normalized['technicianDays'] === 3 && $store->lastSaved['technician_days'] === 3, 'authoritative working days were not persisted');
+    expect($normalized['technicianDays'] === 3 && $store->lastSaved['technician_days'] === 3, 'authoritative calendar days were not persisted');
     expect($normalized['technicianQuantity'] === 1 && $store->lastSaved['technician_quantity'] === 1, 'technician quantity was not persisted');
     expect($snapshot['technicianQuantity'] === 1 && $snapshot['technicianDailyRate'] === 35000 && $snapshot['technicianAmount'] === 105000, 'authoritative technician price was not persisted');
 };
-$tests['multiple technicians multiply quantity and working days'] = function (): void {
+$tests['multiple technicians multiply quantity and calendar days'] = function (): void {
     $payload = valid_payload(); $payload['technicianQuantity'] = 3;
     $preview = service(new MemoryStore())->preview($payload);
     expect($preview['pricing']['technicianAmount'] === 315000, 'three-technician amount mismatch');
@@ -98,12 +98,13 @@ $tests['specified service city uses the existing location contract'] = function 
     expect($preview['normalized']['location'] === 'Port Harcourt', 'custom location was not preserved');
     $payload['location'] = 'X'; expect_validation($payload, 'location');
 };
-$tests['server calculates daily pricing for working-day durations'] = function (): void {
+$tests['server calculates daily pricing for calendar-day durations'] = function (): void {
     $cases = [
         ['2026-08-03', '2026-08-03', 1, 10000, 15000],
         ['2026-08-03', '2026-08-07', 5, 50000, 75000],
-        ['2026-08-07', '2026-08-10', 2, 20000, 30000],
-        ['2026-08-07', '2026-08-14', 6, 60000, 90000],
+        ['2026-08-07', '2026-08-10', 4, 40000, 60000],
+        ['2026-08-07', '2026-08-14', 8, 80000, 120000],
+        ['2026-08-08', '2026-08-09', 2, 20000, 30000],
     ];
     foreach ($cases as [$start, $end, $days, $standard, $performance]) {
         $payload = valid_payload(); $payload['startDate'] = $start; $payload['endDate'] = $end;
