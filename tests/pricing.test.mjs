@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
   PRICING,
   calculateRatePlanPerUnit,
   calculateEstimate,
   calculateRentalDays,
   formatDurationBreakdown,
+  formatRentalDate,
   formatRentalPeriod,
   LAPTOP_CATALOGUE,
   RATE_PLANS,
@@ -13,8 +15,8 @@ import {
 } from "../js/pricing.js";
 
 test("rental periods use direct calendar components for display", () => {
-  assert.equal(formatRentalPeriod("2026-09-07", "2026-09-10"), "Sept 07, 2026 to Sept 10, 2026");
-  assert.equal(formatRentalPeriod("2026-12-31", "2027-01-04"), "Dec 31, 2026 to Jan 04, 2027");
+  assert.equal(formatRentalPeriod("2026-09-07", "2026-09-10"), "Sep 7, 2026 to Sep 10, 2026");
+  assert.equal(formatRentalPeriod("2026-12-31", "2027-01-04"), "Dec 31, 2026 to Jan 4, 2027");
 });
 
 test("published rates and minimum remain fixed", () => {
@@ -181,4 +183,26 @@ test("selected technician quantity must be an integer from 1 through 10", () => 
   }
   assert.equal(validateBooking({ ...base, technicianQuantity: 1 }).valid, true);
   assert.equal(validateBooking({ ...base, technicianQuantity: 10 }).valid, true);
+});
+
+
+test("display dates use English abbreviated months and unpadded days", () => {
+  for (const [index, month] of ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].entries()) {
+    assert.equal(formatRentalDate(`2026-${String(index + 1).padStart(2, "0")}-08`), `${month} 8, 2026`);
+  }
+  assert.equal(formatRentalPeriod("2024-02-29", "2024-03-01"), "Feb 29, 2024 to Mar 1, 2024");
+  assert.equal(formatRentalDate("2026-10-08"), "Oct 8, 2026");
+  for (const value of ["", undefined, null, "2026-02-29", "2026-04-31", "2026-00-08", "2026-13-08", "2026-10-00", "2026-10-8", "2026-10-08T00:00:00Z"]) {
+    assert.throws(() => formatRentalDate(value));
+  }
+});
+
+
+test("date display and inclusive billing stay stable across timezones", () => {
+  const moduleUrl = new URL("../js/pricing.js", import.meta.url).href;
+  const source = `import assert from "node:assert/strict"; import {formatRentalDate, calculateRentalDays} from ${JSON.stringify(moduleUrl)}; assert.equal(formatRentalDate("2026-10-08"), "Oct 8, 2026"); assert.equal(formatRentalDate("2024-02-29"), "Feb 29, 2024"); assert.equal(calculateRentalDays("2026-10-08", "2026-10-09"), 2);`;
+  for (const TZ of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati", "Africa/Lagos"]) {
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", source], { env: { ...process.env, TZ }, encoding: "utf8" });
+    assert.equal(result.status, 0, TZ + ": " + result.stderr);
+  }
 });

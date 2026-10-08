@@ -49,3 +49,5 @@ Pricing constants and formulas remain outside DOM code. Browser totals are displ
 ## Accessibility
 
 The interface uses semantic landmarks, explicit labels, fieldsets, live estimate updates, keyboard-operable step controls, accessible progress check marks, visible focus styles, inline validation messages and reduced-motion support.
+
+Human-readable dates use English abbreviated months, unpadded days and four-digit years (for example, `Oct 8, 2026`). Browser estimates and review share `formatRentalDate`/`formatRentalPeriod` in `js/pricing.js`; PDF rental, issue and validity dates and both email audiences share `atlasRentalsFormatDate` in `api/rentals-date.php`. Date-only display uses calendar components without timezone conversion. Native date inputs, persistence, API/CRM contract dates, timestamps, references and calculations retain their existing formats and behavior.

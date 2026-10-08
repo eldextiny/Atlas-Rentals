@@ -236,7 +236,7 @@ function renderReview(state, result) {
   document.querySelector("#review-content").innerHTML = `
     <div class="summary-group"><h4>Schedule</h4>
       <div class="summary-line"><span>Location</span><strong>${escaped(state.location)}</strong></div>
-      <div class="summary-line"><span>Dates</span><strong>${escaped(state.startDate)} to ${escaped(state.endDate)}</strong></div>
+      <div class="summary-line"><span>Dates</span><strong>${escaped(formatRentalPeriod(state.startDate, state.endDate))}</strong></div>
       <div class="summary-line"><span>Billable days</span><strong>${state.rentalDays}</strong></div>
     </div>
     <div class="summary-group"><h4>Equipment &amp; support</h4>

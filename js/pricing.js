@@ -28,16 +28,17 @@ export const RATE_PLANS = Object.freeze({
   daily: Object.freeze({ label: "Daily Rate", help: "Charged for each calendar day of the rental period." }),
 });
 
-const DISPLAY_MONTHS = Object.freeze(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"]);
+const DISPLAY_MONTHS = Object.freeze(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]);
+
+export function formatRentalDate(value, fieldName = "date") {
+  // Validate using the existing UTC calendar parser; display the original components.
+  parseCalendarDate(value, fieldName);
+  const [year, month, day] = value.split("-");
+  return `${DISPLAY_MONTHS[Number(month) - 1]} ${Number(day)}, ${year}`;
+}
 
 export function formatRentalPeriod(startDate, endDate) {
-  const formatDate = (value, fieldName) => {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-    const month = match ? DISPLAY_MONTHS[Number(match[2]) - 1] : null;
-    if (!match || !month) throw new TypeError(`${fieldName} must use YYYY-MM-DD format.`);
-    return `${month} ${match[3]}, ${match[1]}`;
-  };
-  return `${formatDate(startDate, "startDate")} to ${formatDate(endDate, "endDate")}`;
+  return `${formatRentalDate(startDate, "startDate")} to ${formatRentalDate(endDate, "endDate")}`;
 }
 
 function requireNonNegativeInteger(value, fieldName) {

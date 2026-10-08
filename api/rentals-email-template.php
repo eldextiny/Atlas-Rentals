@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/rentals-pricing.php';
+require_once __DIR__ . '/rentals-date.php';
 
 function atlasRentalsHtml(mixed $value): string
 {
@@ -19,7 +20,7 @@ function atlasRentalsEmailModel(array $record): array
         'reference' => (string)$record['enquiry_reference'], 'name' => (string)$data['fullName'],
         'organization' => (string)$data['organization'], 'email' => (string)$data['email'],
         'phone' => (string)$data['phone'], 'location' => (string)$data['location'],
-        'start' => (string)$data['startDate'], 'end' => (string)$data['endDate'], 'days' => $days,
+        'start' => atlasRentalsFormatDate((string)$data['startDate']), 'end' => atlasRentalsFormatDate((string)$data['endDate']), 'days' => $days,
         'calendarDayBilling' => ($pricing['billingBasis'] ?? '') === 'calendar_days',
         'legacyPricing' => (bool)($pricing['legacyPricing'] ?? false),
         'ratePlan' => (string)$pricing['ratePlan'], 'ratePlanLabel' => (string)$pricing['ratePlanLabel'],
